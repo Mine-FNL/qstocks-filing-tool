@@ -44,9 +44,16 @@ qscreen-ingest = "qscreen_ingest:main"
 qscreen-app = "qscreen_app:main"
 
 [tool.setuptools]
-py-modules = ["qscreen_ingest", "qscreen_app", "qscreen_series", "qscreen_analyze", "qscreen_dcf", "qscreen_report", "qscreen_portfolio", "qscreen_workbook", "qscreen_statements", "qscreen_charts", "qscreen_periods"]
-# Both packages are bundled: profiles/ is the canonical jurisdiction-aware
-# package, qatar/ is a back-compat shim that re-exports profiles.qatar.
+py-modules = [
+    "qscreen_ingest", "qscreen_app", "qscreen_series", "qscreen_analyze",
+    "qscreen_dcf", "qscreen_report", "qscreen_portfolio", "qscreen_workbook",
+    "qscreen_statements", "qscreen_charts", "qscreen_periods",
+    # New modules shipped in 1.2.0
+    "qscreen_gates",            # skeleton + math-identity gates
+    "qscreen_state",            # resumable batch state (sqlite)
+]
+# Two packages: profiles/ (jurisdiction-aware, ships Qatar data + pre_flag
+# catalog), qatar/ (back-compat shim re-exporting profiles.qatar).
 packages = ["qatar", "profiles"]
 
 [tool.setuptools.package-data]

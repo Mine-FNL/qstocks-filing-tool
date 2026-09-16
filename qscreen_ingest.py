@@ -2593,15 +2593,32 @@ def _apply_language_detection(filing: dict, pages: list[dict]) -> dict:
     return filing
 
 
+def _apply_fingerprint(filing: dict, args) -> dict:
+    """Stamp ``filing.fingerprint`` (per-statement verbatim hashes +
+    a stable overall digest). Always re-run. Used by change-detection
+    between runs of the cron llm-ingest-monitor."""
+    try:
+        import qscreen_fingerprint as _fp
+    except Exception:                                # pragma: no cover
+        return filing
+    try:
+        filing["fingerprint"] = _fp.fingerprint_filing(filing)
+    except Exception as ex:
+        log.warning("fingerprint skipped: %s", ex)
+    return filing
+
+
 def extract_filing(pages: list[dict], args) -> dict:
     if getattr(args, "guided", False):
         out = extract_filing_guided(pages, args)
         _apply_language_detection(out, pages)
+        _apply_fingerprint(out, args)
         return _apply_pre_flags(out, args)
     if args.no_chunk or len(pages) <= args.pages_per_chunk:
         print("🤖 Extracting (single pass) …")
         out = normalize_filing(parse_llm_json(call_llm(build_messages(render_window(pages), args, windowed=False), args)))
         _apply_language_detection(out, pages)
+        _apply_fingerprint(out, args)
         return _apply_pre_flags(out, args)
     windows = page_windows(pages, args.pages_per_chunk, args.overlap)
     print(f"🤖 Extracting in {len(windows)} windows of ~{args.pages_per_chunk} pages (overlap {args.overlap}) …")
@@ -2619,6 +2636,7 @@ def extract_filing(pages: list[dict], args) -> dict:
     print(f"🧩 Merging {len(parts)} partial extracts …")
     out = merge_filings(parts)
     _apply_language_detection(out, pages)
+    _apply_fingerprint(out, args)
     return _apply_pre_flags(out, args)
 
 

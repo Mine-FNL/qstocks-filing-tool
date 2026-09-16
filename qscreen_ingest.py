@@ -2578,13 +2578,30 @@ def _apply_pre_flags(filing: dict, args) -> dict:
     return filing
 
 
+def _apply_language_detection(filing: dict, pages: list[dict]) -> dict:
+    """Populate ``metadata.languages[]`` and the per-page roll-up. Always
+    re-runs — ``languages`` is a derived field, never an operator-set one.
+    """
+    try:
+        import qscreen_langdetect as _ld
+    except Exception:                                # pragma: no cover
+        return filing
+    try:
+        _ld.apply_language_metadata(filing, pages=pages)
+    except Exception as ex:
+        log.warning("langdetect skipped: %s", ex)
+    return filing
+
+
 def extract_filing(pages: list[dict], args) -> dict:
     if getattr(args, "guided", False):
         out = extract_filing_guided(pages, args)
+        _apply_language_detection(out, pages)
         return _apply_pre_flags(out, args)
     if args.no_chunk or len(pages) <= args.pages_per_chunk:
         print("🤖 Extracting (single pass) …")
         out = normalize_filing(parse_llm_json(call_llm(build_messages(render_window(pages), args, windowed=False), args)))
+        _apply_language_detection(out, pages)
         return _apply_pre_flags(out, args)
     windows = page_windows(pages, args.pages_per_chunk, args.overlap)
     print(f"🤖 Extracting in {len(windows)} windows of ~{args.pages_per_chunk} pages (overlap {args.overlap}) …")
@@ -2601,6 +2618,7 @@ def extract_filing(pages: list[dict], args) -> dict:
         raise SystemExit("all windows failed to parse — nothing extracted")
     print(f"🧩 Merging {len(parts)} partial extracts …")
     out = merge_filings(parts)
+    _apply_language_detection(out, pages)
     return _apply_pre_flags(out, args)
 
 

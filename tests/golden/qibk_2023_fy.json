@@ -18,7 +18,9 @@
     "audit": {
       "opinion_type": "unqualified",
       "auditor_name": "Deloitte",
-      "verbatim_text_contains": ["Sharia"]
+      "verbatim_text_contains": [
+        "Sharia"
+      ]
     },
     "statements": {
       "balance_sheet_code": "BS_TOTAL_ASSETS",
@@ -29,6 +31,9 @@
       "has_is_finance_income": true,
       "total_lines_min": 30
     },
-    "red_flags_expect": ["issuer_fact_qibk"]
+    "red_flags_expect": [
+      "issuer_fact_qibk"
+    ],
+    "language_primary": "en"
   }
 }

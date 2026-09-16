@@ -21,6 +21,12 @@
       "xcut_qualified_opinion_basis_surfaced",
       "issuer_fact_qgmd"
     ],
-    "red_flags_severity_breakdown": {"warn_min": 1}
+    "red_flags_severity_breakdown": {
+      "warn_min": 1
+    },
+    "language_primary": "en",
+    "language_must_contain": [
+      "ar"
+    ]
   }
 }

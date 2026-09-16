@@ -16,6 +16,9 @@
       "balance_sheet_code": "BS_TOTAL_ASSETS",
       "total_lines_max": 25
     },
-    "red_flags_must_contain": ["issuer_fact_qeti"]
+    "red_flags_must_contain": [
+      "issuer_fact_qeti"
+    ],
+    "language_primary": "en"
   }
 }

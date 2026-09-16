@@ -58,7 +58,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 # ── .env loader (no python-dotenv dependency) ────────────────────────────────
@@ -192,6 +192,13 @@ try:
     import profiles
 except Exception:                            # pragma: no cover - defensive
     profiles = None
+
+# Post-extraction gates: skeleton detection + math-identity checks + currency/
+# unit sanity. Optional dep — only need it when the tool actually runs.
+try:
+    import qscreen_gates
+except Exception:                            # pragma: no cover - defensive
+    qscreen_gates = None                     # type: ignore[assignment]
 
 
 def _resolve_profile(symbol: str | None, year: int | None, jurisdiction: str | None):
@@ -1550,7 +1557,8 @@ def _validate_upload_url(base: str) -> str:
     return base.rstrip("/")
 
 
-def upload_filing(filing: dict, args, analysis: dict | None = None) -> dict:
+def upload_filing(filing: dict, args, analysis: dict | None = None,
+                   dedup_key: str | None = None) -> dict:
     """POST the filing to the configured ingest endpoint.
 
     - One bearer-token warning if you point at a non-localhost http:// URL.
@@ -1558,6 +1566,11 @@ def upload_filing(filing: dict, args, analysis: dict | None = None) -> dict:
       Per-run tuning: ``args.upload_retries`` (default 3) and
       ``args.upload_backoff`` (default 1.5 s, multiplied each attempt).
     - Validates the URL up front so a typo doesn't 401 with a leaked token.
+    - **Server-side dedup**: when ``dedup_key`` is supplied we send it as
+      an ``If-None-Match`` request header. A compatible server returns
+      ``412 Precondition Failed`` if the filing is already there (no-op,
+      no extra API spend). Anything else 2xx is treated as success; 5xx
+      and ``429`` get retried with backoff.
     """
     import requests
     base = _validate_upload_url(args.api_url)
@@ -1570,6 +1583,8 @@ def upload_filing(filing: dict, args, analysis: dict | None = None) -> dict:
     headers = {"Authorization": f"Bearer {args.token}",
                "Content-Type": "application/json",
                "User-Agent": f"qscreen-filing-tool/{__version__}"}
+    if dedup_key:
+        headers["If-None-Match"] = dedup_key
     # Additive: when asked, fold the derived analysis in as a sibling key. The
     # filing contract itself is unchanged, so a backend that ignores unknown keys
     # is unaffected.
@@ -1588,6 +1603,10 @@ def upload_filing(filing: dict, args, analysis: dict | None = None) -> dict:
                         attempt + 1, retries + 1, e)
         else:
             sc = getattr(resp, "status_code", None)
+            # Server signals "already there" → treat as success without retry.
+            if sc == 412:
+                log.info("upload: server reports duplicate (412) — skipped")
+                return {"status": "duplicate", "dedup_key": dedup_key}
             if sc is not None and sc in (429, 500, 502, 503, 504):
                 last_err = RuntimeError(f"HTTP {sc}: {getattr(resp, 'text', '')[:200]}")
                 log.warning("upload: transient HTTP %d on attempt %d/%d",
@@ -2529,12 +2548,44 @@ def apply_mode(args) -> None:
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
 
+def _apply_pre_flags(filing: dict, args) -> dict:
+    """Run the QSE / cross-cutting pre-flag catalog and merge into the filing.
+
+    Lazy-imported so callers without the optional ``profiles.qatar`` package
+    (or with a non-Qatar jurisdiction that doesn't ship a pre_flags module)
+    still run cleanly.
+    """
+    try:
+        from profiles.qatar import pre_flags as _pf
+    except Exception as e:                              # pragma: no cover - defensive
+        log.info("pre-flag catalog unavailable (%s); skipping", e)
+        return filing
+    try:
+        flags = _pf.run_pre_flags(filing)
+    except Exception as e:                              # pragma: no cover - defensive
+        log.warning("pre-flag run raised %s: %s", type(e).__name__, e)
+        return filing
+    if flags:
+        _pf.merge_into_filing(filing, flags)
+        log.info("pre-flag catalog: %d flag(s) for %s %s",
+                 len(flags), (filing.get("metadata") or {}).get("symbol"),
+                 (filing.get("metadata") or {}).get("fiscal_year"))
+        if not getattr(args, "quiet", False):
+            n_warn = sum(1 for f in flags if f.severity == "warn")
+            n_block = sum(1 for f in flags if f.severity == "block")
+            n_info = sum(1 for f in flags if f.severity == "info")
+            print(f"   🚩 pre-flag catalog: {n_warn} warn / {n_block} block / {n_info} info")
+    return filing
+
+
 def extract_filing(pages: list[dict], args) -> dict:
     if getattr(args, "guided", False):
-        return extract_filing_guided(pages, args)
+        out = extract_filing_guided(pages, args)
+        return _apply_pre_flags(out, args)
     if args.no_chunk or len(pages) <= args.pages_per_chunk:
         print("🤖 Extracting (single pass) …")
-        return normalize_filing(parse_llm_json(call_llm(build_messages(render_window(pages), args, windowed=False), args)))
+        out = normalize_filing(parse_llm_json(call_llm(build_messages(render_window(pages), args, windowed=False), args)))
+        return _apply_pre_flags(out, args)
     windows = page_windows(pages, args.pages_per_chunk, args.overlap)
     print(f"🤖 Extracting in {len(windows)} windows of ~{args.pages_per_chunk} pages (overlap {args.overlap}) …")
     parts = []
@@ -2549,7 +2600,8 @@ def extract_filing(pages: list[dict], args) -> dict:
     if not parts:
         raise SystemExit("all windows failed to parse — nothing extracted")
     print(f"🧩 Merging {len(parts)} partial extracts …")
-    return merge_filings(parts)
+    out = merge_filings(parts)
+    return _apply_pre_flags(out, args)
 
 
 # ── Self-test (offline; no PDF, no API key, no network) ──────────────────────
@@ -2653,6 +2705,61 @@ def export_csv(filing: dict, path: str) -> int:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def _dedup_key_from_filing(filing: dict) -> str:
+    """Stable per-filing key for the ingest-dedup contract.
+
+    Symbol + fiscal year + fiscal period + content-sha256. Wraps
+    ``qscreen_state.dedup_key`` so the format is pinned once.
+    """
+    try:
+        from qscreen_state import dedup_key as _key
+    except Exception:                                # pragma: no cover - defensive
+        log.debug("qscreen_state unavailable; dedup_key degenerates to None")
+        return None
+    meta = filing.get("metadata") or {}
+    return _key(
+        symbol=meta.get("symbol") or "",
+        fiscal_year=meta.get("fiscal_year"),
+        fiscal_period=meta.get("fiscal_period"),
+        content_sha256=meta.get("source_sha256") or "",
+    )
+
+
+def _write_error_sidecar(filing: dict, args, headline, findings) -> str:
+    """Write a `*_filing.error.json` describing why the gates refused the save.
+
+    The contract: same directory as ``save_json`` would have used, same
+    filename stem, ``.error.json`` suffix. Downstream ``llm-ingest-monitor``
+    treats these as actionable ("human review") rather than re-attempts.
+    """
+    meta = filing.get("metadata") or {}
+    sym = (meta.get("symbol") or (args.symbol if hasattr(args, "symbol") else "UNK")).upper()
+    yr = meta.get("fiscal_year") or getattr(args, "year", "UNK")
+    per = meta.get("fiscal_period") or getattr(args, "period", "UNK")
+    src = (meta.get("source_file")
+           or (Path(args.pdf).name if hasattr(args, "pdf") and args.pdf else "UNK"))
+    out_dir = Path(getattr(args, "out_dir", ".") or ".").resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fname = f"{sym}_{yr}_{per}_{Path(src).stem}.error.json"
+    out_path = out_dir / fname
+    payload = {
+        "reason": headline.rule,
+        "message": headline.message,
+        "evidence": headline.evidence,
+        "all_findings": [{"rule": f.rule, "severity": f.severity,
+                            "message": f.message, "evidence": f.evidence}
+                           for f in findings],
+        "source_file": str(src),
+        "metadata": meta,
+        "schema_version": "1.1",
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    out_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False),
+                         encoding="utf-8")
+    return str(out_path)
+
 
 def save_json(filing: dict, args) -> str:
     out = f"{args.symbol.upper()}_{args.year}_{args.period}_filing.json"
@@ -2793,6 +2900,11 @@ def run_filing(args) -> int:
             meta_overlay[k] = v
     filing.setdefault("metadata", {}).update(meta_overlay)
 
+    # Content-addressed dedup key. Computed BEFORE save so we can record it on
+    # the row even when the run fails partway. Same key is sent as an
+    # ``If-None-Match`` header to the ingest endpoint so re-runs are cheap.
+    args._dedup_key = _dedup_key_from_filing(filing)
+
     print(f"📊 Extracted: {len(filing.get('statements', []))} statements, "
           f"{len(filing.get('notes', []))} notes, audit={filing.get('audit', {}).get('opinion_type')}")
 
@@ -2803,8 +2915,30 @@ def run_filing(args) -> int:
             print(f"   - {pr}")
         print("   (saved for inspection; NOT uploading a non-conforming extract)")
 
+    # Post-extraction gates: skeleton detection + math identities + currency/unit
+    # sanity. A "block_save" finding writes a `*_filing.error.json` sidecar and
+    # skips both the regular save and the upload — these filings historically
+    # ate analyst time on qscreen.app because the schema was conformant but the
+    # numbers were wrong.
+    gate = qscreen_gates.gate_post_extract(filing)
+    qscreen_gates.merge_warnings(filing, gate)
+    error_sidecar: str | None = None
+    if gate.blocked:
+        # Pick the first block_save finding as the headline reason.
+        headline = next(f for f in gate.findings if f.severity == "block_save")
+        error_sidecar = _write_error_sidecar(filing, args, headline, gate.findings)
+        log.warning("gate blocked save: %s", headline.message)
+        print(f"🛑 Gate FAIL: {headline.message}")
+        print(f"   sidecar → {error_sidecar}")
+        return 6                                       # distinct from validate's 2
+
     save_json(filing, args)
     _written, artifacts = write_outputs(filing, args)
+
+    if gate.findings:
+        print(f"ℹ️  {len(gate.findings)} non-blocking gate note(s) (saved with warnings):")
+        for x in gate.findings:
+            print(f"   - {x.message}")
 
     if problems:
         print("❌ Not uploading — fix extraction problems above first.")
@@ -2818,7 +2952,12 @@ def run_filing(args) -> int:
 
     fold = (artifacts or {}).get("analysis") if getattr(args, "with_analysis", False) else None
     print("📤 Uploading to qscreen.app …" + (" (with analysis)" if fold else ""))
-    print(f"   ✅ {upload_filing(filing, args, fold)}")
+    print(f"   ✅ {upload_filing(filing, args, fold, dedup_key=getattr(args, "_dedup_key", None))}")
+    # If we got here the upload returned (2xx or 412 = duplicate). Mark it.
+    state = getattr(args, "_state", None)
+    row_index = getattr(args, "_row_index", None)
+    if state is not None and row_index is not None and args.token:
+        state.mark_uploaded("manifest_id", row_index, filing_id=str(Path(args.pdf).with_suffix("").name))
     return 0
 
 
@@ -2839,27 +2978,177 @@ def read_manifest(path: str) -> list[dict]:
 
 
 def run_batch(args) -> int:
+    """Run a manifest CSV through the engine.
+
+    State
+    -----
+    Each row's progress is recorded in ``BatchState`` (default
+    ``~/.qstocks-filing-tool/state.db``). ``--resume`` skips rows already
+    marked ``done`` / ``uploaded`` — the cron ``llm-ingest-monitor`` runs
+    the same manifest dozens of times until everything is uploaded, and
+    re-running on completed rows is silent.
+
+    Parallelism
+    -----------
+    ``--jobs N`` (default 1, ``QSCREEN_JOBS``) opens a
+    ``multiprocessing.Pool(N)`` and dispatches per-row. ``run_filing`` is
+    forked; each worker opens its own ``BatchState`` connection to the
+    same SQLite file (OS-level journal locking is fine for a single file).
+
+    Concurrency caveats:
+      * Per-row content (PDFs, JSONs, error sidecars) writes to distinct
+        paths so there's no race for the same file.
+      * The Pool is for *throughput*, not coordinated throughput — but
+        because ``args.token`` is reused across workers, the upload step
+        can saturate the API. Lower ``--jobs`` if you see 429s.
+    """
+    import multiprocessing as _mp
+    try:
+        from qscreen_state import BatchState, dedup_key as _dedup_key
+    except Exception as e:                                # pragma: no cover - defensive
+        log.warning("qscreen_state unavailable (%s); batch will be one-shot, no resume", e)
+        state: object | None = None
+    else:
+        state = BatchState(args.state_db) if getattr(args, "state_db", None) \
+                else BatchState()                          # pragma: no cover - default-path branch
     rows = read_manifest(args.manifest)
-    print(f"📚 Batch: {len(rows)} filing(s) from {args.manifest}")
-    worst, results = 0, []
-    for i, row in enumerate(rows, 1):
-        period = (row.get("period") or "FY").upper()
-        print(f"\n══ [{i}/{len(rows)}] {row['symbol']} {row['year']} {period} ══")
-        sector = _normalize_sector(row["sector"])
-        if sector not in SECTORS:
-            print(f"   ⚠️  unknown sector {row['sector']!r}; using 'other'")
-            sector = "other"
-        ra = copy.copy(args)
-        ra.pdf, ra.symbol, ra.sector, ra.year, ra.period = (
-            row["pdf"], row["symbol"], sector, int(row["year"]), period)
-        try:
-            code = run_filing(ra)
-        except SystemExit as e:
-            print(f"   ❌ {e}")
-            code = 1
-        except Exception as e:  # one bad filing must not abort the batch
-            print(f"   ❌ {type(e).__name__}: {e}")
-            code = 1
+    n = len(rows)
+    manifest_id = f"{Path(args.manifest).stem}-{hashlib.sha256(args.manifest.encode()).hexdigest()[:8]}"
+    print(f"📚 Batch: {n} filing(s) from {args.manifest} (manifest_id={manifest_id})")
+
+    if state is not None:
+        state.start_manifest(manifest_id, n)
+        # Re-claim rows that crashed mid-flight in an earlier run.
+        n_rescued = state.reset_in_flight(manifest_id)
+        if n_rescued:
+            print(f"   ♻️  re-claimed {n_rescued} row(s) left in_flight by an earlier run")
+        # Insert-or-load every row's record up-front. dedup_key is computed
+        # from the manifest fields *now*; it'll be replaced by the SHA-derived
+        # one once ``run_filing`` produces the filing, so the dedup here is
+        # "same symbol/year/period across multiple rows of the manifest".
+        for i, row in enumerate(rows, 1):
+            rk = _dedup_key(row["symbol"], int(row["year"]),
+                              (row.get("period") or "FY").upper(), "manifest")
+            state.ensure_row(manifest_id, i, rk)
+
+    resume = bool(getattr(args, "resume", False))
+    if state is not None and not resume:
+        # First run: everything is pending; quick check.
+        pass
+    if state is not None and resume:
+        pending = state.pending_indices(manifest_id)
+        print(f"   ⟳ resume: {len(pending)} of {n} row(s) still pending/error")
+        # Build a fast index → row lookup
+        todo_indices = pending
+    else:
+        todo_indices = list(range(1, n + 1))
+
+    if not todo_indices:
+        print("   ✅ nothing to do (resume found nothing pending)")
+        return 0
+
+    jobs = max(1, int(getattr(args, "jobs", 1) or 1))
+    if jobs == 1:
+        worst, results = 0, []
+        for i in todo_indices:
+            row = rows[i - 1]
+            code = _run_batch_row(i, row, args, manifest_id, state)
+            results.append((i, code))
+            worst = max(worst, code)
+    else:
+        # multiprocessing.Pool with serialised state writes
+        worst, results = 0, []
+        with _mp.Pool(jobs) as pool:
+            codes = pool.starmap(
+                _run_batch_row_worker,
+                [(i, rows[i - 1], args, manifest_id,
+                  getattr(args, "state_db", None) or
+                  os.path.expanduser("~/.qstocks-filing-tool/state.db"))
+                 for i in todo_indices])
+        for i, code in zip(todo_indices, codes):
+            results.append((i, code))
+            worst = max(worst, code)
+
+    if state is not None:
+        s = state.manifest_summary(manifest_id) or {}
+        completed = s.get("completed", 0)
+        errored = s.get("errored", 0)
+        state.finish_manifest(manifest_id, completed=completed, errored=errored)
+        print(f"\n🏁 Batch finished: ok={len(rows)-errored}  error={errored}  worst_exit={worst}")
+    else:
+        print(f"\n🏁 Batch finished: worst_exit={worst}")
+    return worst
+
+
+def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
+    """Serial inner: build the per-row args namespace and call ``run_filing``."""
+    period = (row.get("period") or "FY").upper()
+    print(f"\n══ [{i}] {row['symbol']} {row['year']} {period} ══")
+    sector = _normalize_sector(row["sector"])
+    if sector not in SECTORS:
+        print(f"   ⚠️  unknown sector {row['sector']!r}; using 'other'")
+        sector = "other"
+    ra = copy.copy(args)
+    ra.pdf, ra.symbol, ra.sector, ra.year, ra.period = (
+        row["pdf"], row["symbol"], sector, int(row["year"]), period)
+    ra._state = state
+    ra._row_index = i
+    if state is not None and not state.claim_row(manifest_id, i):
+        # Already done in a prior run; skip.
+        print(f"   ⏭ row {i}: already completed (use --no-resume to force)")
+        return 0
+    try:
+        code = run_filing(ra)
+        if state is not None:
+            if code == 0:
+                state.mark_done(manifest_id, i, filing_id=ra.symbol)
+            elif code != 6:
+                state.mark_error(manifest_id, i, error=f"exit {code}")
+        return code
+    except SystemExit as e:
+        print(f"   ❌ {e}")
+        if state is not None:
+            state.mark_error(manifest_id, i, error=str(e))
+        return 1
+    except Exception as e:                                # one bad filing must not abort the batch
+        print(f"   ❌ {type(e).__name__}: {e}")
+        if state is not None:
+            state.mark_error(manifest_id, i, error=f"{type(e).__name__}: {e}")
+        return 1
+
+
+def _run_batch_row_worker(i: int, row: dict, args, manifest_id: str,
+                            state_db_path: str | None) -> int:
+    """multiprocessing-pool entry: re-create the per-row args in this worker."""
+    try:
+        from qscreen_state import BatchState
+    except Exception:                                    # pragma: no cover - defensive
+        BatchState = None
+    state = BatchState(state_db_path) if BatchState else None
+    ra_args = copy.copy(args)
+    # The Pool entry can't share the parent's argparse Namespace across
+    # pickle boundaries for some fields; rebuild from the CSV row instead.
+    ra_args.pdf = row["pdf"]
+    ra_args.symbol = row["symbol"]
+    ra_args.sector = _normalize_sector(row["sector"])
+    ra_args.year = int(row["year"])
+    ra_args.period = (row.get("period") or "FY").upper()
+    ra_args._state = state
+    ra_args._row_index = i
+    if state is not None and not state.claim_row(manifest_id, i):
+        return 0
+    try:
+        code = run_filing(ra_args)
+        if state is not None:
+            if code == 0:
+                state.mark_done(manifest_id, i, filing_id=ra_args.symbol)
+            elif code != 6:
+                state.mark_error(manifest_id, i, error=f"exit {code}")
+        return code
+    except (SystemExit, Exception) as e:
+        if state is not None:
+            state.mark_error(manifest_id, i, error=f"{type(e).__name__}: {e}")
+        return 1
         results.append((row["symbol"], row["year"], period, code))
         worst = max(worst, code)
     print("\n── batch summary ──")
@@ -2935,6 +3224,15 @@ def main() -> int:
     p.add_argument("--price", type=float, default=None, help="Share price, for the report's valuation upside")
     p.add_argument("--shares", type=float, default=None, help="Shares outstanding, for per-share valuation")
     p.add_argument("--manifest", help="Batch mode: CSV with columns pdf,symbol,sector,year[,period]")
+    p.add_argument("--resume", action="store_true",
+                   help="Skip rows already marked done/uploaded by an earlier run "
+                        "of the same manifest (uses ~/.qstocks-filing-tool/state.db by default).")
+    p.add_argument("--jobs", type=int, default=int(os.getenv("QSCREEN_JOBS", "1")),
+                   help="Batch-mode parallelism (default 1, max 8 recommended). "
+                        "Each worker reuses INGEST_TOKEN — lower if you see 429s.")
+    p.add_argument("--state-db", default=os.getenv("QSCREEN_STATE_DB"),
+                   help="Path to the batch-state SQLite cache "
+                        "(default ~/.qstocks-filing-tool/state.db).")
     p.add_argument("--llm-key", default=None,
                    help="API key (else read from the provider's env var, e.g. MINIMAX_API_KEY)")
     p.add_argument("--api-url", default=os.getenv("QSCREEN_API_URL", "http://localhost:3004"))

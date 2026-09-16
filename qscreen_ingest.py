@@ -2952,7 +2952,9 @@ def run_filing(args) -> int:
 
     fold = (artifacts or {}).get("analysis") if getattr(args, "with_analysis", False) else None
     print("📤 Uploading to qscreen.app …" + (" (with analysis)" if fold else ""))
-    print(f"   ✅ {upload_filing(filing, args, fold, dedup_key=getattr(args, "_dedup_key", None))}")
+    dedup_k = getattr(args, "_dedup_key", None)
+    result = upload_filing(filing, args, fold, dedup_key=dedup_k)
+    print(f"   ✅ {result}")
     # If we got here the upload returned (2xx or 412 = duplicate). Mark it.
     state = getattr(args, "_state", None)
     row_index = getattr(args, "_row_index", None)

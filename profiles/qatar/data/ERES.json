@@ -1,0 +1,40 @@
+{
+  "ticker": "ERES",
+  "jurisdiction": "Qatar",
+  "company_name": "Ezdan Holding Group",
+  "names": [
+    {
+      "name": "Ezdan Holding Group",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "Real Estate Holding",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Residential leasing",
+      "Hospitality",
+      "Retail malls"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [],
+  "peers": [],
+  "accounting_quirks": []
+}

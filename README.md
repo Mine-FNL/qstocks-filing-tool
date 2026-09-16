@@ -1,9 +1,42 @@
 # QScreen Filing Tool
 
-Turn a PDF financial report into a QSE-format filing JSON — lossless, auditable, and ready to upload.
+Turn a PDF financial report into a lossless, auditable filing JSON — ready to upload.
 Two modes: **local browser app** (drag-and-drop) or **one-command CLI**.
 
 > **First run?** Follow **[RUNBOOK.md](RUNBOOK.md)** — install → key → one command → every output.
+
+## What it does
+
+The engine is jurisdiction-agnostic: it takes a PDF of a financial report and emits a single JSON object
+that captures every number, the audit opinion, segments, note text, and provenance. No values are invented;
+illlegible cells are written as `null` with a warning.
+
+Profiles plug in to teach the engine about a specific issuer + reporting regime (sector taxonomy, fiscal
+calendar, currency, framework, watch-KPIs, known events). One profile bundle ships in the box — **Qatar**
+(SEC-MENA-style reporting, 55 tickers) — and Qatar is the default `--jurisdiction`. Any other bundle works
+the same way: drop a directory under `profiles/` that exposes `JURISDICTION_NAME`, a `build_profile(ticker)`
+function, and a sector taxonomy. The CLI / browser app / engine itself don't change.
+
+If you don't pass `--symbol`, no profile is loaded and the engine works purely on what's in the filing —
+useful for one-off foreign issuers.
+
+## What "production-ready" means here
+
+- **Edits pass a 392-test pytest suite** on Python 3.9-3.13 (CI matrix). `python qscreen_ingest.py --self-test`
+  runs an offline contract/normalize/merge sanity gate before anything else.
+- **No hardcoded currency, exchange, or framework.** Add `--currency AED --framework AAOIFI --jurisdiction uae`
+  and the engine renders UAE-aware prompts. The original QSE constants live in `profiles/qatar/` now.
+- **Container image**: `Dockerfile` + `.dockerignore` ship slim (Python 3.11-slim, layered for caching); the
+  Flask app exposes `/healthz` with version + active jurisdiction for orchestrator probes.
+- **Logger** (`qscreen.ingest`): `LOG_LEVEL=DEBUG python3 qscreen_ingest.py …` for the case; `--quiet`
+  suppresses the friendly progress prints so containers / CI only see structured stderr logs.
+- **Upload hardened**: exponential backoff with `--upload-retries` / `--upload-backoff` / `--upload-timeout`
+  on transient 5xx / 429 / network errors; URL is validated up-front so a typo doesn't 401 with a leaked
+  bearer token; `User-Agent: qscreen-filing-tool/<version>` for server-side observability.
+- **Stable CLI on bad input.** Missing arguments exit 2 with a one-line diagnostic; `Ctrl-C` exits 130;
+  unexpected exceptions exit 1 with a clean line — `--debug` reverts to a Python traceback.
+- **Back-compat shim.** Existing `import qatar` / `from qatar import profile_for_year(...)` callers keep
+  working unchanged — the legacy package re-exports the new `profiles.qatar`.
 
 ## Run it
 
@@ -435,6 +468,44 @@ python3 qscreen_portfolio.py QNBK_2023_FY_filing.json CBQK_2023_FY_filing.json O
 In the browser, the **Dashboard** button (in the compare/screen panel) takes several
 `*_filing.json` files and downloads the ranked watchlist; `POST /portfolio` is the API.
 
+## Jurisdictions
+
+Profile bundles live in `profiles/<id>/`. **Qatar** (`profiles/qatar/`, 55 tickers) is
+the default — matched automatically when no `--jurisdiction` is given. Two ways to extend:
+
+**Drop-in bundle.** Create `profiles/<id>/__init__.py` with:
+
+```python
+JURISDICTION_NAME = "United Arab Emirates"
+def build_profile(ticker):            # full profile dict, or None if unknown
+    ...
+def profile_for_year(ticker, year):   # same shape, temporal slice
+    ...
+def taxonomy():        return {"Banks": ["Conventional", "Islamic"]}
+def symbol_subsector(): return {"ALDAR": "Real Estate Development"}
+def subsector_to_archetype(): return {"Real Estate Development": "industrial"}
+```
+
+(any not-yet-known sub-sector or currency works the same way — `--sector other --currency AED`
+covers everything the engine doesn't pre-classify.) Then run with `--jurisdiction <id>` (or
+`QSCREEN_JURISDICTION=<id>` env var).
+
+**In-process registration** (no extra package needed) — handy when the profile bundle is
+computed at startup:
+
+```python
+import profiles
+profiles.register("uae", "United Arab Emirates", profiles.JurisdictionLoader(
+    build_profile=..., profile_for_year=..., taxonomy=...,
+    symbol_subsector=..., subsector_to_archetype=...))
+```
+
+Already shipped data lives under `profiles/qatar/data/<TICKER>.json`; regenerate after any
+profile-schema change with `python -c "import qatar; qatar.export_json()"`.
+
+A profile-less run is also valid: `--currency EUR --framework IFRS` fills the fields and the
+engine silently skips the company-context block.
+
 ## Testing
 
 ```bash
@@ -442,9 +513,35 @@ python3 qscreen_ingest.py --self-test
 pytest -q
 ```
 
-`--self-test` is the offline contract/normalize/merge check; `pytest -q` runs the full suite (after `pip install -e ".[dev]"`).
+`--self-test` is the offline contract/normalize/merge check; `pytest -q` runs the full suite
+(after `pip install -e ".[dev]"`). The self-test must print `✅ self-test passed`. CI runs both
+on **Python 3.9–3.13** plus an app-smoke job that boots the Flask server and pings `/healthz`.
 
-The self-test must print `✅ self-test passed`. CI runs both on Python 3.9–3.12.
+## Deployment
+
+A thin production image is shipped via `Dockerfile` (Python 3.11-slim, layered for caching,
+`/healthz` ready for orchestrator probes). Build and run:
+
+```bash
+docker build -t qscreen-filing-tool .
+docker run --rm -p 8765:8765 \
+    -v "$PWD/.env:/app/.env" \
+    -e QSCREEN_APP_HOST=0.0.0.0 -e QSCREEN_APP_PORT=8765 \
+    -e INGEST_TOKEN=... -e QSCREEN_API_URL=https://your-target/ \
+    qscreen-filing-tool
+curl http://localhost:8765/healthz         # → {"status":"ok","version":"1.1.0",…}
+```
+
+Container-relevant env vars (all with safe defaults — see `Dockerfile`):
+
+| Variable | Purpose |
+|---|---|
+| `QSCREEN_API_URL` | ingest endpoint base (default `http://localhost:3004`) |
+| `QSCREEN_JURISDICTION` | profile bundle id (default: first installed) |
+| `QSCREEN_CURRENCY`, `QSCREEN_FRAMEWORK` | report-currency / report-framework override |
+| `QSCREEN_UPLOAD_RETRIES`, `QSCREEN_UPLOAD_BACKOFF`, `QSCREEN_UPLOAD_TIMEOUT` | upload hardening |
+| `INGEST_TOKEN` | bearer token for the upload endpoint |
+| `LOG_LEVEL` | `DEBUG`/`INFO`/`WARNING`/`ERROR` — Python logger threshold |
 
 ## License
 

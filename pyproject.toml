@@ -4,11 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qscreen-filing-tool"
-description = "PDF → lossless QSE filing JSON (browser app + CLI) for qscreen.app"
+description = "Jurisdiction-agnostic PDF → lossless filing JSON (browser app + CLI). Originally QSE, now pluggable."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
 dynamic = ["version"]
+authors = [{ name = "QScreen contributors" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 dependencies = [
     "pdfplumber>=0.11",
     "requests>=2.31",
@@ -21,19 +35,29 @@ ocr = ["rapidocr-onnxruntime"]                            # read scanned pages o
 ocr-tesseract = ["pytesseract>=0.3.10"]                   # optional alternative if you already have the tesseract binary
 dev = ["pytest>=7", "openpyxl>=3.1"]
 
+[project.urls]
+"Source" = "https://github.com/Mine-FNL/qstocks-filing-tool"
+"Issues" = "https://github.com/Mine-FNL/qstocks-filing-tool/issues"
+
 [project.scripts]
 qscreen-ingest = "qscreen_ingest:main"
 qscreen-app = "qscreen_app:main"
 
 [tool.setuptools]
 py-modules = ["qscreen_ingest", "qscreen_app", "qscreen_series", "qscreen_analyze", "qscreen_dcf", "qscreen_report", "qscreen_portfolio", "qscreen_workbook", "qscreen_statements", "qscreen_charts", "qscreen_periods"]
-packages = ["qatar"]
+# Both packages are bundled: profiles/ is the canonical jurisdiction-aware
+# package, qatar/ is a back-compat shim that re-exports profiles.qatar.
+packages = ["qatar", "profiles"]
 
 [tool.setuptools.package-data]
-qatar = ["profiles/*.json"]
+"profiles.qatar" = ["data/*.json"]
 
 [tool.setuptools.dynamic]
 version = { attr = "qscreen_ingest.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

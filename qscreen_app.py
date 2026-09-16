@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """
-qscreen_app.py — local browser app for the QSE filing ingestor.
+qscreen_app.py — local browser app for the jurisdiction-agnostic filing ingestor.
 
 Run it on your laptop, open the page, drag in a PDF, pick the symbol, click
 Extract — the fiscal year is read from the filing automatically. Save an API
 key once in the Settings panel (no terminal, no restart). It runs the SAME
 engine as qscreen_ingest.py (imported, not
-re-implemented) and gives you a downloadable JSON report to upload to
-qscreen.app. Nothing is auto-uploaded — you stay in control.
+re-implemented) and gives you a downloadable JSON report to upload to the
+configured endpoint. Nothing is auto-uploaded — you stay in control.
 
     pip install flask pdfplumber requests
     python3 qscreen_app.py
     # then open http://127.0.0.1:8765 in your browser
+
+Originally authored for the Qatar Stock Exchange (QSE); now jurisdiction-agnostic
+— the symbol taxonomy comes from the active profile bundle (profiles.qatar by
+default). Pass --jurisdiction to point at a different profile package, or run
+multiple browsers against different bundles.
 
 The OpenRouter key is read from the tool's .env (same as the CLI) or the
 OPENROUTER_API_KEY env var. No agent, no command line per filing. Upload is
@@ -55,21 +60,32 @@ def _safe_filename(s, fallback: str = "filing") -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]", "_", str(s or "")).strip("._")
     return cleaned[:64] or fallback
 
-# ── QSE taxonomy + per-stock knowledge ───────────────────────────────────────
-# The sector → sub-sector tree and the symbol map now live in the qatar/ package
-# (the single source of truth, with per-stock temporal profiles). Each sub-sector
-# still maps to one of the engine's 5 EXTRACTION archetypes, which drive the LLM's
-# parsing hint (conventional_bank / islamic_bank / insurance / industrial / other).
-import qatar
+# ── Jurisdiction profile package (the only state we depend on) ─────────────────
+# The sector → sub-sector tree and the symbol map live in the active profile
+# package. ``profiles.qatar`` ships in-tree; pass --jurisdiction to swap.
+# Each sub-sector still maps to one of the engine's 5 EXTRACTION archetypes,
+# which drive the LLM's parsing hint (conventional_bank | islamic_bank |
+# insurance | industrial | other).
+import profiles
 
-QSE_TAXONOMY = qatar.QSE_TAXONOMY
-SUBSECTOR_TO_EXTRACTION = qatar.SUBSECTOR_TO_EXTRACTION
-SYMBOL_SUBSECTOR = qatar.SYMBOL_SUBSECTOR
+DEFAULT_JURISDICTION = profiles.default_jurisdiction() or "qatar"
+ACTIVE_JURISDICTION = os.getenv("QSCREEN_JURISDICTION") or DEFAULT_JURISDICTION
+
+TAXONOMY = profiles.taxonomy(ACTIVE_JURISDICTION)
+SUBSECTOR_TO_EXTRACTION = profiles.subsector_to_archetype(ACTIVE_JURISDICTION)
+SYMBOL_SUBSECTOR = profiles.symbol_subsector(ACTIVE_JURISDICTION)
+JURISDICTION_NAME = (profiles.load_profile(next(iter(SYMBOL_SUBSECTOR), "") or "",
+                                          ACTIVE_JURISDICTION) or {}).get("jurisdiction") \
+                  or ACTIVE_JURISDICTION.capitalize()
+
+
+def _profile_for(symbol: str, year):
+    return profiles.profile_for_year(symbol, year, jurisdiction=ACTIVE_JURISDICTION)
 
 
 def _subsector_options_html() -> str:
     out = []
-    for group, subs in QSE_TAXONOMY.items():
+    for group, subs in TAXONOMY.items():
         out.append(f'<optgroup label="{group}">')
         for sub, _cat in subs:
             out.append(f'<option value="{sub}">{sub}</option>')
@@ -124,14 +140,14 @@ PAGE = """<!doctype html>
   details.settings #setout { margin-top: 10px; font-size: 14px; white-space: pre-wrap; }
 </style></head><body>
 <h1>QScreen Filing Ingestor</h1>
-<p class="sub">Drop a QSE financial-report PDF, pick the symbol &amp; sub-sector, click Extract — the fiscal year is read from the filing automatically. Then download the report and upload it to qscreen.app. Type a known symbol and the sub-sector auto-fills.</p>
+<p class="sub">Drop a financial-report PDF, pick the symbol &amp; sub-sector, click Extract — the fiscal year is read from the filing automatically. Then download the report and upload to the configured ingest endpoint. Type a known symbol and the sub-sector auto-fills. Active jurisdiction: <strong>__JURISDICTION__</strong>.</p>
 <p style="color:#0b6;font-size:13px;font-weight:600;margin-top:-4px">● build __BUILD__ — figures read offline, no API key needed</p>
 <form id="f">
   <label>Filing PDF</label>
   <input type="file" name="pdf" accept="application/pdf" required>
   <div class="row">
     <div><label>Symbol</label><input name="symbol" id="symbol" placeholder="QIBK" autocomplete="off" required></div>
-    <div><label>QSE Sector / Sub-sector</label>
+    <div><label>Sector / Sub-sector</label>
       <select name="subsector" id="subsector" required>
         __SUBSECTOR_OPTIONS__
       </select>
@@ -630,6 +646,18 @@ if (pdfEl) pdfEl.addEventListener('change', function(){
 </body></html>"""
 
 
+@app.route("/healthz")
+def healthz():
+    """Container / orchestrator health probe. Always returns 200 if the
+    process is up; advertises the version + active jurisdiction so a
+    load-balancer or operator can confirm what's deployed."""
+    import qscreen_ingest as _eng
+    return {"status": "ok",
+            "version": getattr(_eng, "__version__", "unknown"),
+            "jurisdiction": ACTIVE_JURISDICTION,
+            "profiles_loaded": len(profiles.all_jurisdictions())}
+
+
 @app.route("/")
 def index():
     upload_enabled = bool(os.getenv("INGEST_TOKEN"))
@@ -644,7 +672,8 @@ def index():
             .replace("__PROVIDER_INFO_JSON__", json.dumps(provider_info))
             .replace("__DETECTED_PROVIDER_JSON__", json.dumps(engine.detect_provider()))
             .replace("__UPLOAD_ENABLED__", "true" if upload_enabled else "false")
-            .replace("__BUILD__", BUILD))
+            .replace("__BUILD__", BUILD)
+            .replace("__JURISDICTION__", JURISDICTION_NAME))
     # never let the browser serve a stale page (old, broken inline JS)
     return Response(html, mimetype="text/html",
                     headers={"Cache-Control": "no-store, max-age=0"})
@@ -670,7 +699,7 @@ def extract():
                 year = int(year_in)
             except (TypeError, ValueError):
                 return {"error": "year must be an integer"}, 400
-        # The rich QSE sub-sector is stored; the extraction category (1 of 5)
+        # The rich sub-sector is stored; the extraction category (1 of 5)
         # drives how the LLM reads the statements.
         sector = SUBSECTOR_TO_EXTRACTION.get(subsector, "other")
         provider = (request.form.get("provider") or "").strip() or None  # None → auto-detect
@@ -746,7 +775,7 @@ def extract():
             return {"error": "Couldn't read the fiscal year from this PDF — enter "
                              "it below and extract again.", "need_year": True}, 422
         args.year, args.period = int(year), period
-        args._profile = qatar.profile_for_year(symbol, int(year))  # company+year-aware prompting
+        args._profile = _profile_for(symbol, int(year))  # company+year-aware prompting
 
         filing = engine.extract_filing(pages, args)
         filing.setdefault("metadata", {}).update({
@@ -869,7 +898,7 @@ def analyze_route():
     symbol = payload.get("symbol") or meta.get("symbol") or ""
     if not symbol:
         return {"error": "could not determine symbol"}, 400
-    profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
+    profile = _profile_for(symbol, meta.get("fiscal_year"))
     try:
         return qscreen_analyze.analyze(symbol, filings, profile)
     except Exception as e:
@@ -887,7 +916,7 @@ def portfolio_route():
     groups = qscreen_analyze.group_by_symbol(filings)
     if not groups:
         return {"error": "no filings carry a metadata.symbol"}, 400
-    profiles = {s: qatar.profile_for_year(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
+    profiles = {s: _profile_for(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
                 for s, fs in groups.items()}
     try:
         board = qscreen_portfolio.roll_up(groups, profiles)
@@ -910,7 +939,7 @@ def report_route():
     symbol = payload.get("symbol") or meta.get("symbol") or ""
     if not symbol:
         return {"error": "could not determine symbol"}, 400
-    profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
+    profile = _profile_for(symbol, meta.get("fiscal_year"))
     try:
         rep = qscreen_report.build_report(symbol, filings, profile,
                                           assumptions=payload.get("assumptions") or {},
@@ -934,7 +963,7 @@ def compare_route():
     if not fbs:
         return {"error": "no filings carry a metadata.symbol"}, 400
     target = (payload.get("target") or next(iter(fbs))).upper()
-    profiles = {s: qatar.profile_for_year(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
+    profiles = {s: _profile_for(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
                 for s, fs in fbs.items()}
     try:
         return qscreen_analyze.compare(target, fbs, profiles)
@@ -956,7 +985,7 @@ def dcf_route():
     symbol = payload.get("symbol") or meta.get("symbol") or ""
     if not symbol:
         return {"error": "could not determine symbol"}, 400
-    profile = qatar.profile_for_year(symbol, meta.get("fiscal_year"))
+    profile = _profile_for(symbol, meta.get("fiscal_year"))
     try:
         return qscreen_dcf.value(symbol, filings, profile, payload.get("assumptions") or {},
                                  price=payload.get("price"), shares=payload.get("shares"))
@@ -973,7 +1002,7 @@ def segments():
     if not isinstance(filing, dict):
         return {"error": "missing 'filing' object"}, 400
     meta = filing.get("metadata") or {}
-    profile = qatar.profile_for_year(meta.get("symbol") or payload.get("symbol") or "",
+    profile = _profile_for(meta.get("symbol") or payload.get("symbol") or "",
                                      meta.get("fiscal_year") or payload.get("year"))
     try:
         return qscreen_analyze.analyze_segments(filing, profile)

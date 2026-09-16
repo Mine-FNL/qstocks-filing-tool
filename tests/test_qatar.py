@@ -69,8 +69,8 @@ def test_profile_for_year_none_year_is_static_view():
 
 
 def test_exported_json_matches_built_profiles():
-    """The committed qatar/profiles/*.json must not drift from the seed."""
-    pdir = Path(qatar.__file__).resolve().parent / "profiles"
+    """The committed JSONs (now under profiles/qatar/data/) must not drift from the seed."""
+    pdir = Path(qatar.__file__).resolve().parent.parent / "profiles" / "qatar" / "data"
     assert pdir.is_dir(), "run: python3 -c 'import qatar; qatar.export_json()'"
     on_disk = sorted(p.stem for p in pdir.glob("*.json"))
     assert on_disk == qatar.all_tickers()

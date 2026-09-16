@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qscreen_workbook.py — a model-ready Excel transcript of a QSE filing.
+"""qscreen_workbook.py — a model-ready Excel transcript of a filing.
 
 Turns one extracted filing (and optionally several, for more years) into a
 multi-sheet .xlsx an analyst can drop straight into a model:

@@ -2,18 +2,18 @@
 
 ## Summary
 
-- Cases: **8** (passed: 1, errored: 0)
-- Check-level accuracy: **71/91** (78.0%)
+- Cases: **8** (passed: 0, errored: 0)
+- Check-level accuracy: **67/91** (73.6%)
 - Per-case detail:
 
-  - ⚠️ `akhi_2022_fy` (AKHI 2022 FY)  — 6/7 checks, 9 ms
-  - ⚠️ `iqcd_2022_fy` (IQCD 2022 FY)  — 11/12 checks, 1 ms
-  - ⚠️ `qeti_2022_q4` (QETF 2022 Q4)  — 6/7 checks, 1 ms
-  - ⚠️ `qgmd_2021_fy` (QGMD 2021 FY)  — 7/10 checks, 1 ms
+  - ⚠️ `akhi_2022_fy` (AKHI 2022 FY)  — 6/7 checks, 10 ms
+  - ⚠️ `iqcd_2022_fy` (IQCD 2022 FY)  — 10/12 checks, 1 ms
+  - ⚠️ `qeti_2022_q4` (QETF 2022 Q4)  — 5/7 checks, 1 ms
+  - ⚠️ `qgmd_2021_fy` (QGMD 2021 FY)  — 7/10 checks, 2 ms
   - ⚠️ `qibk_2023_fy` (QIBK 2023 FY)  — 11/17 checks, 1 ms
-  - ⚠️ `qnbk_2023_fy` (QNBK 2023 FY)  — 16/22 checks, 1 ms
+  - ⚠️ `qnbk_2023_fy` (QNBK 2023 FY)  — 15/22 checks, 1 ms
   - ⚠️ `udcd_2022_fy` (UDCD 2022 FY)  — 7/9 checks, 1 ms
-  - ✅ `vfqs_2013_fy` (VFQS 2013 FY)  — 7/7 checks, 1 ms
+  - ⚠️ `vfqs_2013_fy` (VFQS 2013 FY)  — 6/7 checks, 1 ms
 
 ## Per-case detail
 
@@ -39,7 +39,7 @@
 | `metadata.sector` | 'industrial' | 'industrial' | ✅ |
 | `metadata.currency` | 'QAR' | 'QAR' | ✅ |
 | `metadata.unit_scale` | 1000 | 1000 | ✅ |
-| `metadata.reporting_framework` | 'IFRS' | 'IFRS' | ✅ |
+| `metadata.reporting_framework` | 'IFRS' | None | ❌ — want 'IFRS' got None |
 | `audit.opinion_type` | 'unqualified' | 'unknown' | ❌ |
 | `statements.BS_present[BS_TOTAL_ASSETS]` | 'non-null' | 'non-null' | ✅ |
 | `statements.BS[BS_TOTAL_ASSETS].value` | 5800.0 | 5800.0 | ✅ |
@@ -52,7 +52,7 @@
 | --- | --- | --- | --- |
 | `metadata.symbol` | 'QETF' | 'QETF' | ✅ |
 | `metadata.fiscal_year` | 2022 | 2022 | ✅ |
-| `metadata.fiscal_period` | 'Q4' | 'Q4' | ✅ |
+| `metadata.fiscal_period` | 'Q4' | 'FY' | ❌ — want 'Q4' got 'FY' |
 | `metadata.currency` | 'QAR' | 'QAR' | ✅ |
 | `statements.BS_present[BS_TOTAL_ASSETS]` | 'non-null' | 'non-null' | ✅ |
 | `statements.total_lines <= max` | 25 | 13 | ✅ |
@@ -102,7 +102,7 @@
 | `metadata.symbol` | 'QNBK' | 'QNBK' | ✅ |
 | `metadata.fiscal_year` | 2023 | 2023 | ✅ |
 | `metadata.fiscal_period` | 'FY' | 'FY' | ✅ |
-| `metadata.sector` | 'conventional_bank' | 'conventional_bank' | ✅ |
+| `metadata.sector` | 'conventional_bank' | None | ❌ — want 'conventional_bank' got None |
 | `metadata.currency` | 'QAR' | 'QAR' | ✅ |
 | `metadata.unit_scale` | 1000 | 1000 | ✅ |
 | `metadata.reporting_framework` | 'IFRS' | 'IFRS' | ✅ |
@@ -142,7 +142,7 @@
 | --- | --- | --- | --- |
 | `metadata.symbol` | 'VFQS' | 'VFQS' | ✅ |
 | `metadata.fiscal_year` | 2013 | 2013 | ✅ |
-| `metadata.fiscal_period` | 'FY' | 'FY' | ✅ |
+| `metadata.fiscal_period` | 'FY' | None | ❌ — want 'FY' got None |
 | `metadata.currency` | 'QAR' | 'QAR' | ✅ |
 | `statements.total_lines >= min` | 20 | 20 | ✅ |
 | `pre_flags.contains issuer_fact_vfqs` | 'present' | 'present' | ✅ — actual rules: issuer_fact_vfqs, issuer_renamed_history |

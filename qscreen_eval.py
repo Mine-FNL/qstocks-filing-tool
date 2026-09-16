@@ -148,24 +148,33 @@ def _extract_one(case: dict, case_text: str) -> dict:
         e.qscreen_gates.merge_warnings(filing, gate)
 
         # The deterministic path doesn't populate metadata from CLI args;
-        # overlay the known case values so the comparator can find them.
-        # NB: ``meta.setdefault(k, v)`` skips when the key already exists with a
-        # sentinel (incl. None), so we use a "fill if empty" helper.
+        # overlay the known case values that are NOT autodetectable
+        # (symbol, year, currency, unit_scale). Sector / period /
+        # framework are left blank so the engine's autodetect path can
+        # be exercised by the comparator.
         meta = filing.setdefault("metadata", {})
         wanted = {
             "symbol": case["ticker"],
             "fiscal_year": case["fiscal_year"],
-            "fiscal_period": case.get("fiscal_period", "FY"),
-            "sector": case["sector"],
             "currency": case.get("expected", {}).get("metadata", {}).get("currency", "QAR"),
             "unit_scale": 1000,
-            "reporting_framework": case.get("expected", {}).get("metadata", {}).get("reporting_framework"),
             "consolidated": True,
         }
         for k, v in wanted.items():
             cur = meta.get(k)
             if cur in (None, "") or k not in meta:
                 meta[k] = v
+
+        # Auto-detect sector / period / framework via the engine's helper.
+        # The comparator needs these to validate; if the detector can't
+        # guess, the underlying value stays None and the comparator sees
+        # the failure as a real regression.
+        try:
+            import qscreen_autodetect as _ad
+            text_blob = "\n\n".join(p.get("text", "") for p in pages)
+            _ad.apply_detected_metadata(filing, text_blob)
+        except Exception as ex:
+            log.warning("autodetect skipped: %s", ex)
 
         # Set the ticker on the args object too so profile-aware pre-flag
         # rules (``issuer_fact_<ticker>``) get evaluated by _apply_pre_flags.

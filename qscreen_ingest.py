@@ -2900,6 +2900,26 @@ def run_filing(args) -> int:
             meta_overlay[k] = v
     filing.setdefault("metadata", {}).update(meta_overlay)
 
+    # Auto-detect sector / period / framework from the filing text + profile.
+    # Operator can override with --no-auto-detect or by setting the value
+    # explicitly via --sector / --period / --framework (those carry through
+    # apply_detected_metadata's "only fill empty" policy).
+    if getattr(args, "auto_detect", True):
+        try:
+            import qscreen_autodetect as _ad
+            text_blob = "\n\n".join(
+                p.get("text", "") for p in _pages if isinstance(p, dict))
+            _ad.apply_detected_metadata(filing, text_blob,
+                                         profile=getattr(args, "_profile", None))
+            # Mirror detected values into the operator-visible args too so
+            # the print line + save_json see them.
+            for k in ("sector", "fiscal_period", "reporting_framework"):
+                v = filing.get("metadata", {}).get(k)
+                if v and not getattr(args, k, None):
+                    setattr(args, k, v)
+        except Exception as ex:
+            log.warning("autodetect skipped: %s", ex)
+
     # Content-addressed dedup key. Computed BEFORE save so we can record it on
     # the row even when the run fails partway. Same key is sent as an
     # ``If-None-Match`` header to the ingest endpoint so re-runs are cheap.
@@ -3193,7 +3213,10 @@ def main() -> int:
     p.add_argument("--framework", default=os.getenv("QSCREEN_FRAMEWORK"),
                    help="Reporting framework label (e.g. IFRS / AAOIFI / IFRS as "
                         "adopted by QCB (Islamic)). Default: profile value, else null.")
-    p.add_argument("--sector", choices=SECTORS, help="Extraction archetype")
+    p.add_argument("--sector", choices=SECTORS, help="Extraction archetype (auto-detected from filing text if omitted)")
+    p.add_argument("--no-auto-detect", dest="auto_detect", action="store_false",
+                   help="Don't auto-detect sector/period/framework from the filing; "
+                        "require explicit --sector / --period / --framework.")
     p.add_argument("--year", type=int)
     p.add_argument("--period", choices=["FY", "Q1", "Q2", "Q3", "Q4", "H1", "9M"], default="FY")
     p.add_argument("--provider", choices=PROVIDER_CHOICES, default=None,
@@ -3269,6 +3292,7 @@ def main() -> int:
     p.add_argument("--debug", action="store_true",
                    help="Show Python tracebacks on errors (default: print a clean "
                         "diagnostic and exit non-zero).")
+    p.set_defaults(auto_detect=True)        # default: detect from filing text
     args = p.parse_args()
 
     if args.list_providers:

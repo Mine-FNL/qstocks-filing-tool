@@ -18,7 +18,10 @@
     "audit": {
       "opinion_type": "unqualified",
       "auditor_name": "KPMG",
-      "verbatim_text_contains": ["In our opinion", "fairly presented"]
+      "verbatim_text_contains": [
+        "In our opinion",
+        "fairly presented"
+      ]
     },
     "statements": {
       "balance_sheet_code": "BS_TOTAL_ASSETS",
@@ -30,6 +33,10 @@
       "total_lines_min": 30,
       "total_lines_max": 200
     },
-    "red_flags_expect": ["issuer_fact_qnbk", "issuer_renamed_history"]
+    "red_flags_expect": [
+      "issuer_fact_qnbk",
+      "issuer_renamed_history"
+    ],
+    "language_primary": "en"
   }
 }

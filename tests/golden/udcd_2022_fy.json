@@ -20,6 +20,7 @@
     "red_flags_must_contain": [
       "xcut_ip_concentration_40pct_ta",
       "issuer_fact_udcd"
-    ]
+    ],
+    "language_primary": "en"
   }
 }

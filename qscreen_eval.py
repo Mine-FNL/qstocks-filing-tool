@@ -351,6 +351,32 @@ def _compare_pre_flags(filing: dict, want: dict) -> list[Check]:
     return out
 
 
+def _compare_languages(filing: dict, want: dict) -> list[Check]:
+    out = []
+    lang_list = (filing.get("metadata") or {}).get("languages") or []
+    present_codes = [l.get("code") for l in lang_list]
+    primary = next((l.get("code") for l in lang_list if l.get("primary")), None)
+
+    for code in want.get("language_must_contain", []) or []:
+        out.append(Check(f"languages.contains {code}",
+                          "present", "present" if code in present_codes else "absent",
+                          code in present_codes,
+                          detail=f"actual codes: {', '.join(present_codes) or 'none'}"))
+    if "language_primary" in want:
+        out.append(Check("languages.primary", want["language_primary"], primary,
+                          primary == want["language_primary"],
+                          detail=f"actual primary: {primary!r}, all codes: {present_codes}"))
+    if "language_min_ratio" in want:
+        # Soft check: ratio of the primary language must be >= min_ratio.
+        primary_lang = next((l for l in lang_list if l.get("primary")), None)
+        ratio = primary_lang.get("ratio", 0) if primary_lang else 0
+        out.append(Check("languages.primary.ratio >= min_ratio",
+                          want["language_min_ratio"], ratio,
+                          ratio >= want["language_min_ratio"],
+                          detail=f"actual ratio: {ratio:.2%}" if primary_lang else "no primary"))
+    return out
+
+
 def evaluate_case(case_path: Path, cases_dir: Path) -> CaseReport:
     case = json.loads(case_path.read_text())
     case_id = case["_case"]
@@ -383,6 +409,7 @@ def evaluate_case(case_path: Path, cases_dir: Path) -> CaseReport:
     if "statements" in exp:
         rep.checks.extend(_compare_statements(filing, exp["statements"], narrative))
     rep.checks.extend(_compare_pre_flags(filing, exp))
+    rep.checks.extend(_compare_languages(filing, exp))
     return rep
 
 

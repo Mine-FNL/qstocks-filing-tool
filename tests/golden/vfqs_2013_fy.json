@@ -12,7 +12,13 @@
       "fiscal_period": "FY",
       "currency": "QAR"
     },
-    "statements": {"total_lines_min": 20},
-    "red_flags_must_contain": ["issuer_fact_vfqs", "issuer_renamed_history"]
+    "statements": {
+      "total_lines_min": 20
+    },
+    "red_flags_must_contain": [
+      "issuer_fact_vfqs",
+      "issuer_renamed_history"
+    ],
+    "language_primary": "en"
   }
 }

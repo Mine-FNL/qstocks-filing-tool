@@ -14,7 +14,9 @@
       "unit_scale": 1000,
       "reporting_framework": "IFRS"
     },
-    "audit": {"opinion_type": "unqualified"},
+    "audit": {
+      "opinion_type": "unqualified"
+    },
     "statements": {
       "balance_sheet_code": "BS_TOTAL_ASSETS",
       "balance_sheet_value": 5800,
@@ -23,6 +25,7 @@
       "has_is_cost_of_sales": true,
       "has_is_gross_profit": true
     },
-    "red_flags_expect": []
+    "red_flags_expect": [],
+    "language_primary": "en"
   }
 }

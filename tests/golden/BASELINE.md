@@ -3,17 +3,17 @@
 ## Summary
 
 - Cases: **8** (passed: 0, errored: 0)
-- Check-level accuracy: **76/100** (76.0%)
+- Check-level accuracy: **100/124** (80.6%)
 - Per-case detail:
 
-  - ⚠️ `akhi_2022_fy` (AKHI 2022 FY)  — 7/8 checks, 10 ms
-  - ⚠️ `iqcd_2022_fy` (IQCD 2022 FY)  — 11/13 checks, 2 ms
-  - ⚠️ `qeti_2022_q4` (QETF 2022 Q4)  — 6/8 checks, 2 ms
-  - ⚠️ `qgmd_2021_fy` (QGMD 2021 FY)  — 9/12 checks, 3 ms
-  - ⚠️ `qibk_2023_fy` (QIBK 2023 FY)  — 12/18 checks, 2 ms
-  - ⚠️ `qnbk_2023_fy` (QNBK 2023 FY)  — 16/23 checks, 2 ms
-  - ⚠️ `udcd_2022_fy` (UDCD 2022 FY)  — 8/10 checks, 2 ms
-  - ⚠️ `vfqs_2013_fy` (VFQS 2013 FY)  — 7/8 checks, 2 ms
+  - ⚠️ `akhi_2022_fy` (AKHI 2022 FY)  — 10/11 checks, 7 ms
+  - ⚠️ `iqcd_2022_fy` (IQCD 2022 FY)  — 14/16 checks, 2 ms
+  - ⚠️ `qeti_2022_q4` (QETF 2022 Q4)  — 9/11 checks, 1 ms
+  - ⚠️ `qgmd_2021_fy` (QGMD 2021 FY)  — 12/15 checks, 3 ms
+  - ⚠️ `qibk_2023_fy` (QIBK 2023 FY)  — 15/21 checks, 2 ms
+  - ⚠️ `qnbk_2023_fy` (QNBK 2023 FY)  — 19/26 checks, 2 ms
+  - ⚠️ `udcd_2022_fy` (UDCD 2022 FY)  — 11/13 checks, 2 ms
+  - ⚠️ `vfqs_2013_fy` (VFQS 2013 FY)  — 10/11 checks, 2 ms
 
 ## Per-case detail
 
@@ -29,6 +29,9 @@
 | `statements.income_statement_count` | 2 | 0 | ❌ |
 | `pre_flags.contains issuer_fact_akhi` | 'present' | 'present' | ✅ — actual rules: issuer_fact_akhi |
 | `languages.primary` | 'en' | 'en' | ✅ — actual primary: 'en', all codes: ['en'] |
+| `fingerprint.present` | 'dict' | 'dict' | ✅ |
+| `fingerprint.overall_fingerprint.is_str` | 'non-empty str' | 'ef2174b960bb09fa' | ✅ |
+| `fingerprint.items.len > 0` | 1 | 2 | ✅ — audit + statements + notes should hash |
 
 ### `iqcd_2022_fy`
 
@@ -47,6 +50,9 @@
 | `statements.IS_present[IS_REVENUE]` | 'non-null' | 'non-null' | ✅ |
 | `statements.IS[IS_REVENUE].value` | 2400.0 | 2400.0 | ✅ |
 | `languages.primary` | 'en' | 'en' | ✅ — actual primary: 'en', all codes: ['en'] |
+| `fingerprint.present` | 'dict' | 'dict' | ✅ |
+| `fingerprint.overall_fingerprint.is_str` | 'non-empty str' | '6a475ba87c57e822' | ✅ |
+| `fingerprint.items.len > 0` | 1 | 3 | ✅ — audit + statements + notes should hash |
 
 ### `qeti_2022_q4`
 
@@ -60,6 +66,9 @@
 | `statements.total_lines <= max` | 25 | 13 | ✅ |
 | `pre_flags.contains issuer_fact_qeti` | 'present' | 'absent' | ❌ — actual rules: issuer_fact_qetf, issuer_renamed_history |
 | `languages.primary` | 'en' | 'en' | ✅ — actual primary: 'en', all codes: ['en'] |
+| `fingerprint.present` | 'dict' | 'dict' | ✅ |
+| `fingerprint.overall_fingerprint.is_str` | 'non-empty str' | '41ef8587eba790d4' | ✅ |
+| `fingerprint.items.len > 0` | 1 | 3 | ✅ — audit + statements + notes should hash |
 
 ### `qgmd_2021_fy`
 
@@ -77,6 +86,9 @@
 | `red_flags.warn_count >= warn_min` | 1 | 0 | ❌ |
 | `languages.contains ar` | 'present' | 'present' | ✅ — actual codes: en, ar |
 | `languages.primary` | 'en' | 'en' | ✅ — actual primary: 'en', all codes: ['en', 'ar'] |
+| `fingerprint.present` | 'dict' | 'dict' | ✅ |
+| `fingerprint.overall_fingerprint.is_str` | 'non-empty str' | '32161a4aec712d55' | ✅ |
+| `fingerprint.items.len > 0` | 1 | 4 | ✅ — audit + statements + notes should hash |
 
 ### `qibk_2023_fy`
 
@@ -100,6 +112,9 @@
 | `statements.total_lines >= min` | 30 | 20 | ❌ |
 | `pre_flags.may contain issuer_fact_qibk` | 'possible' | 'present' | ✅ — soft expectation |
 | `languages.primary` | 'en' | 'en' | ✅ — actual primary: 'en', all codes: ['en'] |
+| `fingerprint.present` | 'dict' | 'dict' | ✅ |
+| `fingerprint.overall_fingerprint.is_str` | 'non-empty str' | 'c66e0ad937817518' | ✅ |
+| `fingerprint.items.len > 0` | 1 | 3 | ✅ — audit + statements + notes should hash |
 
 ### `qnbk_2023_fy`
 
@@ -128,6 +143,9 @@
 | `pre_flags.may contain issuer_fact_qnbk` | 'possible' | 'absent' | ✅ — soft expectation |
 | `pre_flags.may contain issuer_renamed_history` | 'possible' | 'absent' | ✅ — soft expectation |
 | `languages.primary` | 'en' | 'en' | ✅ — actual primary: 'en', all codes: ['en'] |
+| `fingerprint.present` | 'dict' | 'dict' | ✅ |
+| `fingerprint.overall_fingerprint.is_str` | 'non-empty str' | 'a1d6be1e226c1348' | ✅ |
+| `fingerprint.items.len > 0` | 1 | 3 | ✅ — audit + statements + notes should hash |
 
 ### `udcd_2022_fy`
 
@@ -143,6 +161,9 @@
 | `pre_flags.contains xcut_ip_concentration_40pct_ta` | 'present' | 'absent' | ❌ — actual rules: issuer_fact_udcd |
 | `pre_flags.contains issuer_fact_udcd` | 'present' | 'present' | ✅ — actual rules: issuer_fact_udcd |
 | `languages.primary` | 'en' | 'en' | ✅ — actual primary: 'en', all codes: ['en'] |
+| `fingerprint.present` | 'dict' | 'dict' | ✅ |
+| `fingerprint.overall_fingerprint.is_str` | 'non-empty str' | '7ebe380656e55d4e' | ✅ |
+| `fingerprint.items.len > 0` | 1 | 3 | ✅ — audit + statements + notes should hash |
 
 ### `vfqs_2013_fy`
 
@@ -156,3 +177,6 @@
 | `pre_flags.contains issuer_fact_vfqs` | 'present' | 'present' | ✅ — actual rules: issuer_fact_vfqs, issuer_renamed_history |
 | `pre_flags.contains issuer_renamed_history` | 'present' | 'present' | ✅ — actual rules: issuer_fact_vfqs, issuer_renamed_history |
 | `languages.primary` | 'en' | 'en' | ✅ — actual primary: 'en', all codes: ['en'] |
+| `fingerprint.present` | 'dict' | 'dict' | ✅ |
+| `fingerprint.overall_fingerprint.is_str` | 'non-empty str' | '3e84217d28e79570' | ✅ |
+| `fingerprint.items.len > 0` | 1 | 3 | ✅ — audit + statements + notes should hash |

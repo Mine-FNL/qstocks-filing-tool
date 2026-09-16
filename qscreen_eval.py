@@ -410,7 +410,31 @@ def evaluate_case(case_path: Path, cases_dir: Path) -> CaseReport:
         rep.checks.extend(_compare_statements(filing, exp["statements"], narrative))
     rep.checks.extend(_compare_pre_flags(filing, exp))
     rep.checks.extend(_compare_languages(filing, exp))
+    rep.checks.extend(_compare_fingerprint(filing, exp))
     return rep
+
+
+def _compare_fingerprint(filing: dict, want: dict) -> list[Check]:
+    """Every saved filing should carry a ``fingerprint`` block with at least
+    one item (audit or statement verbatim). Used by change-detection
+    tooling to compute deltas between two runs."""
+    out = []
+    fp = filing.get("fingerprint") or {}
+    items = fp.get("items") or []
+    out.append(Check("fingerprint.present",
+                      "dict", "dict" if isinstance(fp, dict) else type(fp).__name__,
+                      isinstance(fp, dict)))
+    out.append(Check("fingerprint.overall_fingerprint.is_str",
+                      "non-empty str",
+                      str(fp.get("overall_fingerprint") or "")[:20],
+                      isinstance(fp.get("overall_fingerprint"), str)
+                      and bool(fp.get("overall_fingerprint"))))
+    out.append(Check("fingerprint.items.len > 0",
+                      want.get("fingerprint_min_items", 1),
+                      len(items),
+                      len(items) >= want.get("fingerprint_min_items", 1),
+                      detail="audit + statements + notes should hash"))
+    return out
 
 
 # ── report rendering ─────────────────────────────────────────────────────────

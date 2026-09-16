@@ -1,0 +1,53 @@
+===== PAGE 1 =====
+Independent Auditor's Report
+
+To the Shareholders of Qatar National Bank (QNB) Q.P.S.C.
+
+In our opinion, the accompanying consolidated financial statements present fairly,
+in all material respects, the consolidated financial position of the Group as at
+31 December 2023, and its consolidated financial performance and its
+consolidated cash flows for the year then ended in accordance with IFRS.
+
+KPMG
+
+Consolidated Statement of Financial Position as at 31 December 2023
+
+[All amounts in thousands of Qatari Riyals]
+
+[TABLES on page 1]
+-- table 1 --
+Total assets | 1077000 | 980000
+Total liabilities | 900000 | 820000
+Total equity | 177000 | 160000
+Due from banks | 75000 | 68000
+Loans and advances to customers | 720000 | 650000
+Investment securities | 180000 | 165000
+Customer deposits | 720000 | 640000
+
+===== PAGE 2 =====
+Consolidated Income Statement for the year ended 31 December 2023
+
+[All amounts in thousands of Qatari Riyals]
+
+[TABLES on page 2]
+-- table 1 --
+Net interest income | 26850 | 24500
+Net fee and commission income | 4200 | 3800
+Net trading income | 1500 | 1200
+Total operating income | 32550 | 29500
+Operating expenses | 9200 | 8400
+Net profit for the year | 17800 | 16500
+
+===== PAGE 3 =====
+Consolidated Statement of Cash Flows for the year ended 31 December 2023
+
+[All amounts in thousands of Qatari Riyals]
+
+[TABLES on page 3]
+-- table 1 --
+Net cash from operating activities | 25000 | 22000
+Net cash used in investing activities | -12000 | -15000
+Net cash from financing activities | 3000 | 1500
+Net increase in cash and cash equivalents | 16000 | 8500
+Cash and cash equivalents at 1 January | 85000 | 76500
+Cash and cash equivalents at 31 December | 101000 | 85000

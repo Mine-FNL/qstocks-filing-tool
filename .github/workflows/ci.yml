@@ -39,6 +39,26 @@ jobs:
       - name: Run test suite
         run: pytest -q --maxfail=1 --durations=10
 
+      # Golden-set extraction bench. Reports accuracy on hand-verified
+      # targets spanning the 5 archetypes + 3 known-tricky shapes. Does
+      # NOT block merging — the regression threshold is "worse than
+      # the BASELINE", not "exactly equal". When the bench regresses below
+      # baseline the PR shows the diff in the artifacts for review.
+      - name: Golden-set extraction bench (informational)
+        if: always()
+        run: |
+          python qscreen_eval.py --md --out /tmp/eval.md || true
+          echo "## Golden-set eval (informational; non-gating)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          head -30 /tmp/eval.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload eval report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-eval-${{ matrix.python-version }}
+          path: /tmp/eval.md
+          if-no-files-found: ignore
+
   app-smoke:
     name: Flask app smoke
     runs-on: ubuntu-latest

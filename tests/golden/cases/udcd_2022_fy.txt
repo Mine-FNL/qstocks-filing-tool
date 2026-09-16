@@ -1,0 +1,54 @@
+===== PAGE 1 =====
+Independent Auditor's Report
+
+To the Shareholders of United Development Company Q.P.S.C.
+
+In our opinion, the accompanying consolidated financial statements present fairly
+the financial position of the Group as at 31 December 2022, in accordance with
+International Financial Reporting Standards (IFRS).
+
+KPMG
+
+Consolidated Statement of Financial Position as at 31 December 2022
+
+[All amounts in thousands of Qatari Riyals]
+
+[TABLES on page 1]
+-- table 1 --
+Total assets | 55000 | 52000
+Total liabilities | 18000 | 17000
+Total equity | 37000 | 35000
+Investment property | 26000 | 24500
+Property development inventory | 6000 | 5800
+Trade receivables | 800 | 750
+Cash and bank balances | 4500 | 4000
+Trade payables | 1500 | 1400
+Loans and borrowings | 12000 | 11800
+
+===== PAGE 2 =====
+Consolidated Income Statement for the year ended 31 December 2022
+
+[TABLES on page 2]
+-- table 1 --
+Revenue | 4200 | 3500
+Cost of sales | 1800 | 1500
+Gross profit | 2400 | 2000
+Unrealised fair-value gains on investment property | 800 | 950
+Operating expenses | 900 | 850
+Operating profit | 2300 | 2100
+Finance costs | 650 | 600
+Profit before tax | 1650 | 1500
+Income tax expense | 90 | 85
+Profit for the year | 1560 | 1415
+
+===== PAGE 3 =====
+Consolidated Statement of Cash Flows for the year ended 31 December 2022
+
+[TABLES on page 3]
+-- table 1 --
+Net cash from operating activities | 1200 | 1000
+Net cash used in investing activities | -2800 | -2500
+Net cash from financing activities | -350 | -400
+Net decrease in cash and cash equivalents | -1950 | -1900
+Cash at 1 January | 6450 | 8350
+Cash at 31 December | 4500 | 6450

@@ -1,0 +1,34 @@
+{
+  "_case": "qibk_2023_fy",
+  "ticker": "QIBK",
+  "fiscal_year": 2023,
+  "fiscal_period": "FY",
+  "sector": "islamic_bank",
+  "expected": {
+    "metadata": {
+      "symbol": "QIBK",
+      "fiscal_year": 2023,
+      "fiscal_period": "FY",
+      "sector": "islamic_bank",
+      "currency": "QAR",
+      "unit_scale": 1000,
+      "reporting_framework": "IFRS as adopted by QCB (Islamic)",
+      "consolidated": true
+    },
+    "audit": {
+      "opinion_type": "unqualified",
+      "auditor_name": "Deloitte",
+      "verbatim_text_contains": ["Sharia"]
+    },
+    "statements": {
+      "balance_sheet_code": "BS_TOTAL_ASSETS",
+      "balance_sheet_value": 245000,
+      "income_statement_code": "IS_NET_PROFIT",
+      "income_statement_value": 1100,
+      "no_is_interest_income": true,
+      "has_is_finance_income": true,
+      "total_lines_min": 30
+    },
+    "red_flags_expect": ["issuer_fact_qibk"]
+  }
+}

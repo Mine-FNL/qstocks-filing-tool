@@ -1,0 +1,40 @@
+===== PAGE 1 =====
+Independent Auditor's Report
+
+To the Unitholders of Qatar ETF Q.P.S.C.
+
+In our opinion, the accompanying financial statements present fairly the
+financial position of the Fund as at 31 December 2022 in accordance with
+International Financial Reporting Standards (IFRS).
+
+KPMG
+
+Statement of Financial Position as at 31 December 2022
+
+[TABLES on page 1]
+-- table 1 --
+Total assets | 1200 | 1300
+Total liabilities | 25 | 30
+Net assets attributable to unitholders | 1175 | 1270
+Financial assets at fair value through profit or loss | 1150 | 1250
+Cash and bank balances | 50 | 50
+
+===== PAGE 2 =====
+Statement of Comprehensive Income for the year ended 31 December 2022
+
+[TABLES on page 2]
+-- table 1 --
+Net gain on financial assets at fair value through profit or loss | 120 | 50
+Dividend income | 25 | 20
+Operating expenses | 18 | 15
+Profit for the year | 127 | 55
+
+===== PAGE 3 =====
+Statement of Cash Flows for the year ended 31 December 2022
+
+[TABLES on page 3]
+-- table 1 --
+Net cash from operating activities | 25 | 20
+Net increase in cash and cash equivalents | 25 | 20
+Cash at 1 January | 25 | 30
+Cash at 31 December | 50 | 25

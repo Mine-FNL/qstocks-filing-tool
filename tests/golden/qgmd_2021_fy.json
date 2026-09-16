@@ -1,0 +1,26 @@
+{
+  "_case": "qgmd_2021_fy",
+  "ticker": "QGMD",
+  "fiscal_year": 2021,
+  "fiscal_period": "FY",
+  "sector": "healthcare",
+  "_note": "Known-tricky: Material uncertainty / going-concern (Article 295 — Companies Law invoked).",
+  "expected": {
+    "metadata": {
+      "symbol": "QGMD",
+      "fiscal_year": 2021,
+      "fiscal_period": "FY",
+      "currency": "QAR"
+    },
+    "audit": {
+      "opinion_type": "qualified",
+      "material_uncertainty_going_concern_present": true
+    },
+    "red_flags_must_contain": [
+      "xcut_going_concern_structural_2y",
+      "xcut_qualified_opinion_basis_surfaced",
+      "issuer_fact_qgmd"
+    ],
+    "red_flags_severity_breakdown": {"warn_min": 1}
+  }
+}

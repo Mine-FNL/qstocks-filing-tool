@@ -3102,9 +3102,23 @@ def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
     try:
         code = run_filing(ra)
         if state is not None:
-            if code == 0:
+            # State semantics:
+            #   exit 0  → uploaded successfully → mark_done + mark_uploaded
+            #   exit 2  → saved but non-conforming (validate_filing complaints).
+            #             The filing IS saved; on a future --resume, re-running
+            #             will rewrite it. State calls it 'done' because we
+            #             did the work; the warnings live in the JSON.
+            #   exit 6  → gate blocked the save (skeleton / math-identity).
+            #             A `*_filing.error.json` sidecar was written; the row
+            #             is mark_error so a resume knows to skip / re-investigate.
+            #   anything else → mark_error with the exit code.
+            if code == 6:
+                state.mark_error(manifest_id, i, error="gate_blocked_save")
+            elif code == 2:
                 state.mark_done(manifest_id, i, filing_id=ra.symbol)
-            elif code != 6:
+            elif code == 0:
+                state.mark_done(manifest_id, i, filing_id=ra.symbol)
+            else:
                 state.mark_error(manifest_id, i, error=f"exit {code}")
         return code
     except SystemExit as e:

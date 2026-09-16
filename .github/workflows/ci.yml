@@ -62,14 +62,8 @@ jobs:
             if curl -fsS "http://127.0.0.1:18765/healthz" >/dev/null; then break; fi
             sleep 1
           done
-          # Assert via python rather than grep — Flask's jsonify emits compact
-          # JSON ("status":"ok" with no space), which would break a literal
-          # "status": "ok" match.
-          python - <<'PY' || (echo "healthz didn't return ok"; kill $APP_PID; exit 1)
-import json, urllib.request, sys
-body = urllib.request.urlopen("http://127.0.0.1:18765/healthz", timeout=5).read().decode()
-j = json.loads(body)
-assert j.get("status") == "ok", f"unexpected body: {body!r}"
-print("healthz ok:", j)
-PY
+          # Assert via Python helper script (rather than a grep) so the
+          # JSON parsing is robust to whatever spacing Flask's jsonify picks.
+          python scripts/ci_healthz_assert.py http://127.0.0.1:18765/healthz \
+            || (echo "healthz didn't return ok"; kill $APP_PID; exit 1)
           kill $APP_PID || true

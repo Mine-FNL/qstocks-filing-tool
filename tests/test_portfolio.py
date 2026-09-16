@@ -42,5 +42,5 @@ def test_roll_up_row_fields():
 def test_render_html_dashboard():
     h = pf.render_html(_board())
     assert h.startswith("<!doctype html>")
-    for s in ["QSE watchlist", "QNBK", "DHBK", "ROE", "Flags", "Upside"]:
+    for s in ["Watchlist", "QNBK", "DHBK", "ROE", "Flags", "Upside"]:
         assert s in h

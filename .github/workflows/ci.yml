@@ -5,13 +5,17 @@ on:
     branches: ["**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
@@ -21,13 +25,43 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install dependencies
+      - name: Install package + dev extras
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt openpyxl pytest
+          # Installed as an editable package so the test suite imports the
+          # same way production code does (one canonical entry point per
+          # CLI, package-data for profiles/<jurisdiction>/data/*.json).
+          pip install -e ".[dev]"
 
       - name: Offline self-test (no third-party deps required)
-        run: python qscreen_ingest.py --self-test
+        run: python -m qscreen_ingest --self-test
 
       - name: Run test suite
-        run: pytest -q
+        run: pytest -q --maxfail=1 --durations=10
+
+  app-smoke:
+    name: Flask app smoke
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Boot the Flask app on a random port
+        env:
+          QSCREEN_APP_HOST: 127.0.0.1
+          QSCREEN_APP_PORT: "18765"
+        run: |
+          python -m qscreen_app &
+          APP_PID=$!
+          for i in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:18765/healthz" >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS "http://127.0.0.1:18765/healthz" | tee /tmp/health.json
+          grep -q '"status": "ok"' /tmp/health.json || (echo "healthz didn't return ok"; exit 1)
+          kill $APP_PID || true

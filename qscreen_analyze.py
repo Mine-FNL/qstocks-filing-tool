@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""qscreen_analyze.py — derived analysis over extracted QSE filings.
+"""qscreen_analyze.py — derived analysis over extracted filings.
 
 Phase 2 ships the segment analyzer: it turns a filing's typed `segments[]` into a
 per-dimension breakdown with year-on-year growth, share-of-total, FX exposure
-flags, and event annotations from the Qatar profile (e.g. "Turkey added via the
-Finansbank acquisition, 2016"). Numbers are computed here; nothing is invented.
+flags, and event annotations from the loaded profile (e.g. "Turkey added via
+the Finansbank acquisition, 2016"). Numbers are computed here; nothing is
+invented.
 
     from qscreen_analyze import analyze_segments
-    out = analyze_segments(filing, profile)   # profile from qatar.profile_for_year
+    out = analyze_segments(filing, profile)   # profile from profiles.profile_for_year
 
 Later phases add compute_ratios / compute_trends / red_flags / DCF.
+
+Jurisdiction-agnostic: when the filing carries no profile (e.g. an unrated
+issuer or non-bundled jurisdiction), the segment analyzer still works — it
+just doesn't enrich with jurisdiction-specific events.
 """
 from __future__ import annotations
 
@@ -369,17 +374,24 @@ def _narrative_args(args=None):
 
 
 def analyst_narrative(analysis: dict, args=None) -> str:
-    """Optional LLM pass: writes a Qatar-specialist commentary over the
-    PRE-COMPUTED figures (the model narrates; it must not invent numbers)."""
+    """Optional LLM pass: writes a jurisdiction-aware analyst commentary over
+    the PRE-COMPUTED figures (the model narrates; it must not invent numbers).
+
+    The jurisdiction label is pulled from the loaded profile when present so
+    one-shot LLM prompts work uniformly across QSE, UAE, KSA, …, or just a bare
+    ticker with no profile bundled yet.
+    """
     import qscreen_ingest as engine
+    profile_ctx = analysis.get("profile_context") or {}
+    jurisdiction = profile_ctx.get("jurisdiction") or "the filing's jurisdiction"
     brief = {k: analysis.get(k) for k in ("symbol", "archetype", "reporting_currency",
                                           "ratios", "trends", "red_flags")}
-    system = ("You are a senior equity analyst specialising in Qatar Stock Exchange (QSE) "
+    system = (f"You are a senior equity analyst specialising in {jurisdiction} "
               "companies. You are given PRE-COMPUTED figures — never invent or recompute "
               "numbers; cite only what is provided. Write a concise plain-English analysis "
               "(5-8 sentences): the multi-year trend, profitability and key ratios versus the "
-              "norm for this kind of QSE company, any red flags, and the segment / FX dynamics. "
-              "Reference the company's known events (acquisitions, Basel III, FX) where relevant.")
+              "norm for this kind of company, any red flags, and the segment / FX dynamics. "
+              "Reference the company's known events (acquisitions, capital regimes, FX) where relevant.")
     user = ("Company timeline & expectations:\n"
             + json.dumps(analysis.get("profile_context") or {}, ensure_ascii=False)[:2000]
             + "\n\nComputed figures:\n" + json.dumps(brief, ensure_ascii=False)[:6000])
@@ -505,7 +517,7 @@ def _resolve_profiles(year_by_symbol: dict) -> dict:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Analyse a QSE stock's filings (ratios, trends, red flags)")
+    p = argparse.ArgumentParser(description="Analyse a stock's filings (ratios, trends, red flags)")
     p.add_argument("--symbol", help="ticker (the target for --compare; required otherwise)")
     p.add_argument("filings", nargs="+", help="SYMBOL_YEAR_PERIOD_filing.json files")
     p.add_argument("--compare", action="store_true",

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """qscreen_periods.py — period-aware quarterly / trailing-twelve-month (TTM) roll-ups.
 
-QSE interim filings report *flow* items (income statement, cash flow) as YTD
+Most IFRS-style interim filings report *flow* items (income statement, cash flow) as YTD
 cumulative — Q1 = 3 months, H1/Q2 = 6, 9M/Q3 = 9, FY/Q4 = 12 — while balance-sheet
 items are point-in-time. Given a set of filings for one company, this computes:
 

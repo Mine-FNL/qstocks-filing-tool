@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qscreen_report.py — one-page analyst report (HTML + Markdown) for a QSE stock.
+"""qscreen_report.py — one-page analyst report (HTML + Markdown) for a stock.
 
 Synthesises everything the tool computes — company context & event timeline,
 multi-year figures, sector ratios, trends, red flags, the segment breakdown (with
@@ -306,7 +306,7 @@ def build_report(symbol: str, filings: list[dict], profile: dict | None = None, 
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Generate a one-page analyst report for a QSE stock")
+    p = argparse.ArgumentParser(description="Generate a one-page analyst report for a stock")
     p.add_argument("--symbol", required=True)
     p.add_argument("filings", nargs="+", help="SYMBOL_YEAR_PERIOD_filing.json files")
     p.add_argument("--price", type=float)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""qscreen_dcf.py — valuation / forecast simulator for QSE stocks.
+"""qscreen_dcf.py — valuation / forecast simulator for stocks.
 
 Picks the right model for the company type (a bank's "free cash flow" is
 ill-defined, so banks/insurers use an excess-return model, not FCF DCF):
@@ -210,7 +210,7 @@ def save_valuation(obj: dict, path: str) -> str:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="DCF / valuation simulator for a QSE stock")
+    p = argparse.ArgumentParser(description="DCF / valuation simulator for a stock")
     p.add_argument("--symbol", required=True)
     p.add_argument("filings", nargs="+", help="SYMBOL_YEAR_PERIOD_filing.json files")
     p.add_argument("--discount-rate", type=float, default=0.10)

@@ -1,27 +1,36 @@
 #!/usr/bin/env python3
 """
-qscreen_ingest.py — ONE-FILE QSE filing ingestor for qscreen.app.
+qscreen_ingest.py — jurisdiction-agnostic financial filing ingestor.
 
 Self-contained: schema + extractor + uploader in a single file (no imports of
-sibling modules, no multi-file setup). Give it a PDF and it produces a
-qscreen-uploadable JSON and (unless --dry-run) POSTs it to the site.
+sibling modules, no multi-file setup). Give it a PDF and it produces an
+uploadable JSON and (unless --dry-run) POSTs it to the configured endpoint.
+
+Originally authored for the Qatar Stock Exchange (QSE), now generalised: any
+exchange / company with a profile in the ``profiles/`` package works out of the
+box (Qatar ships by default). The engine itself is jurisdiction-agnostic — no
+hardcoded currency, listing, or framework; everything is either supplied on
+the CLI or pulled from the profile.
 
 USAGE (the only command an operator/agent needs):
-    python3 qscreen_ingest.py <PDF> --symbol QIBK --sector islamic_bank --year 2024 --period FY
+    python3 qscreen_ingest.py <PDF> --symbol ABCD --sector industrial --year 2024 --period FY
 
-  sectors: conventional_bank | islamic_bank | industrial | insurance | other
-  periods: FY | Q1 | Q2 | Q3 | Q4 | H1 | 9M   (default FY)
+  --symbol    ticker (uses the active jurisdiction's profile when present)
+  --jurisdiction  id of the profile bundle (default: profiles.qatar if present)
+  --currency  reporting currency (overrides profile default; required when no profile)
+  --sector    conventional_bank | islamic_bank | industrial | insurance | other
+  --period    FY | Q1 | Q2 | Q3 | Q4 | H1 | 9M   (default FY)
 
 CONFIG (put in a file named `.env` next to this script, or real env vars):
     MINIMAX_API_KEY=...                 # LLM key for your provider; the tool
                                         # auto-detects minimax / openrouter /
                                         # kimi / openai / anthropic from whichever
                                         # *_API_KEY is set (see --list-providers)
-    INGEST_TOKEN=...                    # qscreen.app ingest token (needed to upload)
+    INGEST_TOKEN=...                    # upload token (needed to upload)
     QSCREEN_API_URL=https://qscreen.app # defaults to http://localhost:3004
 
   No key, fully offline?  Run a model on your laptop and force its provider:
-    python3 qscreen_ingest.py <PDF> --provider mlx --basic --symbol QIBK ... --dry-run
+    python3 qscreen_ingest.py <PDF> --provider mlx --basic --symbol ABCD ... --dry-run
   Local runtimes (ollama / mlx / lmstudio / llamacpp / jan / gpt4all) need NO key.
   --basic (auto-on for local) reads the numbers from the PDF's tables in code, so
   even a 270M Gemma works; --no-llm skips the model entirely.
@@ -41,6 +50,7 @@ import argparse
 import copy
 import hashlib
 import json
+import logging
 import os
 import re
 import sys
@@ -48,7 +58,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 # ── .env loader (no python-dotenv dependency) ────────────────────────────────
@@ -104,6 +114,26 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 
+# ── Logging ────────────────────────────────────────────────────────────────────
+# The CLI keeps its friendly stdout progress prints so an interactive operator
+# sees the same output they always have. Anything that an operator running this
+# headless in a container / cron would actually want in a log goes through the
+# "qscreen.ingest" logger at INFO/WARNING; configure it from LOG_LEVEL and a
+# handler in production (e.g. `LOG_LEVEL=DEBUG python3 qscreen_ingest.py …`).
+log = logging.getLogger("qscreen.ingest")
+if not log.handlers:                                  # idempotent across re-imports
+    _level = os.getenv("LOG_LEVEL", "WARNING").upper()
+    _h = logging.StreamHandler(stream=sys.stderr)
+    _h.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"))
+    log.addHandler(_h)
+    try:
+        log.setLevel(getattr(logging, _level, logging.WARNING))
+    except Exception:
+        log.setLevel(logging.WARNING)
+
+
 def set_dotenv_value(key: str, value: str, path: Path | None = None) -> Path:
     """Write `KEY=value` into the `.env` next to this script (update in place or
     create), apply it to os.environ immediately, and return the path.
@@ -154,12 +184,30 @@ def set_dotenv_value(key: str, value: str, path: Path | None = None) -> Path:
     os.environ[key] = value                # take effect without a restart
     return path
 
-# Qatar per-stock knowledge base (optional import — the engine still runs without
-# it; when present it makes extraction company- and year-aware).
+# Optional jurisdiction knowledge base. The engine works without it (the LLM
+# is told the company + year and figures things out by itself); when a
+# jurisdiction-specific profile is loaded the engine injects company + regime
+# context that materially helps extraction quality.
 try:
-    import qatar
-except Exception:  # pragma: no cover - defensive
-    qatar = None
+    import profiles
+except Exception:                            # pragma: no cover - defensive
+    profiles = None
+
+
+def _resolve_profile(symbol: str | None, year: int | None, jurisdiction: str | None):
+    """Look up a profile for ``symbol`` in the active (or given) jurisdiction.
+
+    Returns the resolved profile dict or None. Made a small adapter so the
+    legacy `qatar.profile_for_year(...)` import keeps working for external
+    callers without dragging the ``profiles`` package into their import dance.
+    """
+    if profiles is None or not symbol:
+        return None
+    try:
+        return profiles.profile_for_year(symbol, year, jurisdiction=jurisdiction)
+    except Exception as e:
+        log.warning("profile lookup failed for %r (%s): %s", symbol, jurisdiction, e)
+        return None
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -208,11 +256,16 @@ SEGMENT_DIMENSIONS = {"business_line", "geography", "legal_entity"}
 
 
 def empty_filing() -> dict:
+    """A blank filing template — currency is left NULL on purpose. It either
+    gets filled by the profile the engine loads, by ``--currency`` on the CLI,
+    or by the LLM in the extract step. Hardcoding a default like 'QAR' (or any
+    other single currency) here would silently lie about companies that don't
+    report in that currency."""
     return {
         "metadata": {
             "symbol": None, "company_name": None, "sector": None,
             "fiscal_year": None, "fiscal_period": None, "period_end": None,
-            "currency": "QAR", "unit_scale": 1, "reporting_framework": None,
+            "currency": None, "unit_scale": 1, "reporting_framework": None,
             "consolidated": None, "language": None, "source_file": None,
             "source_sha256": None, "extracted_at": None,
             "extractor": {"provider": None, "model": None},
@@ -690,7 +743,9 @@ def pdf_to_pages(pdf_path: str, ocr_mode: str = "auto") -> tuple[list[dict], str
 
 # Word-position table recovery for borderless statements ─────────────────────
 #
-# Most QSE financial statements are typeset with NO ruling lines, so pdfplumber's
+# Most financial statements (e.g. QSE ones, but also many IFRS reporters) are
+# typeset with NO ruling lines, so pdfplumber's word-clustering is what recovers
+# the row-vs-header structure. Keyword spotting (e.g. "Total") does the rest.
 # line-based page.extract_tables() finds nothing on exactly the pages that matter
 # (income statement, balance sheet, cash flows). The numbers are still there in
 # the text layer — aligned into columns by x-position. When the ruled path comes
@@ -855,9 +910,14 @@ def render_window(window: list[dict]) -> str:
 
 # ── Prompt ───────────────────────────────────────────────────────────────────
 
-def _qatar_context(pf: dict | None) -> str:
+def _profile_context(pf: dict | None) -> str:
     """Render a company-and-year specific context block from a resolved profile
-    (the output of qatar.profile_for_year). Empty string when no profile."""
+    (the output of ``profiles.profile_for_year``). Empty string when no profile.
+
+    The shape is jurisdiction-agnostic: every field that's printed comes from
+    the profile object so any bundle (Qatar, UAE, KSA, ...) renders the same way
+    without engine-side text changes.
+    """
     if not pf:
         return ""
     seg = pf.get("segments_expected") or {}
@@ -870,12 +930,14 @@ def _qatar_context(pf: dict | None) -> str:
     kpis = ", ".join(pf.get("watch_kpis") or []) or "—"
     quirks = "; ".join(pf.get("accounting_quirks") or []) or "—"
     yr = pf.get("as_of_year")
+    jurisdiction = pf.get("jurisdiction") or "the filing's jurisdiction"
+    header = f"{jurisdiction.upper()} ANALYST CONTEXT"
     return f"""
 
-QATAR ANALYST CONTEXT — pre-loaded knowledge about THIS specific company as of \
-fiscal year {yr}. Use it to know what to look for. If the filing differs from it \
-(a new acquisition, a disposal, a rename, or a regime change), capture what the \
-filing ACTUALLY shows and add a short note to extraction_quality.warnings.
+{header} — pre-loaded knowledge about THIS specific company as of fiscal year \
+{yr}. Use it to know what to look for. If the filing differs from it (a new \
+acquisition, a disposal, a rename, or a regime change), capture what the filing \
+ACTUALLY shows and add a short note to extraction_quality.warnings.
   Company (as of {yr}): {pf.get('name_as_of')} [{pf.get('ticker')}], \
 {pf.get('sub_sector')}; reports in {pf.get('reporting_currency')} under \
 {pf.get('framework_as_of')}.
@@ -887,11 +949,17 @@ filing ACTUALLY shows and add a short note to extraction_quality.warnings.
   Known accounting quirks: {quirks}"""
 
 
+# Back-compat: ``_qatar_context`` was the original name and is referenced by a
+# handful of older forks / snippets. New code should use ``_profile_context``.
+_qatar_context = _profile_context
+
+
 def _system_prompt(sector: str, windowed: bool, profile: dict | None = None) -> str:
     codes = ", ".join(sorted(KNOWN_ACCOUNT_CODES))
     statement_types = ", ".join(sorted(STATEMENT_TYPES))
     note_cats = ", ".join(sorted(NOTE_CATEGORIES))
     opinions = ", ".join(sorted(AUDIT_OPINION_TYPES))
+    jurisdiction_label = (profile or {}).get("jurisdiction") or "filing"
     scope = (
         "You are given PART of a filing (a page range). Extract every statement "
         "and every note that APPEARS in these pages. Arrays may be partial — only "
@@ -900,9 +968,9 @@ def _system_prompt(sector: str, windowed: bool, profile: dict | None = None) -> 
         "leave audit.opinion_type = \"unknown\"."
         if windowed else "Extract the COMPLETE filing in one object."
     )
-    return f"""You are a meticulous financial-filing extraction engine for Qatar Stock \
-Exchange (QSE) companies. You convert filing text into a single JSON object. \
-You never invent numbers and never drop content. {scope}
+    return f"""You are a meticulous financial-filing extraction engine. You convert \
+filing text into a single JSON object. You never invent numbers and never drop \
+content. {scope}
 
 SECTOR CONTEXT: this filing is a {sector}. Use sector-appropriate line items: \
 islamic_bank reports sukuk / profit-sharing / quasi-equity and has NO interest \
@@ -912,7 +980,7 @@ revenue / cost of sales / inventory. For "other" (real estate, utilities, \
 telecom, transport, holding companies, services), DO NOT force a COGS/inventory \
 structure — capture whatever revenue and cost lines the statement actually \
 prints (e.g. rental income, occupancy, ARPU, freight/charter revenue, share of \
-results of associates).{_qatar_context(profile)}
+results of associates).{_profile_context(profile)}
 
 OUTPUT CONTRACT — emit ONE JSON object with EXACTLY these top-level keys:
   metadata, audit, statements, segments, notes, extraction_quality
@@ -939,10 +1007,10 @@ This is the most important rule.
 the CURRENT-period number exactly as printed (do NOT rescale); put the multiplier \
 in metadata.unit_scale (1, 1000, or 1000000) from the "in thousands/millions" \
 header. Use negative values for amounts printed in brackets.
-   - COMPARATIVES: QSE statements print the prior period beside the current one. \
-Capture each prior figure in `comparatives` as [{{"period_label": "2022", \
-"value": 123}}] (newest prior first; same sign and scale as `value`). Omit or use \
-[] only when the row genuinely prints no comparative.
+   - COMPARATIVES: many filings (most obviously IFRS-style reports) print the \
+prior period beside the current one. Capture each prior figure in `comparatives` \
+as [{{"period_label": "2022", "value": 123}}] (newest prior first; same sign and \
+scale as `value`). Omit or use [] only when the row genuinely prints no comparative.
    - account_code MUST be one of these canonical codes, or null if no clean \
 match (when null, still keep label_verbatim): {codes}
    - KPI RATIOS: for any KPI_* ratio code (e.g. KPI_CAR, KPI_NPL, KPI_COST_INCOME, \
@@ -963,16 +1031,18 @@ geographic/country breakdowns (usually a "segment information" note), ALSO emit 
 them as typed `segments[]` rows — one per segment per dimension — putting each \
 segment's revenue / profit / assets in `metrics` and its prior-year figures in \
 `comparatives`. Set `currency` when a segment reports in a foreign currency. The \
-QATAR ANALYST CONTEXT lists the segments to expect for this company; capture what \
-the filing ACTUALLY shows. Keep the full note text in notes[] as well (lossless).
+{{JURISDICTION_LABEL}} ANALYST CONTEXT lists the segments to expect for this \
+company; capture what the filing ACTUALLY shows. Keep the full note text in \
+notes[] as well (lossless).
 5. HONESTY. If a value is illegible or absent, use null and add a string to \
 extraction_quality.warnings. Set extraction_quality.confidence in [0,1].
 
-Return ONLY the JSON object, no prose, no markdown fences."""
+Return ONLY the JSON object, no prose, no markdown fences.""".replace(
+        "{JURISDICTION_LABEL}", jurisdiction_label.upper())
 
 
 def build_messages(filing_text: str, args, windowed: bool, page_hint: str = "") -> list[dict]:
-    user = f"""Extract this QSE filing{(' segment ' + page_hint) if page_hint else ''}.
+    user = f"""Extract this filing{(' segment ' + page_hint) if page_hint else ''}.
 
 Known metadata (trust these over anything parsed):
   symbol: {args.symbol}
@@ -1354,12 +1424,30 @@ def _merge_statement_group(stype: str, group: list[dict]) -> dict:
 
 
 def merge_filings(parts: list[dict]) -> dict:
+    """Merge several partial extractions (one per page-window) into a single
+    filing. Each statement, audit block, segment, and note keeps the richest
+    copy across windows. Empty / unset values never overwrite a populated one.
+
+    The "default placeholder" values (None / "" / 1 for ``unit_scale``) are
+    always overwritable so a window that detects a real value can fill it in.
+    A previously-filled value is never replaced.
+
+    The earlier implementation also treated the literal string ``"QAR"`` as a
+    placeholder; that hardcoded a single currency into a generic engine and is
+    gone. ``empty_filing()`` no longer pre-fills a currency at all — it stays
+    None until a profile / CLI flag / window provides one.
+    """
     merged = empty_filing()
     for part in parts:
         for k, v in (part.get("metadata") or {}).items():
-            if v not in (None, "") and merged["metadata"].get(k) in (None, "", 1, "QAR"):
-                merged["metadata"][k] = v
-            elif v not in (None, "") and k not in merged["metadata"]:
+            if v in (None, ""):
+                continue
+            cur = merged["metadata"].get(k)
+            # Placeholder defaults are always replaceable so a detected value wins.
+            is_placeholder = cur in (None, "")
+            if k == "unit_scale" and cur == 1:        # the placeholder for unit_scale
+                is_placeholder = True
+            if is_placeholder or k not in merged["metadata"]:
                 merged["metadata"][k] = v
 
     best_audit = None
@@ -1438,21 +1526,82 @@ def merge_filings(parts: list[dict]) -> dict:
 
 # ── Upload ────────────────────────────────────────────────────────────────────
 
+def _validate_upload_url(base: str) -> str:
+    """Harden the configured upload endpoint before we ever send the bearer
+    token across the wire.
+
+    Rules (in order):
+      1. Must parse as an http(s) URL with an explicit scheme + host.
+      2. The scheme is recorded for the warning below; we do NOT downgrade
+         a configured https:// to http:// — that's the caller's call.
+      3. The path the tool POSTs to (``/api/v1/ingest/filing``) is appended
+         only here so the caller can pass the bare base.
+
+    Returns the base (with trailing slash stripped). Raises SystemExit on an
+    obviously malicious / misconfigured URL — we'd rather fail at startup
+    than leak the ingest token.
+    """
+    from urllib.parse import urlparse
+    p = urlparse(base)
+    if p.scheme not in ("http", "https"):
+        raise SystemExit(f"QSCREEN_API_URL must be http(s); got scheme={p.scheme!r}")
+    if not p.netloc or p.netloc.startswith(("/", "?")):
+        raise SystemExit(f"QSCREEN_API_URL is missing a host: {base!r}")
+    return base.rstrip("/")
+
+
 def upload_filing(filing: dict, args, analysis: dict | None = None) -> dict:
+    """POST the filing to the configured ingest endpoint.
+
+    - One bearer-token warning if you point at a non-localhost http:// URL.
+    - Exponential-backoff retries on transient errors (network, 5xx, 429).
+      Per-run tuning: ``args.upload_retries`` (default 3) and
+      ``args.upload_backoff`` (default 1.5 s, multiplied each attempt).
+    - Validates the URL up front so a typo doesn't 401 with a leaked token.
+    """
     import requests
-    base = args.api_url.rstrip("/")
-    if base.startswith("http://") and not any(h in base for h in ("localhost", "127.0.0.1")):
-        print("⚠️  uploading over plaintext HTTP to a non-local host — the ingest token "
-              "would be exposed in transit; use an https:// QSCREEN_API_URL.")
+    base = _validate_upload_url(args.api_url)
+    scheme = base.split("://", 1)[0]
+    if scheme == "http" and not any(h in base for h in ("localhost", "127.0.0.1")):
+        log.warning("uploading over plaintext HTTP to a non-local host — "
+                    "the ingest token would be exposed in transit; "
+                    "use an https:// QSCREEN_API_URL.")
     url = f"{base}/api/v1/ingest/filing"
-    headers = {"Authorization": f"Bearer {args.token}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {args.token}",
+               "Content-Type": "application/json",
+               "User-Agent": f"qscreen-filing-tool/{__version__}"}
     # Additive: when asked, fold the derived analysis in as a sibling key. The
     # filing contract itself is unchanged, so a backend that ignores unknown keys
     # is unaffected.
     payload = filing if analysis is None else {**filing, "analysis": analysis}
-    resp = requests.post(url, headers=headers, json=payload, timeout=180)
-    resp.raise_for_status()
-    return resp.json()
+    retries = max(0, int(getattr(args, "upload_retries", 3) or 0))
+    backoff = max(0.0, float(getattr(args, "upload_backoff", 1.5) or 0.0))
+    timeout = max(1, int(getattr(args, "upload_timeout", 180) or 180))
+
+    last_err = None
+    for attempt in range(retries + 1):
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+        except requests.exceptions.RequestException as e:
+            last_err = e
+            log.warning("upload: network error on attempt %d/%d: %s",
+                        attempt + 1, retries + 1, e)
+        else:
+            sc = getattr(resp, "status_code", None)
+            if sc is not None and sc in (429, 500, 502, 503, 504):
+                last_err = RuntimeError(f"HTTP {sc}: {getattr(resp, 'text', '')[:200]}")
+                log.warning("upload: transient HTTP %d on attempt %d/%d",
+                            sc, attempt + 1, retries + 1)
+            else:
+                if hasattr(resp, "raise_for_status"):
+                    resp.raise_for_status()
+                return resp.json()
+        if attempt < retries:
+            wait = backoff * (2 ** attempt)
+            log.info("upload: backing off %.1fs before retry", wait)
+            time.sleep(wait)
+    # All retries exhausted.
+    raise SystemExit(f"upload failed after {retries + 1} attempt(s): {last_err}")
 
 
 def build_analysis_artifacts(filing: dict, args) -> dict:
@@ -1493,7 +1642,8 @@ def build_analysis_artifacts(filing: dict, args) -> dict:
 
 GUIDED_DEFAULT_PAGES = 3      # small windows keep each ask inside a tiny context
 
-# Standard IFRS / QSE statement headings → our statement type. Order matters:
+# Standard IFRS / IFRS-as-adopted-elsewhere statement headings → our statement
+# type. Order matters:
 # the most specific heading is tried first (a combined "profit or loss and other
 # comprehensive income" page is classified as the income statement).
 STATEMENT_TITLE_PATTERNS: list[tuple[str, str]] = [
@@ -1721,14 +1871,30 @@ def _heading_tail_ok(rest: str) -> bool:
     return rest.startswith(("for ", "as ", "and ", "to ", "of "))
 
 
-# Require a unit word to sit in an amount/currency context — so a stray
-# "serving millions of customers" in the narrative can't be read as the scale.
-_CCY = r"(?:qatari\s+)?(?:riyals?|qar|qr|usd|dollars?)"
+# Unit-scale detection ("in thousands" / "in millions" / 000'000). Generic
+# over a currency token — the footnote "in AED thousands" / "in SAR millions"
+# is just as common as "in thousands" — but the signal must come from one of
+# three unambiguous sources:
+#   1. the word "in" (or "of") <currency?> <thousands|millions>
+#   2. "<thousands|millions> of <currency>"           (Qatari Riyals, USD, …)
+#   3. the 000'000 / 000 / '000 shapes a printer leaves near the line total
+# The narrative word "millions of customers" must NOT false-fire (a test pins
+# this in tests/test_audit_fixes2.py::test_unit_scale_ignores_narrative_millions).
+_CCY_TOK = r"(?:[A-Z]{2,5}|riyals?|dirhams?|dinars?|pounds?|dollars?" \
+           r"|euros?|francs?|yen|won|riyal|rial)s?"
 _UNIT_SCALE_PATTERNS = [
-    (1000000, re.compile(rf"in\s+millions|millions\s+of\s+{_CCY}|"
-                         r"\bQAR?\s*'?\s*000\s*'?\s*000\b", re.IGNORECASE)),
-    (1000,    re.compile(rf"in\s+thousands|thousands\s+of\s+{_CCY}|"
-                         r"\bQAR?\s*'?\s*000\b|\b'000\b", re.IGNORECASE)),
+    (1000000, re.compile(
+        rf"\bin\s+(?:{_CCY_TOK}\s+)?millions?\b"
+        rf"|\bmillions?\s+of\s+{_CCY_TOK}\b"
+        rf"|\b{_CCY_TOK}\b\s*'?\s*000\s*'?\s*000\b"
+        rf"|\b'000\s*'?\s*000\b",
+        re.IGNORECASE)),
+    (1000,    re.compile(
+        rf"\bin\s+(?:{_CCY_TOK}\s+)?thousands?\b"
+        rf"|\bthousands?\s+of\s+{_CCY_TOK}\b"
+        rf"|\b{_CCY_TOK}\b\s*'?\s*000\b"
+        rf"|\b'000\b",
+        re.IGNORECASE)),
 ]
 
 
@@ -1743,8 +1909,8 @@ def detect_unit_scale(text: str) -> int | None:
 
 # ── Fiscal year / period / period-end detection ──────────────────────────────
 # So the web app can read these off the filing instead of asking the user to
-# type them. Heuristic and QSE-oriented (cover page + statement headers); like
-# detect_unit_scale it scans only a head window and returns None when unsure.
+# type them. Heuristic and IFRS-report-oriented (cover page + statement headers);
+# like detect_unit_scale it scans only a head window and returns None when unsure.
 _MONTHS = {
     "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
     "july": 7, "august": 8, "september": 9, "october": 10, "november": 11,
@@ -2581,12 +2747,18 @@ def run_filing(args) -> int:
     args.guided = resolve_guided(args, cfg)   # small/local models → Basic by default
     if no_llm:
         args.guided = True              # the deterministic-first orchestrator lives in Basic
-    if qatar is not None and getattr(args, "symbol", None):
-        args._profile = qatar.profile_for_year(args.symbol, getattr(args, "year", None))
-        if args._profile:
-            print(f"🇶🇦 Qatar profile: {args._profile.get('name_as_of')} "
-                  f"[{args._profile.get('archetype')}] — "
-                  f"{len(args._profile.get('active_events') or [])} regime/event(s) in force by {args.year}")
+    args._profile = _resolve_profile(getattr(args, "symbol", None),
+                                     getattr(args, "year", None),
+                                     getattr(args, "jurisdiction", None))
+    if args._profile:
+        jurisdiction = args._profile.get("jurisdiction", "n/a")
+        arch = args._profile.get("archetype", "n/a")
+        n_ev = len(args._profile.get("active_events") or [])
+        log.info("profile loaded: %s jurisdiction=%s archetype=%s events_in_force=%d",
+                 args._profile.get("ticker"), jurisdiction, arch, n_ev)
+        if not getattr(args, "quiet", False):
+            print(f"📚 Profile: {args._profile.get('name_as_of')} [{arch}] — "
+                  f"jurisdiction={jurisdiction}, {n_ev} regime/event(s) in force by {args.year}")
     mode = ("basic — deterministic, no model" if no_llm
             else "basic (deterministic-first)" if args.guided else "pro (single big prompt)")
     print(f"📄 Reading {Path(args.pdf).name} …  (provider: {cfg['name']}, model: {cfg['model']}, "
@@ -2599,13 +2771,27 @@ def run_filing(args) -> int:
     print(f"   {len(pages)} pages, {total_chars:,} chars (text + recovered tables), sha256={sha[:12]}…")
 
     filing = extract_filing(pages, args)
-    filing.setdefault("metadata", {}).update({
+    meta_overlay = {
         "symbol": args.symbol.upper(), "sector": args.sector,
         "fiscal_year": args.year, "fiscal_period": args.period,
         "source_file": Path(args.pdf).name, "source_sha256": sha,
         "extracted_at": datetime.now(timezone.utc).isoformat(),
         "extractor": {"provider": cfg["name"], "model": cfg["model"]},
-    })
+    }
+    # CLI overlays only fill empty fields — never overwrite a value the LLM
+    # recovered from the filing. The currency is special: it's deliberately left
+    # blank in empty_filing() so a profile or --currency value wins without
+    # silently defaulting to one currency.
+    profile = getattr(args, "_profile", None) or {}
+    overlay_defaults = {
+        "currency": args.currency or profile.get("reporting_currency"),
+        "reporting_framework": args.framework or profile.get("framework_as_of")
+                                or (profile.get("framework_timeline") or [{}])[0].get("framework"),
+    }
+    for k, v in overlay_defaults.items():
+        if v:
+            meta_overlay[k] = v
+    filing.setdefault("metadata", {}).update(meta_overlay)
 
     print(f"📊 Extracted: {len(filing.get('statements', []))} statements, "
           f"{len(filing.get('notes', []))} notes, audit={filing.get('audit', {}).get('opinion_type')}")
@@ -2684,11 +2870,25 @@ def run_batch(args) -> int:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="One-file QSE filing ingestor for qscreen.app")
+    p = argparse.ArgumentParser(
+        description="Jurisdiction-agnostic PDF → lossless filing JSON ingestor. "
+                    "Originally authored for QSE; now accepts any exchange whose "
+                    "profile bundle ships in profiles/<jurisdiction>/ "
+                    "(qatar is the default). See --list-providers for LLM details.")
     p.add_argument("--version", action="version", version=f"qscreen-filing-tool {__version__}")
     p.add_argument("pdf", nargs="?", help="Path to the filing PDF")
-    p.add_argument("--symbol")
-    p.add_argument("--sector", choices=SECTORS)
+    p.add_argument("--symbol", help="Issuer ticker (drives profile lookup)")
+    p.add_argument("--jurisdiction", default=os.getenv("QSCREEN_JURISDICTION"),
+                   help="Profile bundle id (default: profiles.qatar when available, "
+                        "else first registered jurisdiction).")
+    p.add_argument("--currency", default=os.getenv("QSCREEN_CURRENCY"),
+                   help="Reporting currency (defaults to the profile's value when "
+                        "present, else the LLM fills it in). Use ISO 4217 code (QAR, "
+                        "AED, USD, ...).")
+    p.add_argument("--framework", default=os.getenv("QSCREEN_FRAMEWORK"),
+                   help="Reporting framework label (e.g. IFRS / AAOIFI / IFRS as "
+                        "adopted by QCB (Islamic)). Default: profile value, else null.")
+    p.add_argument("--sector", choices=SECTORS, help="Extraction archetype")
     p.add_argument("--year", type=int)
     p.add_argument("--period", choices=["FY", "Q1", "Q2", "Q3", "Q4", "H1", "9M"], default="FY")
     p.add_argument("--provider", choices=PROVIDER_CHOICES, default=None,
@@ -2738,9 +2938,23 @@ def main() -> int:
     p.add_argument("--llm-key", default=None,
                    help="API key (else read from the provider's env var, e.g. MINIMAX_API_KEY)")
     p.add_argument("--api-url", default=os.getenv("QSCREEN_API_URL", "http://localhost:3004"))
+    p.add_argument("--upload-retries", type=int, default=int(os.getenv("QSCREEN_UPLOAD_RETRIES", "3")),
+                   help="Max retries on transient upload errors (default 3; 0 disables).")
+    p.add_argument("--upload-backoff", type=float,
+                   default=float(os.getenv("QSCREEN_UPLOAD_BACKOFF", "1.5")),
+                   help="Initial back-off seconds between upload retries (doubles each try).")
+    p.add_argument("--upload-timeout", type=int,
+                   default=int(os.getenv("QSCREEN_UPLOAD_TIMEOUT", "180")),
+                   help="Per-attempt upload timeout in seconds.")
     p.add_argument("--token", default=os.getenv("INGEST_TOKEN"))
     p.add_argument("--dry-run", action="store_true", help="Extract + save, but do not upload")
     p.add_argument("--self-test", action="store_true", help="Validate contract/normalize/merge offline and exit")
+    p.add_argument("--quiet", action="store_true",
+                   help="Suppress the friendly progress prints (only the structured "
+                        "logging output is written — useful in containers / CI).")
+    p.add_argument("--debug", action="store_true",
+                   help="Show Python tracebacks on errors (default: print a clean "
+                        "diagnostic and exit non-zero).")
     args = p.parse_args()
 
     if args.list_providers:
@@ -2750,13 +2964,33 @@ def main() -> int:
     if args.self_test:
         return run_self_test()
 
-    if args.manifest:
-        return run_batch(args)
+    return _run_with_debug(args)
 
-    missing = [n for n in ("pdf", "symbol", "sector", "year") if not getattr(args, n)]
-    if missing:
-        p.error(f"missing required argument(s): {', '.join('--' + m if m != 'pdf' else 'pdf' for m in missing)}")
-    return run_filing(args)
+
+def _run_with_debug(args) -> int:
+    """Top-level error wrapper. By default any unhandled exception becomes a
+    clean one-line diagnostic and a non-zero exit — safe for containers / CI.
+    ``--debug`` reverts to a Python traceback for the developer case."""
+    try:
+        if args.manifest:
+            return run_batch(args)
+        missing = [n for n in ("pdf", "symbol", "sector", "year") if not getattr(args, n)]
+        if missing:
+            sys.stderr.write(
+                f"qscreen_ingest: missing required argument(s): {', '.join(missing)}\n")
+            return 2
+        return run_filing(args)
+    except SystemExit:
+        raise                                 # argparse / upload-fail re-raise
+    except KeyboardInterrupt:
+        sys.stderr.write("\nqscreen_ingest: interrupted\n")
+        return 130
+    except Exception as e:
+        if getattr(args, "debug", False):
+            raise
+        sys.stderr.write(f"qscreen_ingest: {type(e).__name__}: {e}\n")
+        log.exception("unhandled exception in CLI")
+        return 1
 
 
 if __name__ == "__main__":

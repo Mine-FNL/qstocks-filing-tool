@@ -1,0 +1,49 @@
+{
+  "ticker": "MEZA",
+  "jurisdiction": "Qatar",
+  "company_name": "MEEZA",
+  "names": [
+    {
+      "name": "MEEZA",
+      "from": null,
+      "to": null
+    }
+  ],
+  "sub_sector": "IT Services",
+  "archetype": "other",
+  "fiscal_year_end": "12-31",
+  "reporting_currency": "QAR",
+  "framework_timeline": [
+    {
+      "framework": "IFRS",
+      "from": null
+    }
+  ],
+  "watch_kpis": [
+    "KPI_ROE",
+    "KPI_ROA"
+  ],
+  "segments_expected": {
+    "by_geography": [
+      "Qatar"
+    ],
+    "by_business": [
+      "Managed IT services",
+      "Data centres",
+      "Cloud & cybersecurity"
+    ]
+  },
+  "subsidiaries": [],
+  "events": [
+    {
+      "year": 2023,
+      "type": "ipo",
+      "title": "IPO / QSE listing",
+      "effect": "MEEZA listed on the Qatar Stock Exchange in 2023."
+    }
+  ],
+  "peers": [
+    "TQES"
+  ],
+  "accounting_quirks": []
+}

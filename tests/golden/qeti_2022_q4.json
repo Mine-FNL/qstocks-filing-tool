@@ -1,0 +1,21 @@
+{
+  "_case": "qeti_2022_q4",
+  "ticker": "QETF",
+  "fiscal_year": 2022,
+  "fiscal_period": "Q4",
+  "sector": "other",
+  "_note": "Known-tricky: Passive index ETF — NAV per unit is the fair value; P/B = 1.0x by construction.",
+  "expected": {
+    "metadata": {
+      "symbol": "QETF",
+      "fiscal_year": 2022,
+      "fiscal_period": "Q4",
+      "currency": "QAR"
+    },
+    "statements": {
+      "balance_sheet_code": "BS_TOTAL_ASSETS",
+      "total_lines_max": 25
+    },
+    "red_flags_must_contain": ["issuer_fact_qeti"]
+  }
+}

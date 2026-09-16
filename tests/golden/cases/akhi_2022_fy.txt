@@ -1,0 +1,68 @@
+===== PAGE 1 =====
+Independent Auditor's Report
+
+To the Shareholders of Al Khaleej Takaful Islamic Insurance Company Q.P.S.C.
+
+In our opinion, the accompanying financial statements present fairly, in all
+material respects, the financial position of the Company as at 31 December 2022,
+and its financial performance, in accordance with IFRS as adopted by QCB
+(Islamic).
+
+Note: These financial statements comprise two separate income statements — the
+Policyholders' Income Statement and the Shareholders' Income Statement — in
+accordance with Takaful industry practice. Wakala and Tabarru' transactions are
+recorded through the Policyholders' Fund with Participants' surplus distributions
+to the Shareholders' Fund recognised as Wakala fees under Qard Hassan framework.
+
+KPMG
+
+Statement of Financial Position as at 31 December 2022
+
+[All amounts in thousands of Qatari Riyals]
+
+[TABLES on page 1]
+-- table 1 --
+Total assets | 1200 | 1100
+Total liabilities | 750 | 720
+Total equity | 450 | 380
+Retakaful assets | 80 | 75
+Wakala deposits | 60 | 50
+Qard Hassan receivables | 25 | 20
+Shareholders' equity | 280 | 250
+Policyholders' equity | 170 | 130
+
+===== PAGE 2 =====
+Policyholders' Income Statement for the year ended 31 December 2022
+
+[TABLES on page 2]
+-- table 1 --
+Gross contributions | 620 | 580
+Retakaful ceded | 60 | 55
+Net contributions | 560 | 525
+Net investment income | 80 | 75
+Total income | 640 | 600
+Net claims and benefits | 340 | 320
+Net surplus distributed to Shareholders | 80 | 60
+Policyholders' surplus carried forward | 220 | 220
+
+===== PAGE 3 =====
+Shareholders' Income Statement for the year ended 31 December 2022
+
+[TABLES on page 3]
+-- table 1 --
+Wakala fees | 180 | 150
+Net commission income | 40 | 35
+Net investment income | 30 | 25
+Total income | 250 | 210
+General and administrative expenses | 85 | 70
+Net profit for the year | 165 | 140
+
+===== PAGE 4 =====
+Statement of Cash Flows for the year ended 31 December 2022
+
+[TABLES on page 4]
+-- table 1 --
+Net cash from operating activities | 180 | 150
+Net cash used in investing activities | -70 | -50
+Net cash from financing activities | 20 | 10
+Net increase in cash and cash equivalents | 130 | 110

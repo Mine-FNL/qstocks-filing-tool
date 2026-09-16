@@ -1,0 +1,24 @@
+{
+  "_case": "akhi_2022_fy",
+  "ticker": "AKHI",
+  "fiscal_year": 2022,
+  "fiscal_period": "FY",
+  "sector": "insurance",
+  "_note": "Known-tricky: Takaful dual-IS schema. Portfolio misclassifies as islamic_bank.",
+  "expected": {
+    "metadata": {
+      "symbol": "AKHI",
+      "fiscal_year": 2022,
+      "fiscal_period": "FY",
+      "sector": "insurance",
+      "currency": "QAR"
+    },
+    "statements": {
+      "income_statement_count": 2,
+      "income_statement_count_acceptable_max": 2,
+      "xcut_dual_income_statement_takaful_flag_will_fire": true,
+      "audit_keywords_in_text": ["policyholders", "wakala", "tabarru"]
+    },
+    "red_flags_must_contain": ["issuer_fact_akhi"]
+  }
+}

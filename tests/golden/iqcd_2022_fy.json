@@ -1,0 +1,28 @@
+{
+  "_case": "iqcd_2022_fy",
+  "ticker": "IQCD",
+  "fiscal_year": 2022,
+  "fiscal_period": "FY",
+  "sector": "industrial",
+  "expected": {
+    "metadata": {
+      "symbol": "IQCD",
+      "fiscal_year": 2022,
+      "fiscal_period": "FY",
+      "sector": "industrial",
+      "currency": "QAR",
+      "unit_scale": 1000,
+      "reporting_framework": "IFRS"
+    },
+    "audit": {"opinion_type": "unqualified"},
+    "statements": {
+      "balance_sheet_code": "BS_TOTAL_ASSETS",
+      "balance_sheet_value": 5800,
+      "income_statement_code": "IS_REVENUE",
+      "income_statement_value": 2400,
+      "has_is_cost_of_sales": true,
+      "has_is_gross_profit": true
+    },
+    "red_flags_expect": []
+  }
+}

@@ -1,0 +1,51 @@
+===== PAGE 1 =====
+Independent Auditor's Report
+
+To the Shareholders of Vodafone Qatar Q.S.S.C.
+
+In our opinion, the accompanying financial statements present fairly the
+financial position of the Company as at 31 December 2013, in accordance with
+International Financial Reporting Standards (IFRS).
+
+The financial period covers 9 months from 1 April 2013 to 31 December 2013,
+following the change in the Company's financial year-end from 31 March to
+31 December.
+
+KPMG
+
+Statement of Financial Position as at 31 December 2013
+
+[TABLES on page 1]
+-- table 1 --
+Total assets | 2800 | 3100
+Total liabilities | 600 | 700
+Total equity | 2200 | 2400
+Property, plant and equipment | 1700 | 1900
+Trade receivables | 300 | 320
+Cash and bank balances | 450 | 500
+Trade payables | 280 | 290
+Revenue share payable to main operator | 150 | 180
+
+===== PAGE 2 =====
+Income Statement for the period from 1 April 2013 to 31 December 2013
+
+[TABLES on page 2]
+-- table 1 --
+Revenue | 1200 | 2800
+Operating expenses | 650 | 1400
+Operating profit | 550 | 1400
+Finance costs | 15 | 40
+Profit before tax | 535 | 1360
+Income tax expense | 55 | 140
+Profit for the period | 480 | 1220
+
+===== PAGE 3 =====
+Statement of Cash Flows for the period from 1 April 2013 to 31 December 2013
+
+[TABLES on page 3]
+-- table 1 --
+Net cash from operating activities | 900 | 1850
+Net cash used in investing activities | -300 | -650
+Net increase in cash and cash equivalents | 600 | 1200
+Cash at 1 April 2013 | 150 | 430
+Cash at 31 December 2013 | 750 | 1630

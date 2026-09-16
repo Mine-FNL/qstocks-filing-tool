@@ -1,0 +1,35 @@
+{
+  "_case": "qnbk_2023_fy",
+  "ticker": "QNBK",
+  "fiscal_year": 2023,
+  "fiscal_period": "FY",
+  "sector": "conventional_bank",
+  "expected": {
+    "metadata": {
+      "symbol": "QNBK",
+      "fiscal_year": 2023,
+      "fiscal_period": "FY",
+      "sector": "conventional_bank",
+      "currency": "QAR",
+      "unit_scale": 1000,
+      "reporting_framework": "IFRS",
+      "consolidated": true
+    },
+    "audit": {
+      "opinion_type": "unqualified",
+      "auditor_name": "KPMG",
+      "verbatim_text_contains": ["In our opinion", "fairly presented"]
+    },
+    "statements": {
+      "balance_sheet_code": "BS_TOTAL_ASSETS",
+      "balance_sheet_value": 1077000,
+      "balance_sheet_count": 1,
+      "income_statement_code": "IS_NET_INTEREST",
+      "income_statement_value": 26850,
+      "cash_flow_code": "CF_OPERATING_CASHFLOW",
+      "total_lines_min": 30,
+      "total_lines_max": 200
+    },
+    "red_flags_expect": ["issuer_fact_qnbk", "issuer_renamed_history"]
+  }
+}

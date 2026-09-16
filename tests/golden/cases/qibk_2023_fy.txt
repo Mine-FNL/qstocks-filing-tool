@@ -1,0 +1,52 @@
+===== PAGE 1 =====
+Independent Auditor's Report
+
+To the Shareholders of Qatar Islamic Bank (QIBK) Q.P.S.C.
+
+In our opinion, the accompanying consolidated financial statements present fairly
+the financial position of the Group as at 31 December 2023, and its financial
+performance, in accordance with IFRS as adopted by QCB (Islamic) and the Sharia
+rules and principles as determined by the Sharia Supervisory Board.
+
+Deloitte
+
+Consolidated Statement of Financial Position as at 31 December 2023
+
+[All amounts in thousands of Qatari Riyals]
+
+[TABLES on page 1]
+-- table 1 --
+Total assets | 245000 | 225000
+Total liabilities | 215000 | 200000
+Total equity | 30000 | 25000
+Due from Islamic banks | 25000 | 22000
+Islamic financing assets | 175000 | 160000
+Investment in Sukuk | 18000 | 16000
+Customers' current accounts | 155000 | 142000
+
+===== PAGE 2 =====
+Consolidated Income Statement for the year ended 31 December 2023
+
+[All amounts in thousands of Qatari Riyals]
+
+[TABLES on page 2]
+-- table 1 --
+Income from Islamic financing | 14500 | 13200
+Return on Islamic deposits | -4800 | -4300
+Net income from Islamic financing and investing | 9700 | 8900
+Fee and commission income | 1500 | 1300
+Total operating income | 11200 | 10200
+Operating expenses | 4200 | 3800
+Net profit for the year | 1100 | 1400
+
+===== PAGE 3 =====
+Consolidated Statement of Cash Flows for the year ended 31 December 2023
+
+[TABLES on page 3]
+-- table 1 --
+Net cash from operating activities | 4500 | 3800
+Net cash used in investing activities | -2200 | -1500
+Net cash from financing activities | 1000 | 500
+Net increase in cash and cash equivalents | 3300 | 2800
+Cash and cash equivalents at 1 January | 18000 | 15200
+Cash and cash equivalents at 31 December | 21300 | 18000

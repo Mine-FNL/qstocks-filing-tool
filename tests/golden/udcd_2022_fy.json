@@ -1,0 +1,25 @@
+{
+  "_case": "udcd_2022_fy",
+  "ticker": "UDCD",
+  "fiscal_year": 2022,
+  "fiscal_period": "FY",
+  "sector": "real_estate",
+  "_note": "Known-tricky: IP at 47% of TA — xcut_ip_concentration_40pct_ta rule must fire.",
+  "expected": {
+    "metadata": {
+      "symbol": "UDCD",
+      "fiscal_year": 2022,
+      "fiscal_period": "FY",
+      "currency": "QAR"
+    },
+    "statements": {
+      "balance_sheet_code": "BS_TOTAL_ASSETS",
+      "balance_sheet_value": 55000,
+      "balance_sheet_has_BS_INVESTMENT_PROPERTY": true
+    },
+    "red_flags_must_contain": [
+      "xcut_ip_concentration_40pct_ta",
+      "issuer_fact_udcd"
+    ]
+  }
+}

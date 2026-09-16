@@ -1,0 +1,18 @@
+{
+  "_case": "vfqs_2013_fy",
+  "ticker": "VFQS",
+  "fiscal_year": 2013,
+  "fiscal_period": "FY",
+  "sector": "telecom",
+  "_note": "Known-tricky: FYE changed Mar 31 → Dec 31 in 2013. _2013_FY is a 9-month transition.",
+  "expected": {
+    "metadata": {
+      "symbol": "VFQS",
+      "fiscal_year": 2013,
+      "fiscal_period": "FY",
+      "currency": "QAR"
+    },
+    "statements": {"total_lines_min": 20},
+    "red_flags_must_contain": ["issuer_fact_vfqs", "issuer_renamed_history"]
+  }
+}

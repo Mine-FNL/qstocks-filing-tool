@@ -1,0 +1,70 @@
+===== PAGE 1 =====
+Independent Auditor's Report
+
+To the Shareholders of Qatar German Medical Devices Q.P.S.C.
+
+Qualified Opinion
+
+In our opinion, except for the effects of the matter described in the Basis
+for Qualified Opinion section of our report, the accompanying financial
+statements present fairly the financial position of the Company as at
+31 December 2021.
+
+Basis for Qualified Opinion
+
+As at 31 December 2021, the Company's current liabilities exceeded its current
+assets by QAR 22 million. These conditions, along with the matters described
+in Note 2 to the financial statements, indicate the existence of a material
+uncertainty which may cast significant doubt about the Company's ability to
+continue as a going concern.
+
+Material Uncertainty Related to Going Concern
+
+The Company has suffered recurring losses from operations and is in breach of
+Article 295 of the Companies Law. The financial statements have been prepared
+on a going concern basis, the validity of which depends upon the successful
+outcome of the planned equity injection and debt restructuring.
+
+KPMG
+
+Statement of Financial Position as at 31 December 2021
+
+[TABLES on page 1]
+-- table 1 --
+Total assets | 1150 | 1200
+Total liabilities | 1000 | 950
+Total equity | 150 | 250
+Cash and bank balances | 45 | 110
+Trade receivables | 380 | 420
+Inventories | 220 | 250
+Property, plant and equipment | 400 | 410
+Trade payables | 340 | 320
+Short-term loans | 480 | 380
+Long-term debt | 180 | 250
+
+===== PAGE 2 =====
+Income Statement for the year ended 31 December 2021
+
+[TABLES on page 2]
+-- table 1 --
+Revenue | 1400 | 1500
+Cost of sales | 1000 | 950
+Gross profit | 400 | 550
+Operating expenses | 350 | 300
+Operating profit | 50 | 250
+Finance costs | 40 | 30
+Loss before tax | -10 | 220
+Income tax expense | 0 | 30
+Loss for the year | -10 | 190
+
+===== PAGE 3 =====
+Statement of Cash Flows for the year ended 31 December 2021
+
+[TABLES on page 3]
+-- table 1 --
+Net cash from operating activities | 80 | 150
+Net cash used in investing activities | -60 | -50
+Net cash from financing activities | -35 | -10
+Net decrease in cash and cash equivalents | -15 | 90
+Cash at 1 January | 60 | 20
+Cash at 31 December | 45 | 110

@@ -35,9 +35,18 @@ Run
     python qscreen_eval.py                         # all cases, prints report
     python qscreen_eval.py --json                  # JSON output
     python qscreen_eval.py --case qnbk_2023_fy     # one case
+    python qscreen_eval.py --timing --json         # include per-stage timings
 
 Exit code: 0 if all cases pass, 1 otherwise. Wire into CI as
 ``python qscreen_eval.py || exit 1``.
+
+Performance
+-----------
+``--timing`` turns on the engine's per-stage instrumentation (see
+``qscreen_perf``). Each case's ``stages`` dict is included in the JSON
+output as ``{stage_name: duration_ms}`` and the aggregate is also written
+to ``--out-aggregate`` (Prometheus text format) for the weekly
+``.github/workflows/perf.yml`` to consume.
 """
 from __future__ import annotations
 
@@ -55,6 +64,7 @@ from typing import Any
 
 import profiles
 import qscreen_ingest as e
+import qscreen_perf
 
 log = logging.getLogger("qstock.eval")
 
@@ -84,6 +94,11 @@ class CaseReport:
     checks: list[Check] = field(default_factory=list)
     duration_s: float = 0.0
     error: str | None = None
+    # Per-stage timings: {stage_name: duration_ms}. Populated only when the
+    # engine was invoked with ``PERF_TIMING=1`` (set by ``qscreen_eval.py
+    # --timing``); otherwise ``None``. Additive — older JSON consumers ignore
+    # the new field. The aggregate is computed by ``qscreen_perf.aggregate``.
+    stages: dict[str, float] | None = None
 
     @property
     def passed(self) -> bool:
@@ -117,13 +132,20 @@ def _split_pages(case_text: str) -> tuple[list[dict], str]:
     return pages, narrative
 
 
-def _extract_one(case: dict, case_text: str) -> dict:
+def _extract_one(case: dict, case_text: str,
+                  perf_record: qscreen_perf.PerfRecord | None = None) -> dict:
     """Run the deterministic Basic path on the synthetic case file.
 
     Splits the combined file on ``===== PAGE N =====`` markers, feeds the
     page dicts into the deterministic Basic extractor, applies the pre-flag
     catalog + gates, and overlays the case's expected metadata so the
     comparator can find what it's looking for.
+
+    When ``perf_record`` is supplied the engine records per-stage timings
+    into it (``pdf_to_pages``, ``extract``, ``gates.run``,
+    ``pre_flag_catalog.run``, ``fingerprint.fingerprint_filing``). When it's
+    None every ``stage_timer`` call becomes a zero-overhead no-op, so the
+    bench stays cheap when ``--timing`` is off.
     """
     import tempfile, shutil
     work = Path(tempfile.mkdtemp())
@@ -140,6 +162,9 @@ def _extract_one(case: dict, case_text: str) -> dict:
             jurisdiction=None,
             currency=None, framework=None,
         )
+        # Wire the perf record (if any) so ``qscreen_ingest.extract_filing``
+        # and its helpers accumulate timings.
+        qscreen_perf.attach_to_args(args, perf_record)
         # extract_filing -> runs _apply_pre_flags internally
         filing = e.extract_filing(pages, args)
 
@@ -183,7 +208,12 @@ def _extract_one(case: dict, case_text: str) -> dict:
         if profiles is not None:
             try:
                 from profiles.qatar import pre_flags as _pf
-                _pf.merge_into_filing(filing, _pf.run_pre_flags(filing))
+                # Time this re-run separately so the perf baseline captures
+                # the cost of the catalog on its own (the engine already
+                # times the in-extract invocation).
+                with qscreen_perf.stage_timer(log, perf_record,
+                                                "pre_flag_catalog.rerun"):
+                    _pf.merge_into_filing(filing, _pf.run_pre_flags(filing))
             except Exception as ex:
                 log.warning("pre-flag re-run failed: %s", ex)
 
@@ -377,7 +407,8 @@ def _compare_languages(filing: dict, want: dict) -> list[Check]:
     return out
 
 
-def evaluate_case(case_path: Path, cases_dir: Path) -> CaseReport:
+def evaluate_case(case_path: Path, cases_dir: Path,
+                  with_timing: bool = False) -> CaseReport:
     case = json.loads(case_path.read_text())
     case_id = case["_case"]
     text_path = cases_dir / f"{case_id}.txt"
@@ -391,14 +422,19 @@ def evaluate_case(case_path: Path, cases_dir: Path) -> CaseReport:
     rep = CaseReport(case=case_id, ticker=case["ticker"],
                      fiscal_year=case["fiscal_year"],
                      fiscal_period=case.get("fiscal_period", "FY"))
+    perf_record = qscreen_perf.PerfRecord() if with_timing else None
     t0 = time.perf_counter()
     try:
-        filing = _extract_one(case, case_text)
+        filing = _extract_one(case, case_text, perf_record=perf_record)
     except Exception as ex:
         rep.error = f"{type(ex).__name__}: {ex}"
         rep.duration_s = time.perf_counter() - t0
+        if perf_record is not None:
+            rep.stages = _stage_totals(perf_record)
         return rep
     rep.duration_s = time.perf_counter() - t0
+    if perf_record is not None:
+        rep.stages = _stage_totals(perf_record)
 
     _, narrative = _split_pages(case_text)
     exp = case.get("expected", {})
@@ -435,6 +471,18 @@ def _compare_fingerprint(filing: dict, want: dict) -> list[Check]:
                       len(items) >= want.get("fingerprint_min_items", 1),
                       detail="audit + statements + notes should hash"))
     return out
+
+
+def _stage_totals(perf_record: qscreen_perf.PerfRecord) -> dict[str, float]:
+    """Sum per-stage durations for a single case. Used for the JSON output
+    and the console line — the aggregate (across the whole batch) is
+    computed separately by ``qscreen_perf.aggregate`` for the weekly
+    perf-regression workflow."""
+    out: dict[str, float] = {}
+    for sample in perf_record.samples:
+        out[sample.stage] = out.get(sample.stage, 0.0) + sample.duration_ms
+    # Round to 3 decimals (sub-millisecond resolution is noise on CI).
+    return {k: round(v, 3) for k, v in out.items()}
 
 
 # ── report rendering ─────────────────────────────────────────────────────────
@@ -526,8 +574,26 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--strict", action="store_true",
                     help="Treat 'soft expectations' as hard (so red_flags_expect "
                          "becomes a failure when missing). Off by default.")
+    ap.add_argument("--timing", action="store_true",
+                    help="Capture per-stage engine timings via qscreen_perf. "
+                         "Sets PERF_TIMING=1 (so the engine wires the perf record) "
+                         "and LOG_LEVEL=DEBUG (so qscreen.ingest emits the per-stage "
+                         "trace). The JSON output's per-case 'stages' field is "
+                         "populated, and --out-aggregate gets a Prometheus-format "
+                         "summary when supplied.")
     ap.add_argument("--out", help="Write report to this path (default: stdout)")
+    ap.add_argument("--out-aggregate",
+                    help="When --timing is set, also write the per-stage aggregate "
+                         "(Prometheus text format) to this path. The weekly perf "
+                         "workflow consumes this against tests/golden/PERF_BASELINE.json.")
     args = ap.parse_args(argv)
+
+    if args.timing:
+        # Make the engine wire a perf record + bump log detail. The engine
+        # reads PERF_TIMING via ``qscreen_perf.is_timing_enabled`` and LOG_LEVEL
+        # is the standard Python logging knob.
+        os.environ["PERF_TIMING"] = "1"
+        os.environ["LOG_LEVEL"] = os.environ.get("LOG_LEVEL", "DEBUG")
 
     if not GOLDEN_DIR.is_dir():
         sys.stderr.write(f"qstock_eval: golden dir not found: {GOLDEN_DIR}\n")
@@ -540,20 +606,53 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(f"qstock_eval: no case matched '{args.case}'\n")
             return 2
 
-    reports = [evaluate_case(p, CASES_DIR) for p in case_files]
+    reports = [evaluate_case(p, CASES_DIR, with_timing=args.timing) for p in case_files]
 
     if args.json:
-        out = {"cases": [
-            {"case": r.case, "ticker": r.ticker, "fiscal_year": r.fiscal_year,
-             "fiscal_period": r.fiscal_period, "passed": r.passed,
-             "score": r.score, "total": r.total,
-             "duration_ms": round(r.duration_s * 1000, 1),
-             "error": r.error,
-             "checks": [{"name": c.name, "expected": c.expected,
-                          "actual": c.actual, "passed": c.passed,
-                          "detail": c.detail} for c in r.checks]}
-            for r in reports]}
+        cases_out: list[dict] = []
+        # The PerfRecord objects carry the per-stage samples for the aggregate
+        # output. Re-collect them here so we can emit both the per-case JSON
+        # and the Prometheus aggregate without re-running the bench.
+        all_records: list[qscreen_perf.PerfRecord] = []
+        for r in reports:
+            # Reconstruct a PerfRecord for the aggregate. The bench already
+            # gave us a flat ``stages`` dict; back-compute a record with one
+            # sample per stage so qscreen_perf.aggregate emits the same shape.
+            rec = qscreen_perf.PerfRecord()
+            if r.stages:
+                for stage, ms in r.stages.items():
+                    rec.add(stage, ms)
+            all_records.append(rec)
+            entry = {
+                "case": r.case,
+                "ticker": r.ticker,
+                "fiscal_year": r.fiscal_year,
+                "fiscal_period": r.fiscal_period,
+                "passed": r.passed,
+                "score": r.score,
+                "total": r.total,
+                "duration_ms": round(r.duration_s * 1000, 1),
+                "error": r.error,
+                "checks": [{"name": c.name, "expected": c.expected,
+                             "actual": c.actual, "passed": c.passed,
+                             "detail": c.detail} for c in r.checks],
+            }
+            if r.stages is not None:
+                entry["stages"] = r.stages
+            cases_out.append(entry)
+        out: dict[str, Any] = {"cases": cases_out}
+        if args.timing and all_records:
+            agg = qscreen_perf.aggregate(all_records)
+            out["aggregate"] = {stage: {k: v for k, v in stats.items()}
+                                  for stage, stats in agg.items()}
         text = json.dumps(out, indent=2, ensure_ascii=False)
+
+        if args.out_aggregate and all_records:
+            try:
+                agg_text = qscreen_perf.emit_metrics(all_records)
+                Path(args.out_aggregate).write_text(agg_text, encoding="utf-8")
+            except Exception as ex:
+                log.warning("aggregate emit failed: %s", ex)
     elif args.md:
         text = render_markdown(reports)
     else:

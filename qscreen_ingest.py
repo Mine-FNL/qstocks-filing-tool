@@ -3375,6 +3375,15 @@ def _run_batch_row_worker(i: int, row: dict, args, manifest_id: str,
 
 
 def main() -> int:
+    # Ensure stdout/stderr can encode non-ASCII (emojis, Arabic, etc.) even
+    # on Windows consoles that default to cp1252. No-op on POSIX where the
+    # streams are already UTF-8. Python 3.7+.
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        except (AttributeError, ValueError):
+            pass
+
     p = argparse.ArgumentParser(
         description="Jurisdiction-agnostic PDF → lossless filing JSON ingestor. "
                     "Originally authored for QSE; now accepts any exchange whose "

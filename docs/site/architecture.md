@@ -9,7 +9,7 @@ and stable text fingerprints make the output reproducible.
 
 ## At a glance
 
-![Architecture at a glance — 5-stage pipeline from PDF to lossless JSON, with SBOM / Sigstore / SLSA attestation artifacts emitted at release time](../../campaign/assets/architecture-16x9.jpg)
+![Architecture at a glance — 5-stage pipeline from PDF to lossless JSON, with SBOM / Sigstore / SLSA attestation artifacts emitted at release time](https://raw.githubusercontent.com/Mine-FNL/qstocks-filing-tool/main/campaign/assets/architecture-16x9.jpg)
 
 ---
 

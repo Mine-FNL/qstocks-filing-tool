@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <p align="center">
-  <a href="https://mine-fnl.github.io/qstocks-filing-tool/"><img src="campaign/assets/hero-16x9.jpg" alt="qscreen-filing-tool — PDF input → qscreen extraction engine → lossless JSON, with SBOM / Sigstore / SLSA attestations" width="100%"></a>
+  <a href="https://mine-fnl.github.io/qstocks-filing-tool/"><img src="https://raw.githubusercontent.com/Mine-FNL/qstocks-filing-tool/main/campaign/assets/hero-16x9.jpg" alt="qscreen-filing-tool — PDF input → qscreen extraction engine → lossless JSON, with SBOM / Sigstore / SLSA attestations" width="100%"></a>
 </p>
 
 **Turn a PDF financial report into a lossless, auditable filing JSON — ready for ingest.**

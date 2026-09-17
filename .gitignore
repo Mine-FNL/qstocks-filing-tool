@@ -26,3 +26,4 @@ dist/
 bench.json
 bench_agg.txt
 bench_no_timing.json
+py.typed

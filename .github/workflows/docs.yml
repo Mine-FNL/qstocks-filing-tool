@@ -1,0 +1,80 @@
+name: docs
+
+# Build the mkdocs site (--strict) and publish it to the gh-pages branch
+# on every change to docs/, mkdocs.yml, or docs/build_demo.py.
+#
+# Interaction with release.yml
+# -----------------------------
+# release.yml (tag push) ALSO commits to the gh-pages branch:
+#   - simple/qscreen-filing-tool/index.html   (PEP 503 index)
+#   - index.html                              (package-name-on-root fallback)
+#   - demo.html                               (live bench report)
+#
+# Those files live at sub-paths of gh-pages; the mkdocs site produced
+# by this workflow is the *root* (./index.html, ./install/, ./usage/, ...).
+# With force_orphan=true, peaceiris/actions-gh-pages REPLACES the gh-pages
+# branch contents with ./site/. release.yml will re-publish its sub-path
+# files on the next v* tag push, restoring the index + demo. Until then,
+# the simple/ and /demo.html URLs will 404 — this is the trade-off for a
+# clean orphan root (no stale mkdocs assets from a deleted page).
+#
+# If you ever want both this site's root AND the release.yml sub-paths to
+# coexist without the orphan reset, switch force_orphan=false and rely on
+# path isolation: the mkdocs build only writes ./site/ and the release
+# workflow only writes ./simple/ + ./index.html + ./demo.html. They do
+# not collide; force_orphan is purely cosmetic for this repo.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/site/**"
+      - "docs/SHOW_HN.md"
+      - "docs/build_demo.py"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write        # commit the site/ tree to gh-pages
+  pages: write           # allowed to publish to Pages
+  id-token: write        # ready for downstream OIDC (future)
+
+concurrency:
+  group: docs
+  cancel-in-progress: false   # never cancel an in-flight publish
+
+jobs:
+  build-and-deploy:
+    name: Build mkdocs + publish to gh-pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # mkdocs reads git history for "edit this page"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install mkdocs + material
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install mkdocs mkdocs-material
+
+      - name: Build mkdocs (--strict)
+        run: python -m mkdocs build --strict
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          publish_dir: ./site
+          force_orphan: true
+          enable_jekyll: false
+          keep_files: false
+          user_name: 0xBingBong69
+          user_email: 0xBingBong69@users.noreply.github.com
+          commit_message: "docs: rebuild mkdocs site (commit ${GITHUB_SHA})"

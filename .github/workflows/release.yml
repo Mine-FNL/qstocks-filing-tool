@@ -51,21 +51,31 @@ jobs:
           # gate we only care about the aggregate ratio, so capture
           # the JSON output and ignore the exit code.
           python qscreen_eval.py --json --out bench.json || true
+
+          # Compute and print the ratio, plus per-case summary, in
+          # one python invocation. The last line is the ratio on
+          # its own line, easy to grep.
+          #
+          # NB: each case dict has `passed` (bool — case-level pass
+          # flag) and `score` (int — count of passing checks within
+          # the case). We want `score` for the aggregate ratio.
           python -c "
           import json
           d = json.load(open('bench.json'))
           cases = d['cases']
-          total_passed = sum(c['passed'] for c in cases)
+          total_score = sum(c['score'] for c in cases)
           total_checks = sum(c['total'] for c in cases)
-          ratio = total_passed / total_checks
-          print(f\"Bench: {total_passed}/{total_checks} ({ratio*100:.1f}%)\")
+          ratio = total_score / total_checks
+          print(f\"Bench: {total_score}/{total_checks} ({ratio*100:.1f}%)\")
           print('Per-case:')
           for c in cases:
-              mark = 'OK ' if c['passed'] == c['total'] else 'WARN'
-              print(f\"  {mark} {c['case']:<24s}  {c['passed']}/{c['total']}\")
-          print(f\"ratio={round(ratio, 4)}\")
+              mark = 'OK ' if c['score'] == c['total'] else 'WARN'
+              print(f\"  {mark} {c['case']:<24s}  {c['score']}/{c['total']}\")
+          print(f\"BENCH_RATIO={round(ratio, 4)}\")
           " | tee bench-summary.txt
-          RATIO=$(grep -oE 'ratio=[0-9.]+' bench-summary.txt | head -1 | cut -d= -f2)
+
+          RATIO=$(grep -oE 'BENCH_RATIO=[0-9.]+' bench-summary.txt | head -1 | cut -d= -f2)
+          echo "Computed ratio: '$RATIO'"
           echo "ratio=$RATIO" >> "$GITHUB_OUTPUT"
       - name: Enforce regression gate
         env:

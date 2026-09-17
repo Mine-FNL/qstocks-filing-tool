@@ -1,0 +1,40 @@
+# gitattributes — normalise line endings + mark binary files explicitly.
+# This avoids "every commit touches every file" surprises on Windows checkouts.
+
+# Default: auto-detect text, normalise to LF on commit.
+*               text=auto eol=lf
+
+# Common binary types — never diff, never re-encode.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
+*.ico           binary
+*.pdf           binary
+*.whl           binary
+*.tar.gz        binary
+*.zip           binary
+*.7z            binary
+
+# Python — diff-friendly, but keep the shebang executable on *nix checkouts.
+*.py            text eol=lf diff=python
+*.pyi           text eol=lf
+
+# Source maps / build metadata — generated, don't diff them.
+qscreen_filing_tool.egg-info/* linguist-generated=true
+build/*         linguist-generated=true
+dist/*          linguist-generated=true
+site/*          linguist-generated=true
+__pycache__/*   linguist-generated=true
+*.pyc           binary
+
+# Lock files / pin files — show the lock as generated, not hand-edited.
+# (No specific lock file ships in-tree today, but be ready if pip-tools lands.)
+*.lock          linguist-generated=true
+Pipfile.lock    linguist-generated=true
+poetry.lock     linguist-generated=true
+
+# Vendored wheels under site-packages (none in-tree, but if any are added
+# they should not pollute the language stats).
+vendor/         linguist-vendored=true

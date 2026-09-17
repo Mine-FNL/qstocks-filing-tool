@@ -13,3 +13,12 @@ build/
 dist/
 *.egg-info/
 .pytest_cache/
+
+# mkdocs build output (served on gh-pages via .github/workflows/docs.yml)
+# Anchored to the repo root only — docs/site/ is the SOURCE tree, not the
+# output, and is tracked.
+/site/
+
+# type checker / linter caches (kept around for IDEs; never committed)
+.mypy_cache/
+.ruff_cache/

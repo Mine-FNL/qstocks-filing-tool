@@ -1,0 +1,42 @@
+# editorconfig.org — keep the codebase consistent across editors.
+# The engine code is hand-formatted at 4-space Python indent (matches the
+# pre-existing files in qscreen_*.py); YAML / JSON / Markdown use 2-space.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+# Python — 4 spaces, matching qscreen_*.py
+[*.py]
+indent_size = 4
+max_line_length = 100
+
+# YAML / JSON / TOML — 2 spaces
+[*.{yml,yaml,json,toml}]
+indent_size = 2
+
+# Markdown — 2 spaces, but allow long lines (no max_line_length)
+[*.md]
+indent_size = 2
+max_line_length = off
+
+# Shell scripts — 4 spaces, tabs not allowed
+[*.sh]
+indent_size = 4
+
+# Dockerfile — 4 spaces
+[Dockerfile]
+indent_size = 4
+
+# Makefiles — tabs required by the format
+[{Makefile,*.mk}]
+indent_style = tab
+
+# Generated files — never re-format, never trim trailing whitespace
+[CHANGELOG.md]
+trim_trailing_whitespace = false

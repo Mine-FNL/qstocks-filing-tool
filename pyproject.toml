@@ -4,16 +4,44 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qscreen-filing-tool"
-description = "Jurisdiction-agnostic PDF → lossless filing JSON (browser app + CLI). Pluggable profiles, math-identity gates, idempotent batch, and stable text fingerprints. Originally QSE, now pluggable."
+description = "Turn a PDF financial filing into lossless, auditable JSON. Jurisdiction-agnostic engine (QSE-shipping, AE/SA/KW-ready) with math-identity gates, idempotent batch, multi-page Arabic/English language detection, stable SHA-256 text fingerprints, and a Flask browser app. 485 unit tests, 80.6% bench accuracy on the 8-case golden set, signed wheel+sdist+SBOM, SLSA Build L3 attested."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
 dynamic = ["version"]
-authors = [{ name = "QScreen contributors" }]
+authors = [
+    { name = "QScreen contributors" },
+    { name = "Mine-FNL", email = "noreply@mine-fnl.example" },
+]
+keywords = [
+    "pdf",
+    "extraction",
+    "financial-reporting",
+    "ifrs",
+    "aaoifi",
+    "islamic-finance",
+    "xbrl",
+    "filings",
+    "sec-edgar",
+    "qatar-stock-exchange",
+    "abu-dhabi-stock-exchange",
+    "pdfplumber",
+    "fingerprinting",
+    "ingestion",
+    "compliance",
+    "audit-trail",
+    "schema-stable",
+    "lossless",
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -22,6 +50,10 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Financial",
     "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup",
+    "Typing :: Typed",
+    "Environment :: Web Environment :: Flask",
 ]
 dependencies = [
     "pdfplumber>=0.11",
@@ -38,6 +70,9 @@ dev = ["pytest>=7", "openpyxl>=3.1"]
 [project.urls]
 "Source" = "https://github.com/Mine-FNL/qstocks-filing-tool"
 "Issues" = "https://github.com/Mine-FNL/qstocks-filing-tool/issues"
+"Documentation" = "https://mine-fnl.github.io/qstocks-filing-tool/"
+"Live bench report" = "https://mine-fnl.github.io/qstocks-filing-tool/demo.html"
+"Supply chain & security" = "https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/SECURITY.md"
 
 [project.scripts]
 qscreen-ingest = "qscreen_ingest:main"

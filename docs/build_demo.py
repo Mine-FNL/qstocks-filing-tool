@@ -245,9 +245,18 @@ def main():
     p = argparse.ArgumentParser(description="Build docs/demo.html from bench JSON")
     p.add_argument("bench_json", help="path to qscreen_eval.py --json output")
     p.add_argument("--out", default="docs/demo.html", help="output HTML path")
+    p.add_argument("--og", default="docs/og.png", help="output social-share PNG")
     args = p.parse_args()
     n = render(args.bench_json, args.out)
     print(f"wrote {args.out}: {n} bytes")
+    # Also build the OG social-share image so the demo.html that ships
+    # to gh-pages has matching metadata + thumbnail.
+    try:
+        from build_og import render as render_og
+        render_og(args.og)
+        print(f"wrote {args.og}")
+    except ImportError as exc:                                          # pragma: no cover
+        print(f"WARN: skipping OG image ({exc})")
 
 
 if __name__ == "__main__":

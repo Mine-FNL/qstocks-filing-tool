@@ -60,10 +60,26 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install mkdocs + material
+      - name: Install mkdocs + material + pillow
         run: |
           python -m pip install --upgrade pip
-          python -m pip install mkdocs mkdocs-material
+          python -m pip install mkdocs mkdocs-material pillow
+          pip install -e ".[dev]"
+
+      - name: Build live bench JSON + demo HTML + OG image
+        # Produce docs/demo.html + docs/og.png + docs/bench.json so the
+        # gh-pages branch carries a shareable thumbnail at /og.png and
+        # the bench report at /demo.html. The qscreen package depends on
+        # Flask + pdfplumber + requests (all free); install them on top
+        # of the venv so build_demo.py / qscreen_eval.py can run.
+        run: |
+          python -m pip install -e ".[dev]"
+          mkdir -p site
+          python qscreen_eval.py --json --out /tmp/bench.json
+          python docs/build_demo.py /tmp/bench.json \
+              --out site/demo.html \
+              --og site/og.png || true
+          ls -lh site/
 
       - name: Build mkdocs (--strict)
         run: python -m mkdocs build --strict

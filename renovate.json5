@@ -1,0 +1,76 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":automergeMinor",
+    ":automergePatch",
+    "group:allNonMajor"
+  ],
+
+  // We run Dependabot as the primary dep-update story; this Renovate
+  // config is a belt-and-braces that fires only if Dependabot flakes
+  // (or for the occasional out-of-band pip update). The PR cadence
+  // and grouping are tuned to match Dependabot's so the two bots don't
+  // fight each other on Mondays.
+
+  "enabled": false,    // off by default — flip to true in the GitHub repo's
+                       // "Renovate" app install screen to enable. We keep it
+                       // committed but disabled to avoid surprise PRs.
+
+  "description": "Backup updater; runs alongside Dependabot. Enable from the GitHub UI by installing the Renovate app — config is checked in, no further setup needed.",
+
+  "schedule": ["before 7am on monday"],
+
+  "packageRules": [
+    {
+      "matchManagers": ["pep621", "pip_requirements", "pip_setup"],
+      "groupName": "python deps",
+      "groupSlug": "python-deps",
+      "automerge": true,
+      "automergeType": "pr",
+      "commitMessagePrefix": "deps:",
+      "labels": ["dependencies", "python"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "groupSlug": "github-actions",
+      "automerge": true,
+      "automergeType": "pr",
+      "commitMessagePrefix": "ci:",
+      "labels": ["dependencies", "ci"]
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "groupName": "docker base image",
+      "groupSlug": "docker-base",
+      "automerge": false,   // base image bumps deserve a peek
+      "commitMessagePrefix": "ci:",
+      "labels": ["dependencies", "docker"]
+    }
+  ],
+
+  "lockFileMaintenance": {
+    "enabled": false   // we don't ship a poetry/pdm lockfile
+  },
+
+  "vulnerabilityAlerts": {
+    "enabled": true,   // surfaces unfixed CVEs even if Dependabot already raised them
+    "labels": ["security", "vulnerability"]
+  },
+
+  "ignorePaths": [
+    "tests/golden/cases/**",
+    "profiles/qatar/data/**"
+  ],
+
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["Dockerfile$"],
+      "matchStrings": ["FROM (?<depName>[a-z0-9/-]+?)(?::(?<currentValue>[\\w.-]+))?\\s"],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

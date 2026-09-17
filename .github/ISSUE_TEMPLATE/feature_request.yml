@@ -1,0 +1,100 @@
+name: Feature request
+description: Suggest a new feature, jurisdiction, or pre-flag rule.
+title: "[feature] "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      content: |
+        Use this template to suggest a new feature, a new jurisdiction
+        (`profiles/<cc>/`), a new pre-flag rule, or a meaningful UX
+        improvement. Smaller DX tweaks (typo, doc clarification, a new
+        `--example`) can go straight to a PR.
+
+  - type: dropdown
+    id: feature_area
+    attributes:
+      label: What area?
+      description: >
+        Pick the closest match.
+      options:
+        - "Engine (qscreen_ingest.py + core extractors)"
+        - "Math-identity gates (qscreen_gates.py)"
+        - "Stable text fingerprints (qscreen_fingerprint.py)"
+        - "Auto-detect (qscreen_autodetect.py)"
+        - "Language detection (qscreen_langdetect.py)"
+        - "SQLite state machine (qscreen_state.py)"
+        - "Flask app (qscreen_app.py)"
+        - "CLI ergonomics (flags, batch, --example)"
+        - "Profiles / new jurisdiction (profiles/<cc>/)"
+        - "Pre-flag catalog (profiles/<cc>/pre_flags.py)"
+        - "Bench / golden-set (qscreen_eval.py + tests/golden/)"
+        - "Docs / DX (README, RUNBOOK, mkdocs site, Makefile)"
+        - "CI / GitHub Actions"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: >
+        The use case. What are you trying to do that the engine doesn't
+        support today?
+      placeholder: |
+        I want to extract a UAE ADX-listed company whose reporting
+        framework is AAOIFI rather than IFRS. The `--framework` flag
+        accepts the label but the prompt template only knows the QCB
+        variants, so the output drops the Murabaha line items.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed solution
+      description: >
+        What you'd like to see. A flag, a profile bundle, a config key,
+        a new module — whatever fits.
+      placeholder: |
+        Add `profiles/uae/` with AAOIFI-aware prompt templates, then
+        `--jurisdiction uae` would automatically route there. Should
+        also extend the math-identity gates to recognize Murabaha
+        receivables as an asset class.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: >
+        What else you tried, or other approaches we should weigh.
+    validations:
+      required: false
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope / risk
+      description: >
+        Roughly how big is this? New jurisdiction (small) vs. schema
+        change (large) vs. dependency bump (medium)?
+    validations:
+      required: false
+
+  - type: textarea
+    id: willing
+    attributes:
+      label: Are you willing to open a PR?
+      description: >
+        Would you like to implement this yourself? Even a draft PR with
+        a failing test is a great signal.
+      placeholder: |
+        Yes — I'll open a draft PR with the new `profiles/uae/__init__.py`
+        and a `--jurisdiction uae` smoke test.
+    validations:
+      required: false

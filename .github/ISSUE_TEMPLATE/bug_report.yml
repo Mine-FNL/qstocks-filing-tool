@@ -1,0 +1,160 @@
+name: Bug report
+description: Report a problem with the engine, the CLI, or the Flask app.
+title: "[bug] "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      content: |
+        Thanks for taking the time to report this. The more detail you can
+        give about your environment and the exact command, the faster we
+        can reproduce and fix it.
+
+        **If this is a security vulnerability**, please do NOT file a
+        public issue. See [SECURITY.md](https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/SECURITY.md)
+        for the private disclosure process.
+
+  - type: input
+    id: engine_version
+    attributes:
+      label: Engine version
+      description: >
+        Output of `python -m qscreen_ingest --version`. Required.
+      placeholder: "qscreen-filing-tool 1.6.0"
+    validations:
+      required: true
+
+  - type: input
+    id: install_method
+    attributes:
+      label: Install method
+      description: >
+        How did you install? Pick one.
+      placeholder: "pip install -e .[dev]"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_method_choice
+    attributes:
+      label: Install path
+      description: >
+        Which of the three install paths did you use?
+      options:
+        - "GitHub Releases CDN (wheel URL)"
+        - "GitHub Pages PEP 503 index (simple/)"
+        - "Editable install from a clone (pip install -e .[dev])"
+        - "Other (describe in the bug body)"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: >
+        Host OS + arch, e.g. `macOS 14.5 arm64`, `Ubuntu 22.04 x86_64`,
+        `Windows 11 x86_64`.
+      placeholder: "macOS 14.5 arm64"
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python version
+      description: >
+        Output of `python3 --version`.
+      placeholder: "Python 3.11.9"
+    validations:
+      required: true
+
+  - type: input
+    id: command
+    attributes:
+      label: Exact command
+      description: >
+        The full command you ran (or the Flask app URL you visited).
+        Required.
+      placeholder: |
+        python -m qscreen_ingest report.pdf \
+          --symbol QNBK --sector islamic_bank --year 2023 --period FY \
+          --dry-run --debug
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: >
+        What you expected to happen.
+      placeholder: |
+        The CLI should have produced QNBK_2023_FY_filing.json with a
+        non-null `audit.opinion` field.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: >
+        What actually happened. Include the full stderr / log output if
+        you have it.
+      placeholder: |
+        Traceback (most recent call last):
+          File ".../qscreen_ingest.py", line 1234, in <module>
+            ...
+        KeyError: 'opinion'
+    validations:
+      required: true
+
+  - type: input
+    id: pdf_sample
+    attributes:
+      label: PDF sample (if shareable)
+      description: >
+        A link to the PDF, the source URL, or the issuer + year + period
+        so we can fetch it ourselves. Public filings only — no private
+        material.
+      placeholder: "QNBK 2023 Annual Report, https://qnb.com/..."
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: LLM provider (if used)
+      description: >
+        Which provider / model? Pick one, or "none" for `--no-llm` / `--basic`
+        without an LLM call.
+      options:
+        - "none (--no-llm or --basic without a model call)"
+        - "anthropic (claude)"
+        - "openai (gpt)"
+        - "openrouter"
+        - "minimax"
+        - "moonshot (kimi)"
+        - "ollama"
+        - "llama.cpp / mlx-lm / lm-studio / local"
+        - "other (specify in the bug body)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: self_test
+    attributes:
+      label: Output of `python -m qscreen_ingest --self-test`
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: >
+        Screenshots, pytest output, environment details, related issues,
+        anything that helps.
+    validations:
+      required: false

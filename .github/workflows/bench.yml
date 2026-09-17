@@ -124,28 +124,36 @@ jobs:
             echo "**Aggregate: $total_score / $total_checks checks pass.**"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Build PR comment body
+        if: github.event_name == 'pull_request' && always()
+        run: |
+          python - <<'PYEOF' > bench-comment.md
+          import json
+          d = json.load(open('bench.json'))
+          cases = d['cases']
+          total_score = sum(c['score'] for c in cases)
+          total_checks = sum(c['total'] for c in cases)
+          ratio = total_score / total_checks if total_checks else 0
+          print('## Golden-set bench')
+          print()
+          print('| Case | Score |')
+          print('| --- | --- |')
+          for c in cases:
+              mark = 'OK' if c['score'] == c['total'] else 'WARN'
+              print(f"| {mark} `{c['case']}` | {c['score']}/{c['total']} |")
+          print()
+          print(f"**Aggregate: {total_score} / {total_checks} checks pass ({ratio*100:.1f}%).**")
+          print()
+          print(f"Baseline gate: **must be >= 80.6%** (currently {ratio*100:.1f}%).")
+          PYEOF
+          cat bench-comment.md
+
       - name: Comment on PR
         if: github.event_name == 'pull_request' && always()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: bench
-          message: |
-            ## Golden-set bench
-
-            | Case | Score |
-            | --- | --- |
-            $(python -c "
-          import json
-          d = json.load(open('bench.json'))
-          for c in d['cases']:
-              mark = '\u2705' if c['score'] == c['total'] else '\u26a0\ufe0f'
-              print(f\"| {mark} \`{c['case']}\` | {c['score']}/{c['total']} |\")
-          ")
-
-            **Aggregate: $(python -c "import json; d=json.load(open('bench.json')); print(sum(c['score'] for c in d['cases']))") / $(python -c "import json; d=json.load(open('bench.json')); print(sum(c['total'] for c in d['cases']))") checks pass.**
-
-            ${{ steps.bench.outputs.ratio && format('Baseline gate: **{0}%** (must be \u2265 80.6%)', steps.bench.outputs.ratio * 100) || 'Bench did not complete' }}
-          }
+          path: bench-comment.md
 
       - uses: actions/upload-artifact@v4
         if: always()

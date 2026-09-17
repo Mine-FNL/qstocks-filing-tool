@@ -101,6 +101,29 @@ For background on the defenses already shipped:
 - **No hardcoded secrets** — keys come from env vars or `.env`. The
   PyPI Trusted Publisher flow uses OIDC, no API token is minted.
 
+## Hardening built into releases
+
+Every release pipeline step is auditable:
+
+- **Sigstore signed** — every wheel + sdist on the GitHub Releases
+  page is signed by Sigstore against the GitHub OIDC subject
+  (`owner/repo/.github/workflows/release.yml@refs/tags/vX.Y.Z`).
+  Consumer can verify offline; no long-lived secret material.
+  See `docs/SUPPLY_CHAIN.md` for the full `cosign verify-blob`
+  recipe and a worked example.
+
+- **CycloneDX SBOM attached** — `sbom.cdx.json` is part of every
+  release. Compatible with Grype, Trivy, Dependency-Track, Snyk, and
+  any CycloneDX-1.5-aware vulnerability scanner.
+
+- **Dependency advisory scan** — pip-audit runs on every PR + every
+  push to main + weekly Monday 06:00 UTC. SARIF feeds into the
+  Security tab.
+
+- **CodeQL semantic scan** — same cadence; same SARIF surface.
+
+- **OIDC-only PyPI publish** — no API token is stored or rotated.
+
 ## Past Advisories
 
 None yet. This section is the placeholder for the first advisory.

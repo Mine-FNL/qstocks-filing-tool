@@ -9,9 +9,9 @@ Ready-to-paste launch materials. All images are CC0-equivalent (generated for th
 | `assets/demo-flow-16x9.jpg`     | HN body image, X thread image #1. The before→after picture. |
 | `assets/stats-card-16x9.jpg`   | The numbers card. X thread lead-tweet image. LinkedIn cover alt. |
 | `assets/demo-promo-6s.mp4`      | Short promo loop (6 s, 768p, **native audio**). Embed in SHOW_HN, X, LinkedIn. |
-| `assets/why-video-1-pain-vs-fix.mp4`            | 6 s, 768p — silent. **The WHY.** Today's vendor extractor (left) vs the deterministic one-shot CLI (right). The pain-point opener for any channel. |
-| `assets/why-video-2-gate-blocks-silent-failure.mp4` | 6 s, 768p — silent. **The magic sauce.** Math-identity gate catches a 2.2 % assets-vs-L+E delta in real time, stamps a "GATE BLOCKED" seal, surfaces the offending line-item. |
-| `assets/why-video-3-fingerprint-magic.mp4`      | 6 s, 768p — silent. **The proof.** Stable SHA-256 fingerprint across re-ingests, signed via Sigstore, repeatable from any engine commit. |
+| `assets/why-1-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, AAC voice-over. **The WHY #1.** Today's vendor extractor (left) vs the deterministic one-shot CLI (right). Voice: "Today's PDF extractors are slow, expensive, and silent about contradictions." |
+| `assets/why-2-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, AAC voice-over. **The WHY #2.** Math-identity gate catches a 2.2 % Assets-vs-L+E delta in real time, stamps a "GATE BLOCKED" seal, surfaces the offending line-item. Voice: "Most extractors ship the JSON anyway. We catch the contradictions first." |
+| `assets/why-3-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, AAC voice-over. **The WHY #3.** Stable SHA-256 fingerprint across re-ingests, signed via Sigstore, repeatable from any engine commit. Voice: "Stable fingerprint. Sigstore signed. Lossless across engine versions." |
 
 ## Channels (ranked by expected reach)
 

@@ -11,9 +11,15 @@ states the headline in the post body.
 
 | Video | Drop it into |
 |---|---|
-| **why-video-1-pain-vs-fix.mp4**       | The first comment reply on HN. X thread tweet #2 (right after the hook). LinkedIn cover. Reddit r/MachineLearning top of selftext. |
-| **why-video-2-gate-blocks-silent-failure.mp4** | X thread tweet #7 (architecture-explainer slot). Reddit r/quant top of selftext ("the math is the magic"). LinkedIn mid-post reply to "what does this do that other tools don't". |
-| **why-video-3-fingerprint-magic.mp4** | HN reply to "how do I know the data is stable across versions". Reddit reply to "what's the upgrade story for an in-flight data pipeline". LinkedIn reply to the head-of-data-eng who always asks about idempotency. |
+| **`why-1-explainer.mp4`** (with audio)  | The first comment reply on HN. X thread tweet #2 (right after the hook). LinkedIn cover. Reddit r/MachineLearning top of selftext. |
+| **`why-2-explainer.mp4`** (with audio)  | X thread tweet #7 (architecture-explainer slot). Reddit r/quant top of selftext ("the math is the magic"). LinkedIn mid-post reply to "what does this do that other tools don't". |
+| **`why-3-explainer.mp4`** (with audio)  | HN reply to "how do I know the data is stable across versions". Reddit reply to "what's the upgrade story for an in-flight data pipeline". LinkedIn reply to the head-of-data-eng who always asks about idempotency. |
+
+The audio is AAC-stereo at default bitrate, voice-over in `English_Trustworth_Man`
+(reliable, low-registration male voice — appropriate for finance/quant
+audiences), speed 0.95×, neutral emotion. The narration is under
+the 5.5 s clip duration so ffmpeg's `-shortest` flag stops the
+container at the audio end rather than mid-sentence.
 
 The three videos cover the WHY in three passes that read together:
 1. **Pain**: what was broken.
@@ -38,7 +44,7 @@ The three videos cover the WHY in three passes that read together:
 
 ## Per-video narrative (for use in captions, post text, etc.)
 
-### 1. why-video-1 — Pain vs Fix
+### 1. why-1-explainer — Pain vs Fix
 
 > Today's PDF extractors are slow (5 s per filing × index-rebalance
 > cadence = minutes of waiting), expensive (~$0.15/filing with
@@ -49,7 +55,7 @@ The three videos cover the WHY in three passes that read together:
 > qscreen-filing-tool: deterministic, ~3 s per filing, $0, and the
 > math-identity gate runs BEFORE the JSON ships.
 
-### 2. why-video-2 — Gate Blocks Silent Failure
+### 2. why-2-explainer — Gate Blocks Silent Failure
 
 > Most extractors ship the JSON regardless of internal consistency.
 > qscreen-filing-tool's gates engine checks Assets = L + Equity
@@ -59,7 +65,7 @@ The three videos cover the WHY in three passes that read together:
 > itself, **the record doesn't ship** and the evidence points at
 > the offending line item.
 
-### 3. why-video-3 — Fingerprint Magic
+### 3. why-3-explainer — Fingerprint Magic
 
 > Stability across versions: re-ingesting the same PDF on any
 > engine commit produces a JSON with the **same SHA-256

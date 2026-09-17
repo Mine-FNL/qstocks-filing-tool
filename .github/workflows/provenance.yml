@@ -50,6 +50,8 @@ jobs:
     name: SLSA L3 — wheel
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download wheel
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,6 +73,8 @@ jobs:
     name: SLSA L3 — sdist
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download sdist
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -90,6 +94,8 @@ jobs:
     name: SLSA L3 — SBOM
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download SBOM
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

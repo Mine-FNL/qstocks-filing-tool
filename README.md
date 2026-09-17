@@ -14,6 +14,20 @@ Pluggable profiles (Qatar ships out of the box; AE / SA / KW are one directory d
 Two modes: **local browser app** (drag-and-drop, ~3 min to first JSON) or
 **one-command CLI** (scriptable, idempotent batches with SQLite-backed resume).
 
+### Why this, not `pdfplumber` / `camelot` / `marker`?
+
+| Tool | Strong at | Weak at — for *financial filings* specifically |
+|---|---|---|
+| `pdfplumber` | raw text + table extraction | no financial schema; no audit opinion; no fiscal-period awareness; no profile/ticker ergonomics |
+| `camelot` / `tabula-py` | lattice + stream tables | no opinion, no segments, no notes, no provenance, no resume on crash |
+| `marker` | Markdown from PDFs | output is prose, not structured financial JSON; can't be diffed reliably across re-extractions |
+| LLM-only (GPT/Claude) | opinion + notes | expensive; non-deterministic JSON; **no** reproducible fingerprints for regression testing |
+| **qscreen-filing-tool** | schema-stable filing JSON + audit + segments + notes + **SHA-256 cross-filing fingerprints** + math-identity gates + idempotent batch + SQLite resume | — |
+
+Qstocks targets the *final-mile* problem: everyone gets text out of a PDF; very few tools give you a **diff-able, audit-traceable, jurisdiction-aware** JSON record you can hand to a quant, an LLM, or a regulatory pipeline.
+
+
+
 ```bash
 # install
 git clone https://github.com/Mine-FNL/qstocks-filing-tool

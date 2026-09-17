@@ -33,7 +33,7 @@ Qstocks targets the *final-mile* problem: everyone gets text out of a PDF; very 
 ```bash
 # install — three options, pick one
 # (1) direct from the public GitHub Releases CDN (no PyPI needed, no token, no signup)
-pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/download/v1.6.0/qscreen_filing_tool-1.6.0-py3-none-any.whl
+pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest/download/qscreen_filing_tool-1.6.0-py3-none-any.whl
 # (2) proper PEP 503 simple index hosted on GitHub Pages (PyPI-equivalent for one package)
 pip install --extra-index-url https://mine-fnl.github.io/qstocks-filing-tool/simple/ qscreen-filing-tool
 # (3) from a clone (full source + dev extras)
@@ -45,7 +45,7 @@ qscreen-app          # → localhost:8765  (drag PDF, click Extract)
 qscreen-ingest report.pdf --symbol AKHI --year 2022
 ```
 
-> Both option 1 and option 2 install the same wheel that `.github/workflows/publish.yml` would push to PyPI on the day the maintainer registers the Trusted Publisher. Today they're the public install paths; PyPI is queued behind that one-time UI click on `pypi.org/manage/account/publishing/`.
+> Both option 1 and option 2 install the same wheel that `.github/workflows/release.yml` builds, gates on the bench regression check, and uploads to GitHub Releases on every `v*` tag push — no maintainer UI click required. PyPI publishing via `.github/workflows/publish.yml` is queued for the day you register a Trusted Publisher on `pypi.org`; until then the GitHub Releases + GitHub Pages path is the public install surface.
 
 > **First run?** Follow **[RUNBOOK.md](RUNBOOK.md)** — install → key → one command → every output.
 

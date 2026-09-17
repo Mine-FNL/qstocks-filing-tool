@@ -75,7 +75,11 @@ jobs:
         run: |
           python -m pip install -e ".[dev]"
           mkdir -p site
-          python qscreen_eval.py --json --out /tmp/bench.json
+          # qscreen_eval.py exits non-zero on bench regressions (that's
+          # its design — it's the regression detector). For docs we just
+          # want a representative snapshot, so capture the JSON output
+          # even if the exit code is non-zero.
+          python qscreen_eval.py --json --out /tmp/bench.json || true
           python docs/build_demo.py /tmp/bench.json \
               --out site/demo.html \
               --og site/og.png || true

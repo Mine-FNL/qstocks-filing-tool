@@ -17,6 +17,18 @@ left as future work.
   subject (`owner/repo/.github/workflows`, pinned at release time).
   `.sig` + `.crt` are re-uploaded to the release as additional assets.
 
+- **SLSA Build L3 provenance** — every released wheel, sdist, and
+  SBOM is attested via `.github/workflows/provenance.yml` using the
+  first-party `actions/attest-build-provenance@v1` action. The result
+  is an in-toto SLSA Provenance v1 attestation stored in GitHub's
+  artifact-attestations API. Consumers verify with
+  `gh attestation verify <file> --owner Mine-FNL
+   --repo qstocks-filing-tool` — no per-release long-lived key material
+  required on either side; Sigstore + SLSA attestations are both
+  keyless. Triggered automatically on `release.published`; the same
+  workflow can be triggered manually with a tag input for re-attest
+  of an existing release.
+
 - **CodeQL semantic analysis** — `.github/workflows/security.yml` runs
   on every PR + every push to main + weekly Monday 06:00 UTC. SARIF
   uploaded to the Security tab.
@@ -48,29 +60,6 @@ left as future work.
 
 ## Deliberate gaps (future work)
 
-- **SLSA Build L3 provenance attestation** — `slsa-framework/slsa-github-generator/.github/workflows/generator_python_slsa3.yml@v2.0.0`
-  was the intended target, but using it from a step-level `uses:` is
-  invalid syntax (the generator is a reusable workflow, not an
-  action). Calling it at job-level would require refactoring our
-  release flow so the build lives inside the slsa generator, not in
-  `release.yml::publish`. That refactor is real work — it's deferred
-  to a follow-up session, not stubbed in half-working form.
-
-  Workaround until then: Sigstore + GH OIDC identity gives
-  consumers a comparable receipt. Verify the release's provenance
-  via either:
-  - `gh attestation verify dist/qscreen_filing_tool-X.Y.Z-py3-none-any.whl \\
-       --owner Mine-FNL --repo qstocks-filing-tool`
-  - `cosign verify-blob --signature <file>.sig \\
-       --certificate <file>.crt \\
-       --certificate-identity 'https://github.com/Mine-FNL/qstocks-filing-tool/.github/workflows/release.yml@refs/tags/vX.Y.Z' \\
-       <file>`
-
-- **Sigstore signing + SLSA on the SBOM itself** — the SBOM is attached
-  to the release but not separately signed. Add a Sigstore step over
-  `dist/sbom.cdx.json` after attestation generation; coordinates with
-  the SLSA work above.
-
 - **VEX (Vulnerability Exploitability eXchange)** — once SLSA + Sigstore
   cover the artifact side, layered VEX statements from
   `security.yml` advisories give consumers a "this advisory does not
@@ -79,6 +68,14 @@ left as future work.
 - **Renovate as an alternative to Dependabot** — Dependabot's PR cadence
   and grouping is fine for ~50 dependencies; if the tree grows beyond
   that, Renovate's rules engine is more flexible.
+
+- **slsa-framework generator instead of `actions/attest-build-provenance`** —
+  the slsa-framework generator is the canonical SLSA Build L3 path for
+  Python and supports more advanced provenance shapes (multi-stage
+  builds, hermetic toolchains). Today we use GitHub's first-party
+  attestation action because it's plug-into-existing-build; a future
+  refactor could move `release.yml::publish` into the slsa generator's
+  reusable workflow for richer provenance metadata.
 
 ## Verification cheat-sheet
 
@@ -96,6 +93,16 @@ curl -sL "https://github.com/Mine-FNL/qstocks-filing-tool/releases/download/${TA
 cosign verify-blob --signature /tmp/pkg.tar.gz.sig --certificate /tmp/pkg.tar.gz.crt \
     --certificate-identity "https://github.com/Mine-FNL/qstocks-filing-tool/.github/workflows/release.yml@refs/tags/${TAG}" \
     /tmp/pkg.tar.gz
+
+# Confirm a release artifact has an SLSA Build L3 attestation
+TAG=vX.Y.Z
+gh release download "${TAG}" --pattern 'qscreen_filing_tool-*' --dir /tmp
+gh attestation verify /tmp/qscreen_filing_tool-*-py3-none-any.whl \\
+    --owner Mine-FNL --repo qstocks-filing-tool
+gh attestation verify /tmp/qscreen_filing_tool-*.tar.gz \\
+    --owner Mine-FNL --repo qstocks-filing-tool
+gh attestation verify /tmp/sbom.cdx.json \\
+    --owner Mine-FNL --repo qstocks-filing-tool
 
 # Re-run the bench locally (mirrors the CI regression gate)
 .venv/bin/python qscreen_eval.py

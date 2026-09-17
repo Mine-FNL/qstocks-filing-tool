@@ -98,7 +98,7 @@ jobs:
             echo "No advisories found."
           fi
       - name: Upload audit artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pip-audit-${{ github.run_id }}
           path: audit-out/

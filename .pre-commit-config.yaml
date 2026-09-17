@@ -37,8 +37,13 @@ repos:
         args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
-        # .pre-commit-config.yaml itself may need unsafe load
-        exclude: ^\.pre-commit-config\.yaml$
+        # .pre-commit-config.yaml itself (may contain !!python tags).
+        # mkdocs.yml uses material/pymdownx Python-object YAML tags
+        # (!!python/name:material.extensions.emoji.twemoji etc.) which
+        # safe-load rejects. Skip it; CI runs mkdocs --strict for the
+        # real test.
+        # docs/site/*.md are not actually YAML files even with extension.
+        exclude: '(\.pre-commit-config\.yaml|mkdocs\.ya?ml|docs/site/.*\.md)$'
       - id: check-json
       - id: check-toml
       - id: check-added-large-files
@@ -58,19 +63,17 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
-  # ── mypy — type-check (matches lint.yml invocation) ────────────────────
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
-    hooks:
-      - id: mypy
-        # Pass the same selectors the CI uses. We allow failures here
-        # (additional_dependencies) so the strict typing keeps moving
-        # without blocking noisy in-flight refactors.
-        additional_dependencies:
-          - types-requests
-          - types-flask
-        args: [--config-file=pyproject.toml, --no-incremental]
-        files: \.py$
+  # ── NOTE: mypy is intentionally NOT in pre-commit ─────────────────────
+  # CI runs mypy on the strict-typed engine modules only via the lint.yml
+  # `mypy` job (qscreen_ingest, qscreen_gates, qscreen_state,
+  # qscreen_fingerprint, qscreen_langdetect, qscreen_autodetect). Running
+  # mypy on the full Python tree via pre-commit would surface 100+ latent
+  # issues in not-yet-annotated modules (qscreen_analyze, qscreen_report,
+  # etc.) and block commits the CI gate would let through.
+  #
+  # Run mypy locally if you want to pre-empt the CI check:
+  #   .venv/bin/python -m mypy qscreen_ingest qscreen_gates qscreen_state \\
+  #     qscreen_fingerprint qscreen_langdetect qscreen_autodetect
 
   # ── secret detection — runs locally, no server roundtrip needed ────────
   - repo: https://github.com/Yelp/detect-secrets

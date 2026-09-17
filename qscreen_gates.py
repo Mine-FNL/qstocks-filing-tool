@@ -189,7 +189,12 @@ def _check_balance_sheet(filing: dict) -> Iterable[GateFinding]:
                 f"TotalAssets={a:,.0f}  TotalLiab+Equity={rhs:,.0f}  "
                 f"delta={a - rhs:+,.0f}"
             ),
-            evidence={"total_assets": a, "total_liab": liabilities, "total_equity": equity, "rhs": rhs},
+            evidence={
+                "total_assets": a,
+                "total_liab": liabilities,
+                "total_equity": equity,
+                "rhs": rhs,
+            },
         )
 
 

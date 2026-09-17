@@ -1,0 +1,153 @@
+name: bench
+
+# PR-time + main + nightly bench gate.
+#
+# Runs the golden-set evaluation on every PR push and on every push to
+# main. Refuses to merge / publish when the bench regresses below the
+# captured baseline (currently 80.6% / 100 of 124 checks).
+#
+# Plus: a weekly cron run that posts the latest accuracy to the Actions
+# step summary, so silent dependency regressions surface on the dashboard.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "qscreen_ingest.py"
+      - "qscreen_gates.py"
+      - "qscreen_state.py"
+      - "qscreen_eval.py"
+      - "qscreen_autodetect.py"
+      - "qscreen_langdetect.py"
+      - "qscreen_fingerprint.py"
+      - "profiles/**"
+      - "tests/golden/**"
+      - "pyproject.toml"
+      - ".github/workflows/bench.yml"
+  push:
+    branches: [main]
+    paths:
+      - "qscreen_ingest.py"
+      - "qscreen_gates.py"
+      - "qscreen_state.py"
+      - "qscreen_eval.py"
+      - "qscreen_autodetect.py"
+      - "qscreen_langdetect.py"
+      - "qscreen_fingerprint.py"
+      - "profiles/**"
+      - "tests/golden/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+  schedule:
+    # Mondays 06:00 UTC — first thing in the work-week.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  pull-requests: write   # for the bench-summary PR comment
+
+concurrency:
+  group: bench-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    name: Golden-set eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Run bench + parse aggregate
+        id: bench
+        run: |
+          # qscreen_eval.py exits non-zero on any check failure; we
+          # capture the JSON anyway and parse the aggregate ratio.
+          python qscreen_eval.py --json --out bench.json || true
+
+          python -c "
+          import json
+          d = json.load(open('bench.json'))
+          cases = d['cases']
+          total_score = sum(c['score'] for c in cases)
+          total_checks = sum(c['total'] for c in cases)
+          ratio = total_score / total_checks
+          print(f\"Bench: {total_score}/{total_checks} ({ratio*100:.1f}%)\")
+          print('Per-case:')
+          for c in cases:
+              mark = 'OK ' if c['score'] == c['total'] else 'WARN'
+              print(f\"  {mark} {c['case']:<24s}  {c['score']}/{c['total']}\")
+          print(f\"BENCH_RATIO={round(ratio, 4)}\")
+          " | tee bench-summary.txt
+
+          RATIO=$(grep -oE 'BENCH_RATIO=[0-9.]+' bench-summary.txt | head -1 | cut -d= -f2)
+          echo "Computed ratio: $RATIO"
+          echo "ratio=$RATIO" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce regression gate
+        env:
+          RATIO: ${{ steps.bench.outputs.ratio }}
+        run: |
+          python -c "
+          import os, sys
+          ratio = float(os.environ['RATIO'])
+          baseline = 0.806   # 100/124 = 80.6%, captured 2026-09-17
+          if ratio < baseline:
+              print(f'::error::Bench regressed: {ratio*100:.1f}% < baseline {baseline*100:.1f}%')
+              sys.exit(1)
+          print(f'Bench OK: {ratio*100:.1f}% >= baseline {baseline*100:.1f}%')
+          "
+
+      - name: Publish step summary
+        if: always()
+        run: |
+          {
+            echo "## Golden-set bench"
+            echo
+            echo "| Case | Score |"
+            echo "| --- | --- |"
+            python -c "
+          import json
+          d = json.load(open('bench.json'))
+          for c in d['cases']:
+              mark = '\u2705' if c['score'] == c['total'] else '\u26a0\ufe0f'
+              print(f\"| {mark} \`{c['case']}\` | {c['score']}/{c['total']} |")
+          "
+            echo
+            total_score=$(python -c "import json; d=json.load(open('bench.json')); print(sum(c['score'] for c in d['cases']))")
+            total_checks=$(python -c "import json; d=json.load(open('bench.json')); print(sum(c['total'] for c in d['cases']))")
+            echo "**Aggregate: $total_score / $total_checks checks pass.**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: bench
+          message: |
+            ## Golden-set bench
+
+            | Case | Score |
+            | --- | --- |
+            $(python -c "
+          import json
+          d = json.load(open('bench.json'))
+          for c in d['cases']:
+              mark = '\u2705' if c['score'] == c['total'] else '\u26a0\ufe0f'
+              print(f\"| {mark} \`{c['case']}\` | {c['score']}/{c['total']} |\")
+          ")
+
+            **Aggregate: $(python -c "import json; d=json.load(open('bench.json')); print(sum(c['score'] for c in d['cases']))") / $(python -c "import json; d=json.load(open('bench.json')); print(sum(c['total'] for c in d['cases']))") checks pass.**
+
+            ${{ steps.bench.outputs.ratio && format('Baseline gate: **{0}%** (must be \u2265 80.6%)', steps.bench.outputs.ratio * 100) || 'Bench did not complete' }}
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-json-${{ github.event.pull_request.number || github.ref_name }}
+          path: bench.json

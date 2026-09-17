@@ -28,6 +28,8 @@ Qstocks targets the *final-mile* problem: everyone gets text out of a PDF; very 
 
 > Long-form pitch for HN/Show, r/quant, IR Society, etc.: **[docs/SHOW_HN.md](docs/SHOW_HN.md)**. Every claim there is a verifiable CLI output, not marketing.
 
+> Live bench report (no install required): **[mine-fnl.github.io/qstocks-filing-tool/demo.html](https://mine-fnl.github.io/qstocks-filing-tool/demo.html)**. Auto-generated from `qscreen_eval.py --json` via `docs/build_demo.py`; refreshed on every release tag.
+
 
 
 ```bash

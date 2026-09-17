@@ -26,6 +26,8 @@ Two modes: **local browser app** (drag-and-drop, ~3 min to first JSON) or
 
 Qstocks targets the *final-mile* problem: everyone gets text out of a PDF; very few tools give you a **diff-able, audit-traceable, jurisdiction-aware** JSON record you can hand to a quant, an LLM, or a regulatory pipeline.
 
+> Long-form pitch for HN/Show, r/quant, IR Society, etc.: **[docs/SHOW_HN.md](docs/SHOW_HN.md)**. Every claim there is a verifiable CLI output, not marketing.
+
 
 
 ```bash

@@ -73,3 +73,77 @@ addopts = "-ra"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
+
+# -----------------------------------------------------------------------------
+# Code quality (industry-leading defaults)
+# -----------------------------------------------------------------------------
+
+[tool.ruff]
+# A pragmatic line length — matches PEP 8's 79-ish but accommodates modern
+# docstrings, URLs, and the long CLI tables in the engine.
+line-length = 100
+target-version = "py39"
+extend-exclude = [
+    "build",
+    "dist",
+    "site",
+    ".venv",
+    "qscreen_filing_tool.egg-info",
+    "tests/golden/cases",
+]
+
+[tool.ruff.lint]
+# E/F/W: pycodestyle / pyflakes / pycodestyle warnings. The baseline.
+# I: isort (imports). B: bugbear (likely bugs). UP: pyupgrade (modern syntax).
+# SIM: simplify. C4: comprehensions. RUF: ruff-specific.
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "RUF"]
+ignore = [
+    "E501",   # line-length — handled by formatter
+    "B008",   # function-call-in-default-arg — common in argparse
+    "B904",   # raise-from — large surface to retrofit
+    "RUF012", # mutable-class-default-attr — pydantic-style attrs we use
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests allow longer lines + looser unused-import rules
+"tests/**/*.py" = ["E402", "F401", "F811"]
+# Generated / vendored data files
+"profiles/qatar/data/*.json" = ["E", "W"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.9"
+# Be lenient on legacy modules; tighten as type hints land.
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = false
+ignore_missing_imports = true
+exclude = [
+    "^build/",
+    "^dist/",
+    "^site/",
+    "^\\.venv/",
+    "^qscreen_filing_tool\\.egg-info/",
+    "^tests/golden/cases/",
+]
+
+[[tool.mypy.overrides]]
+# Tighter for the core engine — entry points + modules with strong test
+# coverage. These should aspire to `disallow_untyped_defs = true` over time.
+module = [
+    "qscreen_ingest",
+    "qscreen_gates",
+    "qscreen_state",
+    "qscreen_fingerprint",
+    "qscreen_langdetect",
+    "qscreen_autodetect",
+]
+disallow_untyped_defs = true
+warn_unused_ignores = true

@@ -5,6 +5,7 @@ cross-window merge, page windowing, the hardened JSON parser, exports, the
 batch manifest reader, OCR fall-through, and the LLM/upload HTTP wrappers
 (with requests stubbed).
 """
+
 from __future__ import annotations
 
 import json
@@ -14,33 +15,75 @@ import pytest
 
 import qscreen_ingest as e
 
-
 # ── fixtures / helpers ───────────────────────────────────────────────────────
+
 
 def good_filing() -> dict:
     f = e.empty_filing()
-    f["metadata"].update({"symbol": "QNBK", "sector": "conventional_bank",
-                          "fiscal_year": 2023, "fiscal_period": "FY", "unit_scale": 1000})
+    f["metadata"].update(
+        {
+            "symbol": "QNBK",
+            "sector": "conventional_bank",
+            "fiscal_year": 2023,
+            "fiscal_period": "FY",
+            "unit_scale": 1000,
+        }
+    )
     f["audit"].update({"opinion_type": "unqualified", "verbatim_text": "In our opinion …"})
-    f["statements"].append({"type": "income_statement", "title": "Income", "period_label": "2023",
-                            "verbatim_text": "NII 1",
-                            "line_items": [{"account_code": "IS_NET_INTEREST", "label_verbatim": "NII",
-                                            "value": 1, "note_ref": "24", "depth": 0, "is_subtotal": False}]})
-    f["notes"].append({"number": "27", "title": "Contingencies", "category": "contingent_liabilities",
-                       "structured": {}, "verbatim_text": "…"})
+    f["statements"].append(
+        {
+            "type": "income_statement",
+            "title": "Income",
+            "period_label": "2023",
+            "verbatim_text": "NII 1",
+            "line_items": [
+                {
+                    "account_code": "IS_NET_INTEREST",
+                    "label_verbatim": "NII",
+                    "value": 1,
+                    "note_ref": "24",
+                    "depth": 0,
+                    "is_subtotal": False,
+                }
+            ],
+        }
+    )
+    f["notes"].append(
+        {
+            "number": "27",
+            "title": "Contingencies",
+            "category": "contingent_liabilities",
+            "structured": {},
+            "verbatim_text": "…",
+        }
+    )
     return f
 
 
 def llm_args(**over):
-    base = dict(symbol="QNBK", sector="conventional_bank", year=2023, period="FY",
-                provider="openrouter", base_url=None, model=None, max_tokens=128,
-                timeout=5, retries=3, no_json_mode=False, llm_key="sk-test",
-                pages_per_chunk=12, overlap=1, no_chunk=False)
+    base = {
+        "symbol": "QNBK",
+        "sector": "conventional_bank",
+        "year": 2023,
+        "period": "FY",
+        "provider": "openrouter",
+        "base_url": None,
+        "model": None,
+        "max_tokens": 128,
+        "timeout": 5,
+        "retries": 3,
+        "no_json_mode": False,
+        "llm_key": "sk-test",
+        "pages_per_chunk": 12,
+        "overlap": 1,
+        "no_chunk": False,
+    }
     base.update(over)
     return SimpleNamespace(**base)
 
 
 # ── contract validation ──────────────────────────────────────────────────────
+
 
 def test_validate_accepts_good():
     assert e.validate_filing(good_filing()) == []
@@ -84,18 +127,40 @@ def test_validate_flags_lossy_line_item():
 
 # ── normalization ────────────────────────────────────────────────────────────
 
+
 def test_normalize_aliases_and_unknown_code():
     drifted = {
-        "metadata": {"ticker": "QIBK", "company": "Qatar Islamic Bank", "sector": "Islamic Bank",
-                     "reporting_currency": "QAR", "framework": "AAOIFI", "unit_scale": 1000},
-        "audit": {"opinion_type": "unqualified", "opinion_text": "In our opinion …",
-                  "key_audit_matters": [{"title": "ECL", "description": "judgemental ECL"}],
-                  "emphasis_of_matter": "one matter"},
-        "statements": [{"type": "income_statement", "period": "year_ended_2024", "verbatim_text": "…",
-                        "line_items": [{"label_verbatim": "x", "value": 1},
-                                       {"account_code": "IS_OTHER_COMPREHENSIVE_INCOME",
-                                        "label_verbatim": "OCI", "value": 2}]}],
-        "notes": [], "extraction_quality": {},
+        "metadata": {
+            "ticker": "QIBK",
+            "company": "Qatar Islamic Bank",
+            "sector": "Islamic Bank",
+            "reporting_currency": "QAR",
+            "framework": "AAOIFI",
+            "unit_scale": 1000,
+        },
+        "audit": {
+            "opinion_type": "unqualified",
+            "opinion_text": "In our opinion …",
+            "key_audit_matters": [{"title": "ECL", "description": "judgemental ECL"}],
+            "emphasis_of_matter": "one matter",
+        },
+        "statements": [
+            {
+                "type": "income_statement",
+                "period": "year_ended_2024",
+                "verbatim_text": "…",
+                "line_items": [
+                    {"label_verbatim": "x", "value": 1},
+                    {
+                        "account_code": "IS_OTHER_COMPREHENSIVE_INCOME",
+                        "label_verbatim": "OCI",
+                        "value": 2,
+                    },
+                ],
+            }
+        ],
+        "notes": [],
+        "extraction_quality": {},
     }
     n = e.normalize_filing(drifted)
     assert n["metadata"]["symbol"] == "QIBK"
@@ -103,85 +168,144 @@ def test_normalize_aliases_and_unknown_code():
     assert n["metadata"]["sector"] == "islamic_bank"
     assert n["metadata"]["currency"] == "QAR"
     assert n["metadata"]["reporting_framework"] == "AAOIFI"
-    assert n["audit"]["verbatim_text"]                       # opinion_text → verbatim_text
+    assert n["audit"]["verbatim_text"]  # opinion_text → verbatim_text
     assert n["audit"]["key_audit_matters"][0]["text"] == "judgemental ECL"
     assert n["audit"]["emphasis_of_matter"] == ["one matter"]  # str coerced to list
     assert n["statements"][0]["period_label"] == "year_ended_2024"
     assert n["statements"][0]["line_items"][1]["account_code"] is None  # unknown → null
-    assert any("IS_OTHER_COMPREHENSIVE_INCOME" in u
-               for u in n["extraction_quality"]["unmapped_labels"])
+    assert any(
+        "IS_OTHER_COMPREHENSIVE_INCOME" in u for u in n["extraction_quality"]["unmapped_labels"]
+    )
 
 
-@pytest.mark.parametrize("raw,expect", [
-    ("Islamic Bank", "islamic_bank"), ("commercial-bank", "conventional_bank"),
-    ("Takaful", "insurance"), ("Petrochemicals industrials", "industrial"),
-    ("Real Estate", "other"), ("", None),
-])
+@pytest.mark.parametrize(
+    "raw,expect",
+    [
+        ("Islamic Bank", "islamic_bank"),
+        ("commercial-bank", "conventional_bank"),
+        ("Takaful", "insurance"),
+        ("Petrochemicals industrials", "industrial"),
+        ("Real Estate", "other"),
+        ("", None),
+    ],
+)
 def test_normalize_sector(raw, expect):
     assert e._normalize_sector(raw) == expect
 
 
-@pytest.mark.parametrize("raw,expect", [
-    (1000, 1000), ("in thousands", 1000), ("QAR millions", 1000000), ("nonsense", None),
-])
+@pytest.mark.parametrize(
+    "raw,expect",
+    [
+        (1000, 1000),
+        ("in thousands", 1000),
+        ("QAR millions", 1000000),
+        ("nonsense", None),
+    ],
+)
 def test_normalize_unit_scale(raw, expect):
     assert e._normalize_unit_scale(raw) == expect
 
 
 # ── lossless cross-window merge ──────────────────────────────────────────────
 
+
 def test_merge_combines_windows():
-    a = e.empty_filing(); a["audit"].update({"opinion_type": "unqualified", "verbatim_text": "op …"})
-    b = e.empty_filing(); b["statements"].append(
-        {"type": "balance_sheet", "verbatim_text": "BS …",
-         "line_items": [{"label_verbatim": "Total assets", "value": 9, "account_code": "BS_TOTAL_ASSETS"}]})
-    c = e.empty_filing(); c["notes"].append(
-        {"number": "5", "title": "Sukuk", "category": "sukuk_islamic", "structured": {}, "verbatim_text": "sukuk …"})
+    a = e.empty_filing()
+    a["audit"].update({"opinion_type": "unqualified", "verbatim_text": "op …"})
+    b = e.empty_filing()
+    b["statements"].append(
+        {
+            "type": "balance_sheet",
+            "verbatim_text": "BS …",
+            "line_items": [
+                {"label_verbatim": "Total assets", "value": 9, "account_code": "BS_TOTAL_ASSETS"}
+            ],
+        }
+    )
+    c = e.empty_filing()
+    c["notes"].append(
+        {
+            "number": "5",
+            "title": "Sukuk",
+            "category": "sukuk_islamic",
+            "structured": {},
+            "verbatim_text": "sukuk …",
+        }
+    )
     m = e.merge_filings([a, b, c])
     assert m["audit"]["opinion_type"] == "unqualified"
     assert m["statements"] and m["notes"]
 
 
 def test_merge_unions_split_statement_lossless():
-    w1 = e.empty_filing(); w2 = e.empty_filing()
-    w1["statements"].append({"type": "income_statement", "title": "IS", "period_label": "2024",
-        "verbatim_text": "the much longer first-window verbatim block",
-        "line_items": [
-            {"label_verbatim": "Revenue", "value": 10, "account_code": "IS_REVENUE"},
-            {"label_verbatim": "Net interest", "value": 5, "account_code": None}]})
-    w2["statements"].append({"type": "income_statement", "title": "IS", "period_label": "2024",
-        "verbatim_text": "short",
-        "line_items": [
-            {"label_verbatim": "Net interest", "value": 5, "account_code": "IS_NET_INTEREST"},  # overlap dup
-            {"label_verbatim": "Net income", "value": 3, "account_code": "IS_NET_INCOME"}]})     # split row
+    w1 = e.empty_filing()
+    w2 = e.empty_filing()
+    w1["statements"].append(
+        {
+            "type": "income_statement",
+            "title": "IS",
+            "period_label": "2024",
+            "verbatim_text": "the much longer first-window verbatim block",
+            "line_items": [
+                {"label_verbatim": "Revenue", "value": 10, "account_code": "IS_REVENUE"},
+                {"label_verbatim": "Net interest", "value": 5, "account_code": None},
+            ],
+        }
+    )
+    w2["statements"].append(
+        {
+            "type": "income_statement",
+            "title": "IS",
+            "period_label": "2024",
+            "verbatim_text": "short",
+            "line_items": [
+                {
+                    "label_verbatim": "Net interest",
+                    "value": 5,
+                    "account_code": "IS_NET_INTEREST",
+                },  # overlap dup
+                {"label_verbatim": "Net income", "value": 3, "account_code": "IS_NET_INCOME"},
+            ],
+        }
+    )  # split row
     st = e.merge_filings([w1, w2])["statements"][0]
     labels = [li["label_verbatim"] for li in st["line_items"]]
-    assert labels == ["Revenue", "Net interest", "Net income"]          # no loss, no dup
+    assert labels == ["Revenue", "Net interest", "Net income"]  # no loss, no dup
     ni = next(li for li in st["line_items"] if li["label_verbatim"] == "Net interest")
-    assert ni["account_code"] == "IS_NET_INTEREST"                      # null upgraded from dup
-    assert st["verbatim_text"].startswith("the much longer")           # longest verbatim kept
+    assert ni["account_code"] == "IS_NET_INTEREST"  # null upgraded from dup
+    assert st["verbatim_text"].startswith("the much longer")  # longest verbatim kept
 
 
 def test_merge_dedups_kams_and_aggregates_quality():
     w1 = e.empty_filing()
-    w1["audit"].update({"opinion_type": "unqualified", "verbatim_text": "opinion",
-                        "key_audit_matters": [{"title": "ECL", "text": "aaa"}]})
+    w1["audit"].update(
+        {
+            "opinion_type": "unqualified",
+            "verbatim_text": "opinion",
+            "key_audit_matters": [{"title": "ECL", "text": "aaa"}],
+        }
+    )
     w1["extraction_quality"] = {"confidence": 0.9, "warnings": ["w1"], "unmapped_labels": ["u1"]}
     w2 = e.empty_filing()
     w2["audit"].update({"key_audit_matters": [{"title": "ECL", "text": "aaa"}]})  # duplicate KAM
-    w2["extraction_quality"] = {"confidence": 0.5, "warnings": ["w1", "w2"], "unmapped_labels": ["u2"]}
+    w2["extraction_quality"] = {
+        "confidence": 0.5,
+        "warnings": ["w1", "w2"],
+        "unmapped_labels": ["u2"],
+    }
     m = e.merge_filings([w1, w2])
     assert len(m["audit"]["key_audit_matters"]) == 1
-    assert m["extraction_quality"]["confidence"] == 0.5                 # min
-    assert m["extraction_quality"]["warnings"] == ["w1", "w2"]          # dedup + sorted
+    assert m["extraction_quality"]["confidence"] == 0.5  # min
+    assert m["extraction_quality"]["warnings"] == ["w1", "w2"]  # dedup + sorted
     assert m["extraction_quality"]["unmapped_labels"] == ["u1", "u2"]
 
 
 # ── page windowing ───────────────────────────────────────────────────────────
 
+
 def test_page_windows_overlap_and_coverage():
-    pages = [{"num": i, "text": str(i)} for i in range(1, 8)]   # 7 pages
-    wins = e.page_windows(pages, size=3, overlap=1)             # step 2, stops at the last full window
+    pages = [{"num": i, "text": str(i)} for i in range(1, 8)]  # 7 pages
+    wins = e.page_windows(pages, size=3, overlap=1)  # step 2, stops at the last full window
     assert [(w[0]["num"], w[-1]["num"]) for w in wins] == [(1, 3), (3, 5), (5, 7)]
 
 
@@ -191,6 +315,7 @@ def test_page_windows_no_chunk_when_size_zero():
 
 
 # ── hardened JSON parsing ────────────────────────────────────────────────────
+
 
 def test_parse_plain_object():
     assert e.parse_llm_json('{"a": 1}') == {"a": 1}
@@ -215,6 +340,7 @@ def test_parse_no_object_raises():
 
 # ── exports ──────────────────────────────────────────────────────────────────
 
+
 def test_flatten_and_csv_export(tmp_path):
     f = good_filing()
     rows = e.flatten_line_items(f)
@@ -231,10 +357,14 @@ def test_flatten_and_csv_export(tmp_path):
 
 # ── batch manifest ───────────────────────────────────────────────────────────
 
+
 def test_read_manifest_ok(tmp_path):
     p = tmp_path / "m.csv"
-    p.write_text("pdf,symbol,sector,year,period\na.pdf,QIBK,Islamic Bank,2024,FY\n"
-                 "b.pdf,QNBK,conventional_bank,2023,\n", encoding="utf-8")
+    p.write_text(
+        "pdf,symbol,sector,year,period\na.pdf,QIBK,Islamic Bank,2024,FY\n"
+        "b.pdf,QNBK,conventional_bank,2023,\n",
+        encoding="utf-8",
+    )
     rows = e.read_manifest(str(p))
     assert [r["symbol"] for r in rows] == ["QIBK", "QNBK"]
 
@@ -255,20 +385,32 @@ def test_read_manifest_empty(tmp_path):
 
 # ── OCR fall-through (pdfplumber stubbed; OCR deps absent) ────────────────────
 
+
 class _FakePage:
-    def __init__(self, text): self._t = text
-    def extract_text(self): return self._t
-    def extract_tables(self): return []
+    def __init__(self, text):
+        self._t = text
+
+    def extract_text(self):
+        return self._t
+
+    def extract_tables(self):
+        return []
 
 
 class _FakePDF:
-    def __init__(self, texts): self.pages = [_FakePage(t) for t in texts]
-    def __enter__(self): return self
-    def __exit__(self, *a): return False
+    def __init__(self, texts):
+        self.pages = [_FakePage(t) for t in texts]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
 
 
 def _stub_pdf(monkeypatch, texts, tmp_path):
     import pdfplumber
+
     monkeypatch.setattr(pdfplumber, "open", lambda path: _FakePDF(texts))
     pdf = tmp_path / "f.pdf"
     pdf.write_bytes(b"%PDF-1.4 stub")
@@ -277,9 +419,11 @@ def _stub_pdf(monkeypatch, texts, tmp_path):
 
 def test_ocr_auto_warns_when_unavailable(monkeypatch, tmp_path, capsys):
     path = _stub_pdf(monkeypatch, ["full page of text " * 5, ""], tmp_path)
-    monkeypatch.setattr(e, "_ocr_pages", lambda p, nums: (_ for _ in ()).throw(e.OcrUnavailable("no deps")))
+    monkeypatch.setattr(
+        e, "_ocr_pages", lambda p, nums: (_ for _ in ()).throw(e.OcrUnavailable("no deps"))
+    )
     pages, sha = e.pdf_to_pages(path, ocr_mode="auto")
-    assert len(pages) == 2 and pages[1]["text"] == ""        # unchanged, no crash
+    assert len(pages) == 2 and pages[1]["text"] == ""  # unchanged, no crash
     assert "likely" in capsys.readouterr().out.lower()
     assert len(sha) == 64
 
@@ -287,36 +431,55 @@ def test_ocr_auto_warns_when_unavailable(monkeypatch, tmp_path, capsys):
 def test_ocr_always_recovers_text(monkeypatch, tmp_path):
     path = _stub_pdf(monkeypatch, ["", ""], tmp_path)
     # _ocr_pages now returns word boxes ({text,x0,x1,top} in points), not flat text.
-    monkeypatch.setattr(e, "_ocr_pages",
-                        lambda p, nums: {n: [{"text": f"ocr-page-{n}",
-                                              "x0": 0.0, "x1": 50.0, "top": 0.0}]
-                                         for n in nums})
+    monkeypatch.setattr(
+        e,
+        "_ocr_pages",
+        lambda p, nums: {
+            n: [{"text": f"ocr-page-{n}", "x0": 0.0, "x1": 50.0, "top": 0.0}] for n in nums
+        },
+    )
     pages, _ = e.pdf_to_pages(path, ocr_mode="always")
     assert "ocr-page-1" in pages[0]["text"] and "ocr-page-2" in pages[1]["text"]
 
 
 def test_ocr_always_raises_when_unavailable(monkeypatch, tmp_path):
     path = _stub_pdf(monkeypatch, [""], tmp_path)
-    monkeypatch.setattr(e, "_ocr_pages", lambda p, nums: (_ for _ in ()).throw(e.OcrUnavailable("no deps")))
+    monkeypatch.setattr(
+        e, "_ocr_pages", lambda p, nums: (_ for _ in ()).throw(e.OcrUnavailable("no deps"))
+    )
     with pytest.raises(SystemExit):
         e.pdf_to_pages(path, ocr_mode="always")
 
 
 # ── extract_filing orchestration (call_llm stubbed) ──────────────────────────
 
+
 def test_extract_single_pass(monkeypatch):
-    payload = json.dumps({
-        "metadata": {"ticker": "QNBK"},
-        "audit": {"opinion_type": "unqualified", "verbatim_text": "op"},
-        "statements": [{"type": "balance_sheet", "verbatim_text": "BS",
-                        "line_items": [{"label_verbatim": "Total assets", "value": 1,
-                                        "account_code": "BS_TOTAL_ASSETS"}]}],
-        "notes": [], "extraction_quality": {"confidence": 0.8},
-    })
+    payload = json.dumps(
+        {
+            "metadata": {"ticker": "QNBK"},
+            "audit": {"opinion_type": "unqualified", "verbatim_text": "op"},
+            "statements": [
+                {
+                    "type": "balance_sheet",
+                    "verbatim_text": "BS",
+                    "line_items": [
+                        {
+                            "label_verbatim": "Total assets",
+                            "value": 1,
+                            "account_code": "BS_TOTAL_ASSETS",
+                        }
+                    ],
+                }
+            ],
+            "notes": [],
+            "extraction_quality": {"confidence": 0.8},
+        }
+    )
     monkeypatch.setattr(e, "call_llm", lambda messages, args: payload)
     pages = [{"num": 1, "text": "page one"}]
     out = e.extract_filing(pages, llm_args(no_chunk=True))
-    assert out["metadata"]["symbol"] == "QNBK"               # normalized alias
+    assert out["metadata"]["symbol"] == "QNBK"  # normalized alias
     assert out["statements"][0]["type"] == "balance_sheet"
 
 
@@ -325,16 +488,41 @@ def test_extract_windowed_merges(monkeypatch):
         # Different statement per window so the merge must combine them.
         body = messages[1]["content"]
         if "PAGE 1" in body:
-            return json.dumps({"metadata": {}, "audit": {"opinion_type": "unknown", "verbatim_text": ""},
-                               "statements": [{"type": "income_statement", "verbatim_text": "IS",
-                                               "line_items": [{"label_verbatim": "Rev", "value": 1,
-                                                               "account_code": "IS_REVENUE"}]}],
-                               "notes": [], "extraction_quality": {}})
-        return json.dumps({"metadata": {}, "audit": {"opinion_type": "unknown", "verbatim_text": ""},
-                           "statements": [{"type": "balance_sheet", "verbatim_text": "BS",
-                                           "line_items": [{"label_verbatim": "TA", "value": 2,
-                                                           "account_code": "BS_TOTAL_ASSETS"}]}],
-                           "notes": [], "extraction_quality": {}})
+            return json.dumps(
+                {
+                    "metadata": {},
+                    "audit": {"opinion_type": "unknown", "verbatim_text": ""},
+                    "statements": [
+                        {
+                            "type": "income_statement",
+                            "verbatim_text": "IS",
+                            "line_items": [
+                                {"label_verbatim": "Rev", "value": 1, "account_code": "IS_REVENUE"}
+                            ],
+                        }
+                    ],
+                    "notes": [],
+                    "extraction_quality": {},
+                }
+            )
+        return json.dumps(
+            {
+                "metadata": {},
+                "audit": {"opinion_type": "unknown", "verbatim_text": ""},
+                "statements": [
+                    {
+                        "type": "balance_sheet",
+                        "verbatim_text": "BS",
+                        "line_items": [
+                            {"label_verbatim": "TA", "value": 2, "account_code": "BS_TOTAL_ASSETS"}
+                        ],
+                    }
+                ],
+                "notes": [],
+                "extraction_quality": {},
+            }
+        )
+
     monkeypatch.setattr(e, "call_llm", fake)
     pages = [{"num": i, "text": f"content {i}"} for i in range(1, 6)]
     out = e.extract_filing(pages, llm_args(no_chunk=False, pages_per_chunk=2, overlap=1))
@@ -344,15 +532,29 @@ def test_extract_windowed_merges(monkeypatch):
 
 def test_extract_windowed_skips_unparseable(monkeypatch):
     calls = {"n": 0}
+
     def fake(messages, args):
         calls["n"] += 1
         if calls["n"] == 1:
             return "not json at all"
-        return json.dumps({"metadata": {}, "audit": {"opinion_type": "unknown", "verbatim_text": ""},
-                           "statements": [{"type": "cash_flow", "verbatim_text": "CF",
-                                           "line_items": [{"label_verbatim": "OCF", "value": 1,
-                                                           "account_code": "CF_OCF"}]}],
-                           "notes": [], "extraction_quality": {}})
+        return json.dumps(
+            {
+                "metadata": {},
+                "audit": {"opinion_type": "unknown", "verbatim_text": ""},
+                "statements": [
+                    {
+                        "type": "cash_flow",
+                        "verbatim_text": "CF",
+                        "line_items": [
+                            {"label_verbatim": "OCF", "value": 1, "account_code": "CF_OCF"}
+                        ],
+                    }
+                ],
+                "notes": [],
+                "extraction_quality": {},
+            }
+        )
+
     monkeypatch.setattr(e, "call_llm", fake)
     pages = [{"num": i, "text": f"c{i}"} for i in range(1, 6)]
     out = e.extract_filing(pages, llm_args(no_chunk=False, pages_per_chunk=2, overlap=1))
@@ -361,12 +563,26 @@ def test_extract_windowed_skips_unparseable(monkeypatch):
 
 # ── provider registry / resolution (no network) ─────────────────────────────
 
-_PROVIDER_ENV = ("MINIMAX_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY",
-                 "ANTHROPIC_API_KEY", "MOONSHOT_API_KEY", "KIMI_API_KEY",
-                 "QSCREEN_PROVIDER", "LLM_PROVIDER", "QSCREEN_MODEL", "LLM_API_KEY",
-                 "OLLAMA_API_KEY", "LMSTUDIO_API_KEY", "LLAMACPP_API_KEY",
-                 "JAN_API_KEY", "GPT4ALL_API_KEY",
-                 "QSCREEN_BASE_URL", "LLM_BASE_URL", "QSCREEN_GUIDED")
+_PROVIDER_ENV = (
+    "MINIMAX_API_KEY",
+    "OPENROUTER_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "MOONSHOT_API_KEY",
+    "KIMI_API_KEY",
+    "QSCREEN_PROVIDER",
+    "LLM_PROVIDER",
+    "QSCREEN_MODEL",
+    "LLM_API_KEY",
+    "OLLAMA_API_KEY",
+    "LMSTUDIO_API_KEY",
+    "LLAMACPP_API_KEY",
+    "JAN_API_KEY",
+    "GPT4ALL_API_KEY",
+    "QSCREEN_BASE_URL",
+    "LLM_BASE_URL",
+    "QSCREEN_GUIDED",
+)
 
 
 @pytest.fixture
@@ -376,8 +592,16 @@ def clean_provider_env(monkeypatch):
 
 
 def _pargs(**over):
-    base = dict(provider=None, base_url=None, model=None, llm_key=None,
-                max_tokens=128, no_json_mode=False, retries=2, timeout=5)
+    base = {
+        "provider": None,
+        "base_url": None,
+        "model": None,
+        "llm_key": None,
+        "max_tokens": 128,
+        "no_json_mode": False,
+        "retries": 2,
+        "timeout": 5,
+    }
     base.update(over)
     return SimpleNamespace(**base)
 
@@ -443,7 +667,9 @@ def test_resolve_env_provider_and_model_override(clean_provider_env, monkeypatch
 def test_resolve_custom_requires_base_url(clean_provider_env):
     with pytest.raises(SystemExit):
         e.resolve_provider(_pargs(provider="custom", llm_key="k"))
-    cfg = e.resolve_provider(_pargs(provider="custom", base_url="https://x/v1", model="m", llm_key="k"))
+    cfg = e.resolve_provider(
+        _pargs(provider="custom", base_url="https://x/v1", model="m", llm_key="k")
+    )
     assert cfg["base_url"] == "https://x/v1" and cfg["kind"] == "openai"
 
 
@@ -455,20 +681,30 @@ def test_resolve_missing_key_raises(clean_provider_env):
 
 def test_anthropic_request_shape():
     msgs = [{"role": "system", "content": "SYS"}, {"role": "user", "content": "U"}]
-    cfg = {"name": "anthropic", "base_url": "https://api.anthropic.com/v1",
-           "kind": "anthropic", "model": "claude-x", "key": "k"}
+    cfg = {
+        "name": "anthropic",
+        "base_url": "https://api.anthropic.com/v1",
+        "kind": "anthropic",
+        "model": "claude-x",
+        "key": "k",
+    }
     url, headers, payload, extract = e._anthropic_request(msgs, cfg, _pargs(max_tokens=99))
     assert url.endswith("/messages")
     assert headers["x-api-key"] == "k" and headers["anthropic-version"] == "2023-06-01"
     assert payload["system"] == "SYS" and payload["max_tokens"] == 99
-    assert payload["messages"][-1] == {"role": "assistant", "content": "{"}   # JSON prefill
+    assert payload["messages"][-1] == {"role": "assistant", "content": "{"}  # JSON prefill
     assert extract({"content": [{"type": "text", "text": '"a": 1}'}]}) == '{"a": 1}'
 
 
 def test_openai_request_shape():
     msgs = [{"role": "system", "content": "S"}, {"role": "user", "content": "U"}]
-    cfg = {"name": "openai", "base_url": "https://api.openai.com/v1",
-           "kind": "openai", "model": "gpt", "key": "k"}
+    cfg = {
+        "name": "openai",
+        "base_url": "https://api.openai.com/v1",
+        "kind": "openai",
+        "model": "gpt",
+        "key": "k",
+    }
     url, headers, payload, extract = e._openai_request(msgs, cfg, _pargs())
     assert url.endswith("/chat/completions") and headers["Authorization"] == "Bearer k"
     assert payload["response_format"] == {"type": "json_object"}
@@ -477,21 +713,31 @@ def test_openai_request_shape():
 
 def test_call_llm_anthropic_end_to_end(clean_provider_env, monkeypatch):
     import requests
-    monkeypatch.setattr(requests, "post",
-                        lambda *a, **k: _Resp(200, {"content": [{"type": "text", "text": '"ok": 1}'}]}))
-    out = e.call_llm([{"role": "system", "content": "S"}, {"role": "user", "content": "U"}],
-                     _pargs(provider="anthropic", llm_key="k"))
-    assert out == '{"ok": 1}'                                   # opening brace reconstructed
+
+    monkeypatch.setattr(
+        requests,
+        "post",
+        lambda *a, **k: _Resp(200, {"content": [{"type": "text", "text": '"ok": 1}'}]}),
+    )
+    out = e.call_llm(
+        [{"role": "system", "content": "S"}, {"role": "user", "content": "U"}],
+        _pargs(provider="anthropic", llm_key="k"),
+    )
+    assert out == '{"ok": 1}'  # opening brace reconstructed
 
 
 # ── HTTP wrappers (requests stubbed) ─────────────────────────────────────────
+
 
 class _Resp:
     def __init__(self, status=200, payload=None, text=""):
         self.status_code = status
         self._payload = payload or {}
         self.text = text
-    def json(self): return self._payload
+
+    def json(self):
+        return self._payload
+
     def raise_for_status(self):
         if self.status_code >= 400:
             raise RuntimeError(f"HTTP {self.status_code}")
@@ -499,6 +745,7 @@ class _Resp:
 
 def test_call_llm_success(monkeypatch):
     import requests
+
     ok = _Resp(200, {"choices": [{"message": {"content": '{"ok": 1}'}}]})
     monkeypatch.setattr(requests, "post", lambda *a, **k: ok)
     assert e.call_llm([{"role": "user", "content": "hi"}], llm_args()) == '{"ok": 1}'
@@ -506,6 +753,7 @@ def test_call_llm_success(monkeypatch):
 
 def test_call_llm_403_is_actionable(monkeypatch):
     import requests
+
     monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp(403, text="Forbidden"))
     with pytest.raises(SystemExit) as ei:
         e.call_llm([{"role": "user", "content": "hi"}], llm_args())
@@ -514,6 +762,7 @@ def test_call_llm_403_is_actionable(monkeypatch):
 
 def test_call_llm_bad_model_is_actionable(monkeypatch):
     import requests
+
     monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp(400, text="model not found"))
     with pytest.raises(SystemExit) as ei:
         e.call_llm([{"role": "user", "content": "hi"}], llm_args(model="bogus/model"))
@@ -524,6 +773,7 @@ def test_call_llm_kimi_401_hints_region(monkeypatch):
     # A platform.moonshot.cn key 401s against the default .ai endpoint. The error
     # must point at the region split (QSCREEN_BASE_URL=.cn), not just "bad key".
     import requests
+
     monkeypatch.setattr(requests, "post", lambda *a, **k: _Resp(401, text="invalid authentication"))
     with pytest.raises(SystemExit) as ei:
         e.call_llm([{"role": "user", "content": "hi"}], llm_args(provider="kimi"))
@@ -533,6 +783,7 @@ def test_call_llm_kimi_401_hints_region(monkeypatch):
 
 def test_call_llm_retries_then_succeeds(monkeypatch):
     import requests
+
     seq = [_Resp(503, text="busy"), _Resp(200, {"choices": [{"message": {"content": "ok"}}]})]
     monkeypatch.setattr(requests, "post", lambda *a, **k: seq.pop(0))
     monkeypatch.setattr(e.time, "sleep", lambda *_: None)
@@ -541,10 +792,13 @@ def test_call_llm_retries_then_succeeds(monkeypatch):
 
 def test_upload_filing_builds_request(monkeypatch):
     import requests
+
     captured = {}
+
     def fake_post(url, headers=None, json=None, timeout=None):
         captured.update(url=url, headers=headers, json=json)
         return _Resp(200, {"id": "f1"})
+
     monkeypatch.setattr(requests, "post", fake_post)
     out = e.upload_filing({"x": 1}, SimpleNamespace(api_url="https://qscreen.app/", token="tok"))
     assert out == {"id": "f1"}
@@ -554,6 +808,7 @@ def test_upload_filing_builds_request(monkeypatch):
 
 # ── comparatives (prior-year column) ─────────────────────────────────────────
 
+
 def test_validate_accepts_comparatives():
     f = good_filing()
     f["statements"][0]["line_items"][0]["comparatives"] = [{"period_label": "2022", "value": 9}]
@@ -562,29 +817,65 @@ def test_validate_accepts_comparatives():
 
 def test_validate_rejects_bad_comparatives():
     f = good_filing()
-    f["statements"][0]["line_items"][0]["comparatives"] = [{"value": 9}]   # no period_label
+    f["statements"][0]["line_items"][0]["comparatives"] = [{"value": 9}]  # no period_label
     assert any("comparatives" in p for p in e.validate_filing(f))
-    f["statements"][0]["line_items"][0]["comparatives"] = "2022:9"          # not a list
+    f["statements"][0]["line_items"][0]["comparatives"] = "2022:9"  # not a list
     assert any("comparatives" in p for p in e.validate_filing(f))
 
 
 def test_normalize_folds_prior_value_alias():
-    d = {"metadata": {}, "audit": {}, "notes": [], "extraction_quality": {},
-         "statements": [{"type": "income_statement", "verbatim_text": "x", "line_items": [
-             {"account_code": "IS_REVENUE", "label_verbatim": "Revenue", "value": 10,
-              "prior_value": 8, "prior_period_label": "2022"}]}]}
+    d = {
+        "metadata": {},
+        "audit": {},
+        "notes": [],
+        "extraction_quality": {},
+        "statements": [
+            {
+                "type": "income_statement",
+                "verbatim_text": "x",
+                "line_items": [
+                    {
+                        "account_code": "IS_REVENUE",
+                        "label_verbatim": "Revenue",
+                        "value": 10,
+                        "prior_value": 8,
+                        "prior_period_label": "2022",
+                    }
+                ],
+            }
+        ],
+    }
     n = e.normalize_filing(d)
     comps = n["statements"][0]["line_items"][0]["comparatives"]
     assert comps == [{"period_label": "2022", "value": 8}]
 
 
 def test_merge_carries_comparatives_across_overlap():
-    w1 = e.empty_filing(); w2 = e.empty_filing()
-    w1["statements"].append({"type": "income_statement", "verbatim_text": "longer block ...........",
-        "line_items": [{"label_verbatim": "Revenue", "value": 10, "account_code": "IS_REVENUE"}]})
-    w2["statements"].append({"type": "income_statement", "verbatim_text": "x",
-        "line_items": [{"label_verbatim": "Revenue", "value": 10, "account_code": "IS_REVENUE",
-                        "comparatives": [{"period_label": "2022", "value": 8}]}]})
+    w1 = e.empty_filing()
+    w2 = e.empty_filing()
+    w1["statements"].append(
+        {
+            "type": "income_statement",
+            "verbatim_text": "longer block ...........",
+            "line_items": [
+                {"label_verbatim": "Revenue", "value": 10, "account_code": "IS_REVENUE"}
+            ],
+        }
+    )
+    w2["statements"].append(
+        {
+            "type": "income_statement",
+            "verbatim_text": "x",
+            "line_items": [
+                {
+                    "label_verbatim": "Revenue",
+                    "value": 10,
+                    "account_code": "IS_REVENUE",
+                    "comparatives": [{"period_label": "2022", "value": 8}],
+                }
+            ],
+        }
+    )
     st = e.merge_filings([w1, w2])["statements"][0]
     assert st["line_items"][0]["comparatives"] == [{"period_label": "2022", "value": 8}]
 
@@ -599,14 +890,16 @@ def test_flatten_includes_prior_columns():
 
 # ── typed segments[] (contract) ──────────────────────────────────────────────
 
+
 def test_empty_filing_has_segments_list():
     assert e.empty_filing()["segments"] == []
 
 
 def test_validate_accepts_valid_segment():
     f = good_filing()
-    f["segments"] = [{"dimension": "geography", "name": "Turkey", "currency": "TRY",
-                      "metrics": {"revenue": 1}}]
+    f["segments"] = [
+        {"dimension": "geography", "name": "Turkey", "currency": "TRY", "metrics": {"revenue": 1}}
+    ]
     assert e.validate_filing(f) == []
 
 
@@ -619,27 +912,50 @@ def test_validate_rejects_bad_segment():
 
 
 def test_normalize_coerces_segment_dimension_aliases():
-    d = {"metadata": {}, "audit": {}, "notes": [], "extraction_quality": {}, "statements": [],
-         "segments": [{"dimension": "Geographical", "name": "Egypt"},
-                      {"dimension": "operating segment", "name": "Retail"},
-                      {"dimension": "subsidiary", "name": "QNB Finansbank"},
-                      {"name": "no dimension"}]}
+    d = {
+        "metadata": {},
+        "audit": {},
+        "notes": [],
+        "extraction_quality": {},
+        "statements": [],
+        "segments": [
+            {"dimension": "Geographical", "name": "Egypt"},
+            {"dimension": "operating segment", "name": "Retail"},
+            {"dimension": "subsidiary", "name": "QNB Finansbank"},
+            {"name": "no dimension"},
+        ],
+    }
     n = e.normalize_filing(d)
     dims = [s["dimension"] for s in n["segments"]]
     assert dims == ["geography", "business_line", "legal_entity", "business_line"]
 
 
 def test_merge_unions_segments_across_windows():
-    w1 = e.empty_filing(); w2 = e.empty_filing()
-    w1["segments"] = [{"dimension": "geography", "name": "Qatar", "period_label": "2023",
-                       "metrics": {"revenue": 100}}]
-    w2["segments"] = [{"dimension": "geography", "name": "Turkey", "period_label": "2023",
-                       "metrics": {"revenue": 50}, "verbatim_text": "Turkey segment ..."}]
+    w1 = e.empty_filing()
+    w2 = e.empty_filing()
+    w1["segments"] = [
+        {
+            "dimension": "geography",
+            "name": "Qatar",
+            "period_label": "2023",
+            "metrics": {"revenue": 100},
+        }
+    ]
+    w2["segments"] = [
+        {
+            "dimension": "geography",
+            "name": "Turkey",
+            "period_label": "2023",
+            "metrics": {"revenue": 50},
+            "verbatim_text": "Turkey segment ...",
+        }
+    ]
     seg = e.merge_filings([w1, w2])["segments"]
     assert {s["name"] for s in seg} == {"Qatar", "Turkey"}
 
 
 # ── profile-aware prompting (Qatar context injection) ────────────────────────
+
 
 def test_qatar_context_empty_for_none():
     assert e._qatar_context(None) == ""
@@ -647,16 +963,18 @@ def test_qatar_context_empty_for_none():
 
 def test_system_prompt_injects_profile_context():
     import qatar
+
     sp = e._system_prompt("conventional_bank", False, qatar.profile_for_year("QNBK", 2016))
     assert "QATAR ANALYST CONTEXT" in sp
-    assert "Turkey" in sp and "Basel III" in sp          # event timeline in force by 2016
-    assert "comparatives" in sp                          # comparatives instruction present
+    assert "Turkey" in sp and "Basel III" in sp  # event timeline in force by 2016
+    assert "comparatives" in sp  # comparatives instruction present
 
 
 def test_system_prompt_pre_acquisition_year_omits_segment():
     import qatar
+
     sp = e._system_prompt("conventional_bank", False, qatar.profile_for_year("QNBK", 2012))
-    assert "QNB Finansbank" not in sp                    # Turkey not acquired until 2016
+    assert "QNB Finansbank" not in sp  # Turkey not acquired until 2016
 
 
 def test_system_prompt_without_profile_is_clean():
@@ -667,8 +985,10 @@ def test_system_prompt_without_profile_is_clean():
 
 # ── "both outputs": analysis artifacts + upload fold ─────────────────────────
 
+
 def test_build_analysis_artifacts():
     from types import SimpleNamespace
+
     art = e.build_analysis_artifacts(good_filing(), SimpleNamespace(symbol="QNBK", _profile=None))
     assert "analysis" in art and "valuation" in art
     assert "ratios" in art["analysis"]
@@ -678,20 +998,26 @@ def test_upload_filing_folds_analysis_additively(monkeypatch):
     from types import SimpleNamespace
 
     class _Resp:
-        def raise_for_status(self): pass
-        def json(self): return {"ok": 1}
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"ok": 1}
+
     cap = {}
-    monkeypatch.setattr("requests.post",
-                        lambda url, headers, json, timeout: cap.update(body=json) or _Resp())
+    monkeypatch.setattr(
+        "requests.post", lambda url, headers, json, timeout: cap.update(body=json) or _Resp()
+    )
     f = good_filing()
     args = SimpleNamespace(api_url="http://x", token="t")
     e.upload_filing(f, args, {"a": 1})
-    assert cap["body"].get("analysis") == {"a": 1} and "metadata" in cap["body"]   # additive
-    e.upload_filing(f, args)                       # default: plain filing, no analysis key
+    assert cap["body"].get("analysis") == {"a": 1} and "metadata" in cap["body"]  # additive
+    e.upload_filing(f, args)  # default: plain filing, no analysis key
     assert "analysis" not in cap["body"]
 
 
 # ── self-test entrypoint still green ─────────────────────────────────────────
+
 
 def test_self_test_passes():
     assert e.run_self_test() == 0

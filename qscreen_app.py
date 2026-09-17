@@ -23,32 +23,33 @@ OPENROUTER_API_KEY env var. No agent, no command line per filing. Upload is
 opt-in: a button appears only when the server has INGEST_TOKEN set, and even
 then nothing leaves your machine until you click it.
 """
+
 from __future__ import annotations
 
-import io
 import json
 import os
 import re
 import sys
 import tempfile
 import traceback
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+
+import qscreen_analyze
+import qscreen_dcf
 
 # Reuse the exact, tested engine — do NOT reimplement any of it here.
 import qscreen_ingest as engine
-import qscreen_analyze
-import qscreen_dcf
-import qscreen_report
-import qscreen_portfolio
-import qscreen_workbook
-import qscreen_statements
-import qscreen_periods
 import qscreen_perf
+import qscreen_periods
+import qscreen_portfolio
+import qscreen_report
+import qscreen_statements
+import qscreen_workbook
 
 try:
-    from flask import Flask, request, Response, send_file
+    from flask import Flask, Response, request, send_file
 except ImportError:
     sys.exit("Flask not installed. Run:  pip install flask pdfplumber requests")
 
@@ -61,6 +62,7 @@ def _safe_filename(s, fallback: str = "filing") -> str:
     quotes, path separators, or control chars (which a filing's symbol could carry)."""
     cleaned = re.sub(r"[^A-Za-z0-9._-]", "_", str(s or "")).strip("._")
     return cleaned[:64] or fallback
+
 
 # ── Jurisdiction profile package (the only state we depend on) ─────────────────
 # The sector → sub-sector tree and the symbol map live in the active profile
@@ -76,9 +78,9 @@ ACTIVE_JURISDICTION = os.getenv("QSCREEN_JURISDICTION") or DEFAULT_JURISDICTION
 TAXONOMY = profiles.taxonomy(ACTIVE_JURISDICTION)
 SUBSECTOR_TO_EXTRACTION = profiles.subsector_to_archetype(ACTIVE_JURISDICTION)
 SYMBOL_SUBSECTOR = profiles.symbol_subsector(ACTIVE_JURISDICTION)
-JURISDICTION_NAME = (profiles.load_profile(next(iter(SYMBOL_SUBSECTOR), "") or "",
-                                          ACTIVE_JURISDICTION) or {}).get("jurisdiction") \
-                  or ACTIVE_JURISDICTION.capitalize()
+JURISDICTION_NAME = (
+    profiles.load_profile(next(iter(SYMBOL_SUBSECTOR), "") or "", ACTIVE_JURISDICTION) or {}
+).get("jurisdiction") or ACTIVE_JURISDICTION.capitalize()
 
 
 def _profile_for(symbol: str, year):
@@ -93,6 +95,7 @@ def _subsector_options_html() -> str:
             out.append(f'<option value="{sub}">{sub}</option>')
         out.append("</optgroup>")
     return "\n".join(out)
+
 
 BUILD = "ui-fix-1"
 PAGE = """<!doctype html>
@@ -654,10 +657,13 @@ def healthz():
     process is up; advertises the version + active jurisdiction so a
     load-balancer or operator can confirm what's deployed."""
     import qscreen_ingest as _eng
-    return {"status": "ok",
-            "version": getattr(_eng, "__version__", "unknown"),
-            "jurisdiction": ACTIVE_JURISDICTION,
-            "profiles_loaded": len(profiles.all_jurisdictions())}
+
+    return {
+        "status": "ok",
+        "version": getattr(_eng, "__version__", "unknown"),
+        "jurisdiction": ACTIVE_JURISDICTION,
+        "profiles_loaded": len(profiles.all_jurisdictions()),
+    }
 
 
 # ── /metrics (Prometheus text-format exposition, no external deps) ─────────────
@@ -678,6 +684,7 @@ class _Metrics:
     on the CPython runtime, and an exact count under a metrics scrape is not
     worth blocking the request handler.
     """
+
     def __init__(self) -> None:
         self._counters: dict[tuple[str, frozenset], float] = {}
         self._hist: dict[tuple[str, frozenset], dict[str, float]] = {}
@@ -701,11 +708,15 @@ class _Metrics:
 
     def _observe(self, name: str, value: float, labels: dict[str, Any]) -> None:
         key = (name, self._label_key(labels))
-        slot = self._hist.setdefault(key, {
-            "count": 0.0, "sum": 0.0,
-            **{f"le_{b}": 0.0 for b in _HIST_BUCKETS_MS},
-            "le_inf": 0.0,
-        })
+        slot = self._hist.setdefault(
+            key,
+            {
+                "count": 0.0,
+                "sum": 0.0,
+                **{f"le_{b}": 0.0 for b in _HIST_BUCKETS_MS},
+                "le_inf": 0.0,
+            },
+        )
         slot["count"] += 1.0
         slot["sum"] += value
         placed = False
@@ -719,7 +730,7 @@ class _Metrics:
     # Rendering.
     @staticmethod
     def _format_value(v: float) -> str:
-        if v != v:                # NaN
+        if v != v:  # NaN
             return "NaN"
         if v == float("inf"):
             return "+Inf"
@@ -769,23 +780,15 @@ class _Metrics:
                 # Bucket labels include an extra le="<edge>" key.
                 for b in _HIST_BUCKETS_MS:
                     extra = (("le", self._format_value(b)),)
-                    bucket_label = self._format_labels(
-                        frozenset(base_pairs + list(extra)))
+                    bucket_label = self._format_labels(frozenset(base_pairs + list(extra)))
                     lines.append(
-                        f"{name}_bucket{bucket_label} "
-                        f"{self._format_value(slot[f'le_{b}'])}")
+                        f"{name}_bucket{bucket_label} {self._format_value(slot[f'le_{b}'])}"
+                    )
                 inf_extra = (("le", "+Inf"),)
-                inf_label = self._format_labels(
-                    frozenset(base_pairs + list(inf_extra)))
-                lines.append(
-                    f"{name}_bucket{inf_label} "
-                    f"{self._format_value(slot['count'])}")
-                lines.append(
-                    f"{name}_count{count_label} "
-                    f"{self._format_value(slot['count'])}")
-                lines.append(
-                    f"{name}_sum{sum_label} "
-                    f"{self._format_value(slot['sum'])}")
+                inf_label = self._format_labels(frozenset(base_pairs + list(inf_extra)))
+                lines.append(f"{name}_bucket{inf_label} {self._format_value(slot['count'])}")
+                lines.append(f"{name}_count{count_label} {self._format_value(slot['count'])}")
+                lines.append(f"{name}_sum{sum_label} {self._format_value(slot['sum'])}")
         return ("\n".join(lines) + "\n") if lines else ""
 
 
@@ -805,22 +808,29 @@ def metrics():
 @app.route("/")
 def index():
     upload_enabled = bool(os.getenv("INGEST_TOKEN"))
-    provider_info = {name: {"label": cfg["label"], "model": cfg["default_model"],
-                            "url": cfg["key_url"], "env": cfg["env"][0],
-                            "local": bool(cfg.get("local")), "setup": cfg.get("setup", ""),
-                            "has_key": any(os.getenv(k) for k in cfg["env"])}
-                     for name, cfg in engine.PROVIDERS.items()}
-    html = (PAGE
-            .replace("__SUBSECTOR_OPTIONS__", _subsector_options_html())
-            .replace("__SYMBOL_MAP_JSON__", json.dumps(SYMBOL_SUBSECTOR))
-            .replace("__PROVIDER_INFO_JSON__", json.dumps(provider_info))
-            .replace("__DETECTED_PROVIDER_JSON__", json.dumps(engine.detect_provider()))
-            .replace("__UPLOAD_ENABLED__", "true" if upload_enabled else "false")
-            .replace("__BUILD__", BUILD)
-            .replace("__JURISDICTION__", JURISDICTION_NAME))
+    provider_info = {
+        name: {
+            "label": cfg["label"],
+            "model": cfg["default_model"],
+            "url": cfg["key_url"],
+            "env": cfg["env"][0],
+            "local": bool(cfg.get("local")),
+            "setup": cfg.get("setup", ""),
+            "has_key": any(os.getenv(k) for k in cfg["env"]),
+        }
+        for name, cfg in engine.PROVIDERS.items()
+    }
+    html = (
+        PAGE.replace("__SUBSECTOR_OPTIONS__", _subsector_options_html())
+        .replace("__SYMBOL_MAP_JSON__", json.dumps(SYMBOL_SUBSECTOR))
+        .replace("__PROVIDER_INFO_JSON__", json.dumps(provider_info))
+        .replace("__DETECTED_PROVIDER_JSON__", json.dumps(engine.detect_provider()))
+        .replace("__UPLOAD_ENABLED__", "true" if upload_enabled else "false")
+        .replace("__BUILD__", BUILD)
+        .replace("__JURISDICTION__", JURISDICTION_NAME)
+    )
     # never let the browser serve a stale page (old, broken inline JS)
-    return Response(html, mimetype="text/html",
-                    headers={"Cache-Control": "no-store, max-age=0"})
+    return Response(html, mimetype="text/html", headers={"Cache-Control": "no-store, max-age=0"})
 
 
 @app.route("/extract", methods=["POST"])
@@ -848,35 +858,51 @@ def extract():
         sector = SUBSECTOR_TO_EXTRACTION.get(subsector, "other")
         provider = (request.form.get("provider") or "").strip() or None  # None → auto-detect
         model = (request.form.get("model") or "").strip() or None
-        mode = (request.form.get("mode") or "auto").strip()   # auto | basic | pro
-        explicit_no_llm = bool(request.form.get("no_llm"))    # "fully offline" checkbox
+        mode = (request.form.get("mode") or "auto").strip()  # auto | basic | pro
+        explicit_no_llm = bool(request.form.get("no_llm"))  # "fully offline" checkbox
 
         # Is a usable model available? A saved cloud key (detect_provider) or a
         # local provider picked in Advanced (those run with no key).
         canon = engine.canonical_provider(provider) if provider else None
         has_model = bool(engine.detect_provider()) or bool(
-            canon and engine.PROVIDERS.get(canon, {}).get("local"))
+            canon and engine.PROVIDERS.get(canon, {}).get("local")
+        )
         # DEFAULT ("auto"): always read the numbers offline; if a model is available,
         # also let it fill the audit opinion and notes. No key → still get the numbers.
         if mode == "auto":
             no_llm = explicit_no_llm or not has_model
             want_notes = has_model and not no_llm
             force_basic = True
-        else:                                  # explicit Basic / Pro from Advanced
+        else:  # explicit Basic / Pro from Advanced
             no_llm = explicit_no_llm
             want_notes = bool(has_model and not no_llm and mode != "pro")
-            force_basic = (mode == "basic")
+            force_basic = mode == "basic"
 
         # Build the same args object the CLI uses; resolve_provider picks the
         # base URL / model / key (from the matching env var) and validates them.
         args = SimpleNamespace(
-            symbol=symbol, sector=sector, year=year, period=(period_in or "FY"),
-            provider=provider, base_url=None, model=model,
-            max_tokens=16384, timeout=600, retries=4,
-            pages_per_chunk=12, overlap=1, no_chunk=False,
-            no_json_mode=False, llm_key=None,
-            mode=mode, basic=False, pro=False, no_llm=no_llm,
-            guided=False, no_guided=False, guided_notes=want_notes,
+            symbol=symbol,
+            sector=sector,
+            year=year,
+            period=(period_in or "FY"),
+            provider=provider,
+            base_url=None,
+            model=model,
+            max_tokens=16384,
+            timeout=600,
+            retries=4,
+            pages_per_chunk=12,
+            overlap=1,
+            no_chunk=False,
+            no_json_mode=False,
+            llm_key=None,
+            mode=mode,
+            basic=False,
+            pro=False,
+            no_llm=no_llm,
+            guided=False,
+            no_guided=False,
+            guided_notes=want_notes,
         )
         # Wire the in-process metric sink so ``run_filing`` bumps
         # ``qscreen_filings_processed_total`` / ``qscreen_extraction_duration_ms``,
@@ -884,18 +910,20 @@ def extract():
         # gate block emits ``qscreen_gates_block_total``. The /metrics route
         # renders the registry.
         qscreen_perf.attach_metric_sink(args, METRICS)
-        engine.apply_mode(args)               # --mode/--no-llm → guided flags
+        engine.apply_mode(args)  # --mode/--no-llm → guided flags
         # Fully-offline (--no-llm) needs no provider at all; otherwise resolve it.
         try:
-            cfg = engine.resolve_provider(args)   # raises SystemExit (caught below) if no provider/key
+            cfg = engine.resolve_provider(
+                args
+            )  # raises SystemExit (caught below) if no provider/key
         except SystemExit:
             if no_llm:
                 cfg = engine.deterministic_cfg()
             else:
                 raise
-        args.guided = engine.resolve_guided(args, cfg)   # Basic vs Pro
+        args.guided = engine.resolve_guided(args, cfg)  # Basic vs Pro
         if no_llm or force_basic:
-            args.guided = True                # numbers stay deterministic; model only fills gaps
+            args.guided = True  # numbers stay deterministic; model only fills gaps
         args.guided_notes = want_notes
         if args.guided:
             args.pages_per_chunk = engine.GUIDED_DEFAULT_PAGES
@@ -922,32 +950,48 @@ def extract():
         if not period:
             period = "FY"
         if year is None:
-            return {"error": "Couldn't read the fiscal year from this PDF — enter "
-                             "it below and extract again.", "need_year": True}, 422
+            return {
+                "error": "Couldn't read the fiscal year from this PDF — enter "
+                "it below and extract again.",
+                "need_year": True,
+            }, 422
         args.year, args.period = int(year), period
         args._profile = _profile_for(symbol, int(year))  # company+year-aware prompting
 
         filing = engine.extract_filing(pages, args)
-        filing.setdefault("metadata", {}).update({
-            "symbol": symbol, "sector": sector, "sub_sector": subsector,
-            "fiscal_year": int(year),
-            "fiscal_period": period, "source_file": Path(up.filename or "").name, "source_sha256": sha,
-            "extracted_at": engine.datetime.now(engine.timezone.utc).isoformat(),
-            "extractor": {"provider": cfg["name"], "model": cfg["model"]},
-        })
+        filing.setdefault("metadata", {}).update(
+            {
+                "symbol": symbol,
+                "sector": sector,
+                "sub_sector": subsector,
+                "fiscal_year": int(year),
+                "fiscal_period": period,
+                "source_file": Path(up.filename or "").name,
+                "source_sha256": sha,
+                "extracted_at": engine.datetime.now(engine.timezone.utc).isoformat(),
+                "extractor": {"provider": cfg["name"], "model": cfg["model"]},
+            }
+        )
         if det_period_end and not filing["metadata"].get("period_end"):
             filing["metadata"]["period_end"] = det_period_end
         problems = engine.validate_filing(filing)
-        try:                                       # analysis must never sink a good extraction
+        try:  # analysis must never sink a good extraction
             analysis = qscreen_analyze.analyze(symbol, [filing], args._profile)
         except Exception as ex:
-            analysis = {"warnings": [f"analysis failed: {ex}"], "ratios": {}, "trends": {},
-                        "red_flags": [], "segments": {"dimensions": {}, "warnings": []}}
+            analysis = {
+                "warnings": [f"analysis failed: {ex}"],
+                "ratios": {},
+                "trends": {},
+                "red_flags": [],
+                "segments": {"dimensions": {}, "warnings": []},
+            }
         nseg = len(filing.get("segments", []))
         nflags = len(analysis.get("red_flags", []))
-        summary = (f"Extracted {len(filing.get('statements', []))} statements, "
-                   f"{nseg} segments, {len(filing.get('notes', []))} notes, "
-                   f"audit={filing.get('audit', {}).get('opinion_type')}, {nflags} red flag(s).")
+        summary = (
+            f"Extracted {len(filing.get('statements', []))} statements, "
+            f"{nseg} segments, {len(filing.get('notes', []))} notes, "
+            f"audit={filing.get('audit', {}).get('opinion_type')}, {nflags} red flag(s)."
+        )
         if problems:
             summary += f" ({len(problems)} note(s) below — review before uploading.)"
         else:
@@ -960,7 +1004,7 @@ def extract():
             "analysis": analysis,
             "filename": f"{symbol}_{year}_{period}_filing.json",
         }
-    except SystemExit as e:                       # provider/key/model config errors
+    except SystemExit as e:  # provider/key/model config errors
         return {"error": str(e)}, 400
     except Exception as e:
         # Log the full traceback server-side; do NOT leak it to the client (paths,
@@ -984,8 +1028,11 @@ def workbook_route():
     except Exception as e:
         return {"error": str(e)}, 400
     sym = _safe_filename((filings[-1].get("metadata") or {}).get("symbol"))
-    return Response(data, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    headers={"Content-Disposition": f'attachment; filename="{sym}_transcript.xlsx"'})
+    return Response(
+        data,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{sym}_transcript.xlsx"'},
+    )
 
 
 @app.route("/ttm", methods=["POST"])
@@ -1021,6 +1068,7 @@ def export_csv_route():
     """Flat line-items CSV for a filing. Body: {filing}. Returns text/csv."""
     import csv
     import io as _io
+
     payload = request.get_json(silent=True) or {}
     filing = payload.get("filing")
     if not isinstance(filing, dict):
@@ -1030,8 +1078,11 @@ def export_csv_route():
     w.writeheader()
     w.writerows(engine.flatten_line_items(filing))
     sym = _safe_filename((filing.get("metadata") or {}).get("symbol"))
-    return Response(buf.getvalue(), mimetype="text/csv",
-                    headers={"Content-Disposition": f'attachment; filename="{sym}_line_items.csv"'})
+    return Response(
+        buf.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{sym}_line_items.csv"'},
+    )
 
 
 @app.route("/analyze", methods=["POST"])
@@ -1044,7 +1095,7 @@ def analyze_route():
         filings = [payload["filing"]]
     if not isinstance(filings, list) or not filings:
         return {"error": "missing 'filings' (list) or 'filing' (object)"}, 400
-    meta = (filings[-1].get("metadata") or {})
+    meta = filings[-1].get("metadata") or {}
     symbol = payload.get("symbol") or meta.get("symbol") or ""
     if not symbol:
         return {"error": "could not determine symbol"}, 400
@@ -1066,12 +1117,17 @@ def portfolio_route():
     groups = qscreen_analyze.group_by_symbol(filings)
     if not groups:
         return {"error": "no filings carry a metadata.symbol"}, 400
-    profiles = {s: _profile_for(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
-                for s, fs in groups.items()}
+    profiles = {
+        s: _profile_for(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
+        for s, fs in groups.items()
+    }
     try:
         board = qscreen_portfolio.roll_up(groups, profiles)
-        return {"count": board["count"], "rows": board["rows"],
-                "html": qscreen_portfolio.render_html(board)}
+        return {
+            "count": board["count"],
+            "rows": board["rows"],
+            "html": qscreen_portfolio.render_html(board),
+        }
     except Exception as e:
         return {"error": str(e)}, 400
 
@@ -1085,15 +1141,20 @@ def report_route():
         filings = [payload["filing"]]
     if not isinstance(filings, list) or not filings:
         return {"error": "missing 'filings' (list) or 'filing' (object)"}, 400
-    meta = (filings[-1].get("metadata") or {})
+    meta = filings[-1].get("metadata") or {}
     symbol = payload.get("symbol") or meta.get("symbol") or ""
     if not symbol:
         return {"error": "could not determine symbol"}, 400
     profile = _profile_for(symbol, meta.get("fiscal_year"))
     try:
-        rep = qscreen_report.build_report(symbol, filings, profile,
-                                          assumptions=payload.get("assumptions") or {},
-                                          price=payload.get("price"), shares=payload.get("shares"))
+        rep = qscreen_report.build_report(
+            symbol,
+            filings,
+            profile,
+            assumptions=payload.get("assumptions") or {},
+            price=payload.get("price"),
+            shares=payload.get("shares"),
+        )
         return {"symbol": rep["symbol"], "html": rep["html"], "markdown": rep["markdown"]}
     except Exception as e:
         return {"error": str(e)}, 400
@@ -1113,8 +1174,10 @@ def compare_route():
     if not fbs:
         return {"error": "no filings carry a metadata.symbol"}, 400
     target = (payload.get("target") or next(iter(fbs))).upper()
-    profiles = {s: _profile_for(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
-                for s, fs in fbs.items()}
+    profiles = {
+        s: _profile_for(s, (fs[0].get("metadata") or {}).get("fiscal_year"))
+        for s, fs in fbs.items()
+    }
     try:
         return qscreen_analyze.compare(target, fbs, profiles)
     except Exception as e:
@@ -1131,14 +1194,20 @@ def dcf_route():
         filings = [payload["filing"]]
     if not isinstance(filings, list) or not filings:
         return {"error": "missing 'filings' (list) or 'filing' (object)"}, 400
-    meta = (filings[-1].get("metadata") or {})
+    meta = filings[-1].get("metadata") or {}
     symbol = payload.get("symbol") or meta.get("symbol") or ""
     if not symbol:
         return {"error": "could not determine symbol"}, 400
     profile = _profile_for(symbol, meta.get("fiscal_year"))
     try:
-        return qscreen_dcf.value(symbol, filings, profile, payload.get("assumptions") or {},
-                                 price=payload.get("price"), shares=payload.get("shares"))
+        return qscreen_dcf.value(
+            symbol,
+            filings,
+            profile,
+            payload.get("assumptions") or {},
+            price=payload.get("price"),
+            shares=payload.get("shares"),
+        )
     except Exception as e:
         return {"error": str(e)}, 400
 
@@ -1152,8 +1221,10 @@ def segments():
     if not isinstance(filing, dict):
         return {"error": "missing 'filing' object"}, 400
     meta = filing.get("metadata") or {}
-    profile = _profile_for(meta.get("symbol") or payload.get("symbol") or "",
-                                     meta.get("fiscal_year") or payload.get("year"))
+    profile = _profile_for(
+        meta.get("symbol") or payload.get("symbol") or "",
+        meta.get("fiscal_year") or payload.get("year"),
+    )
     try:
         return qscreen_analyze.analyze_segments(filing, profile)
     except Exception as e:
@@ -1179,12 +1250,16 @@ def upload():
     if problems:
         return {"error": "filing is non-conforming; not uploading", "problems": problems}, 400
     args = SimpleNamespace(
-        api_url=os.getenv("QSCREEN_API_URL", "http://localhost:3004"), token=token)
+        api_url=os.getenv("QSCREEN_API_URL", "http://localhost:3004"), token=token
+    )
     # Both outputs: optionally fold the derived analysis into the upload (additive).
     analysis = payload.get("analysis") if payload.get("with_analysis") else None
     try:
-        resp = (engine.upload_filing(filing, args, analysis) if analysis is not None
-                else engine.upload_filing(filing, args))
+        resp = (
+            engine.upload_filing(filing, args, analysis)
+            if analysis is not None
+            else engine.upload_filing(filing, args)
+        )
         return {"ok": True, "response": resp}
     except Exception as e:
         return {"error": str(e)}, 502
@@ -1226,9 +1301,14 @@ def settings():
             engine.set_dotenv_value("QSCREEN_MODEL", model)
     except (ValueError, OSError) as e:
         return {"error": f"could not save the key: {e}"}, 400
-    return {"ok": True, "provider": name, "label": cfg["label"], "env": env_var,
-            "masked_key": ("••••" + key[-4:]) if len(key) >= 4 else "••••",
-            "detected": engine.detect_provider()}
+    return {
+        "ok": True,
+        "provider": name,
+        "label": cfg["label"],
+        "env": env_var,
+        "masked_key": ("••••" + key[-4:]) if len(key) >= 4 else "••••",
+        "detected": engine.detect_provider(),
+    }
 
 
 def main() -> None:
@@ -1237,12 +1317,16 @@ def main() -> None:
     url = f"http://{host}:{port}"
     print(f"\n  QScreen Filing Ingestor — open  {url}  in your browser\n")
     if host not in ("127.0.0.1", "localhost", "::1"):
-        print(f"  ⚠️  Binding to {host} exposes this tool (and any INGEST_TOKEN) on your "
-              "network. It has no authentication — only do this on a trusted network.\n")
+        print(
+            f"  ⚠️  Binding to {host} exposes this tool (and any INGEST_TOKEN) on your "
+            "network. It has no authentication — only do this on a trusted network.\n"
+        )
     # Open the browser for the user (so non-technical users never copy a URL). The
     # reloader is off, so this runs once; opt out with QSCREEN_NO_BROWSER=1.
     if host in ("127.0.0.1", "localhost", "::1") and not os.getenv("QSCREEN_NO_BROWSER"):
-        import threading, webbrowser
+        import threading
+        import webbrowser
+
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     app.run(host=host, port=port, debug=False)
 

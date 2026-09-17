@@ -32,12 +32,11 @@ Single-pass; no LLM. Pure regex / keyword over the first ~6 kB of text
 (cover page and audit's report). If a value is already in the metadata,
 don't overwrite — the operator's explicit choice wins.
 """
+
 from __future__ import annotations
 
 import logging
 import re
-from typing import Any
-
 
 log = logging.getLogger("qstock.autodetect")
 
@@ -49,91 +48,167 @@ log = logging.getLogger("qstock.autodetect")
 # "industrialisation" doesn't trigger. Order matters: most-specific first.
 _SECTOR_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     # ticker/peculiar vocabulary first
-    ("islamic_bank", (
-        "sukuk", "mudaraba", "musharaka", "murabaha", "wakala",
-        "qard hassan", "sharia", "islamic financing", "islamic deposit",
-        "profit-sharing",
-    )),
-    ("insurance", (
-        "policyholders' income statement", "policyholders' surplus",
-        "wakala fees", "retakaful", "tabarru", "participants' fund",
-        "takaful", "ibnr", "ulae", "premium ceded", "insurance reserves",
-        "claims incurred",
-    )),
-    ("real_estate",     # (carried in sub_sector only; sector = "other")
     (
-        # only the wording-level signal — the sub-sector belongs to industrial.
-        "investment property", "properties under development",
-    )),
-    ("industrial", (
-        "production output", "cost of sales", "inventories", "manufacturing",
-        "finished goods", "revenue from contracts", "goods sold",
-        "segment result", "extraction", "refining", "petrochemical",
-    )),
+        "islamic_bank",
+        (
+            "sukuk",
+            "mudaraba",
+            "musharaka",
+            "murabaha",
+            "wakala",
+            "qard hassan",
+            "sharia",
+            "islamic financing",
+            "islamic deposit",
+            "profit-sharing",
+        ),
+    ),
+    (
+        "insurance",
+        (
+            "policyholders' income statement",
+            "policyholders' surplus",
+            "wakala fees",
+            "retakaful",
+            "tabarru",
+            "participants' fund",
+            "takaful",
+            "ibnr",
+            "ulae",
+            "premium ceded",
+            "insurance reserves",
+            "claims incurred",
+        ),
+    ),
+    (
+        "real_estate",  # (carried in sub_sector only; sector = "other")
+        (
+            # only the wording-level signal — the sub-sector belongs to industrial.
+            "investment property",
+            "properties under development",
+        ),
+    ),
+    (
+        "industrial",
+        (
+            "production output",
+            "cost of sales",
+            "inventories",
+            "manufacturing",
+            "finished goods",
+            "revenue from contracts",
+            "goods sold",
+            "segment result",
+            "extraction",
+            "refining",
+            "petrochemical",
+        ),
+    ),
 )
 
 
 _PERIOD_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     # Annual
-    ("FY", (
-        "for the year ended 31 december",
-        "for the year ended 31 march",
-        "for the year ended 30 june",
-        "for the year ended 30 september",
-        "for the financial year ended",
-        "year ended 31 december",
-        "annual financial statements",
-        "consolidated financial statements",
-    )),
+    (
+        "FY",
+        (
+            "for the year ended 31 december",
+            "for the year ended 31 march",
+            "for the year ended 30 june",
+            "for the year ended 30 september",
+            "for the financial year ended",
+            "year ended 31 december",
+            "annual financial statements",
+            "consolidated financial statements",
+        ),
+    ),
     # Half-yearly
-    ("H1", (
-        "for the six months ended", "for the half-year ended",
-        "for the period ended 30 june",
-    )),
-    ("H2", (
-        "for the six months ended 31 december", "for the half-year ended 31 december",
-    )),
+    (
+        "H1",
+        (
+            "for the six months ended",
+            "for the half-year ended",
+            "for the period ended 30 june",
+        ),
+    ),
+    (
+        "H2",
+        (
+            "for the six months ended 31 december",
+            "for the half-year ended 31 december",
+        ),
+    ),
     # Quarters (must be matched AFTER FY/H1 so a year-end quarter doesn't
     # masquerade as a quarter-report). Three or nine months.
-    ("Q1", (
-        "for the three months ended 31 march", "for the quarter ended 31 march",
-        "first quarter ended 31 march",
-    )),
-    ("Q2", (
-        "for the three months ended 30 june", "for the quarter ended 30 june",
-        "second quarter ended 30 june",
-    )),
-    ("Q3", (
-        "for the three months ended 30 september", "for the quarter ended 30 september",
-        "third quarter ended 30 september",
-    )),
-    ("9M", (
-        "for the nine months ended", "9-month period ended",
-    )),
+    (
+        "Q1",
+        (
+            "for the three months ended 31 march",
+            "for the quarter ended 31 march",
+            "first quarter ended 31 march",
+        ),
+    ),
+    (
+        "Q2",
+        (
+            "for the three months ended 30 june",
+            "for the quarter ended 30 june",
+            "second quarter ended 30 june",
+        ),
+    ),
+    (
+        "Q3",
+        (
+            "for the three months ended 30 september",
+            "for the quarter ended 30 september",
+            "third quarter ended 30 september",
+        ),
+    ),
+    (
+        "9M",
+        (
+            "for the nine months ended",
+            "9-month period ended",
+        ),
+    ),
     # Stub / non-standard (handled differently by the bench).
-    ("Q4", (
-        "for the three months ended 31 december",
-    )),
+    ("Q4", ("for the three months ended 31 december",)),
 )
 
 
 _FRAMEWORK_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("IFRS as adopted by QCB (Islamic)", (
-        "ifrs as adopted by qcb (islamic)", "ifrs as adopted by qcb islamic",
-        "in accordance with ifrs as adopted by qcb",
-        "sharia supervisory board",
-    )),
-    ("AAOIFI", (
-        "aaoifi", "accounting and auditing organisation for islamic financial institutions",
-    )),
-    ("IFRS for SMEs", (
-        "ifrs for smes", "ifrs for small and medium-sized entities",
-    )),
-    ("IFRS", (
-        "international financial reporting standards (ifrs)",
-        "in accordance with ifrs", "in accordance with international financial reporting standards",
-        "ifrs as adopted",       # generic "adopted by ..." falls back to IFRS
-    )),
+    (
+        "IFRS as adopted by QCB (Islamic)",
+        (
+            "ifrs as adopted by qcb (islamic)",
+            "ifrs as adopted by qcb islamic",
+            "in accordance with ifrs as adopted by qcb",
+            "sharia supervisory board",
+        ),
+    ),
+    (
+        "AAOIFI",
+        (
+            "aaoifi",
+            "accounting and auditing organisation for islamic financial institutions",
+        ),
+    ),
+    (
+        "IFRS for SMEs",
+        (
+            "ifrs for smes",
+            "ifrs for small and medium-sized entities",
+        ),
+    ),
+    (
+        "IFRS",
+        (
+            "international financial reporting standards (ifrs)",
+            "in accordance with ifrs",
+            "in accordance with international financial reporting standards",
+            "ifrs as adopted",  # generic "adopted by ..." falls back to IFRS
+        ),
+    ),
 )
 
 
@@ -151,8 +226,7 @@ def detect_sector(text: str, profile: dict | None = None) -> str | None:
         # Profile.archetype is one of: conventional_bank | islamic_bank |
         # industrial | insurance | other. They map to SECTORS one-for-one.
         arc = (profile.get("archetype") or "").strip().lower()
-        if arc in ("conventional_bank", "islamic_bank", "industrial",
-                    "insurance", "other"):
+        if arc in ("conventional_bank", "islamic_bank", "industrial", "insurance", "other"):
             log.info("autodetect.sector: profile override → %r", arc)
             return arc
 
@@ -218,13 +292,12 @@ def detect_framework(text: str, sector: str | None = None) -> str | None:
         for kw in kws:
             if re.search(re.escape(kw), blob):
                 found.append((label, kws.index(kw)))
-                break                       # first match per label wins
+                break  # first match per label wins
     if not found:
         return None
     # Prefer most-specific label (AAOIFI > IFRS-as-adopted-QCB > IFRS).
     # Specificity is encoded by order in _FRAMEWORK_KEYWORDS.
-    found_sorted = sorted(found,
-                          key=lambda lf: _FRAMEWORK_SPECIFICITY_ORDER.index(lf[0]))
+    found_sorted = sorted(found, key=lambda lf: _FRAMEWORK_SPECIFICITY_ORDER.index(lf[0]))
     pick = found_sorted[0][0]
     if pick == "IFRS" and sector == "islamic_bank":
         # For an Islamic bank, the QCB-mandated variant is the right
@@ -242,8 +315,7 @@ _FRAMEWORK_SPECIFICITY_ORDER = (
 )
 
 
-def detect_metadata(text: str, profile: dict | None = None,
-                    existing: dict | None = None) -> dict:
+def detect_metadata(text: str, profile: dict | None = None, existing: dict | None = None) -> dict:
     """Return {"sector": str|None, "period": str|None, "framework": str|None}.
 
     Each key is None when the detector is uncertain. Existing values
@@ -253,15 +325,15 @@ def detect_metadata(text: str, profile: dict | None = None,
     sector = existing.get("sector") or detect_sector(text, profile)
     period = existing.get("fiscal_period") or detect_period(text)
     framework = existing.get("reporting_framework") or detect_framework(text, sector)
-    return {"sector": sector, "fiscal_period": period,
-            "reporting_framework": framework}
+    return {"sector": sector, "fiscal_period": period, "reporting_framework": framework}
 
 
 # ── higher-level orchestrator ────────────────────────────────────────────────
 
 
-def apply_detected_metadata(filing: dict, page_text: str | None = None,
-                            profile: dict | None = None) -> dict:
+def apply_detected_metadata(
+    filing: dict, page_text: str | None = None, profile: dict | None = None
+) -> dict:
     """Patch ``filing.metadata`` with detected values where currently empty.
 
     Returns the (mutated) filing. The mutation is non-destructive — only
@@ -288,9 +360,8 @@ def _text_from_filing(filing: dict) -> str:
     actually lives."""
     bits: list[str] = []
     audit = filing.get("audit") or {}
-    if isinstance(audit, dict):
-        if audit.get("verbatim_text"):
-            bits.append(audit["verbatim_text"])
+    if isinstance(audit, dict) and audit.get("verbatim_text"):
+        bits.append(audit["verbatim_text"])
     for st in filing.get("statements") or []:
         v = st.get("verbatim_text")
         if v:
@@ -299,6 +370,9 @@ def _text_from_filing(filing: dict) -> str:
 
 
 __all__ = [
-    "detect_sector", "detect_period", "detect_framework", "detect_metadata",
     "apply_detected_metadata",
+    "detect_framework",
+    "detect_metadata",
+    "detect_period",
+    "detect_sector",
 ]

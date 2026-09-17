@@ -10,6 +10,7 @@ self-contained, offline HTML file. Two primitives:
 Both tolerate None/empty gracefully (return "" when there is nothing to draw),
 put the baseline at zero, and colour negative bars differently.
 """
+
 from __future__ import annotations
 
 import html
@@ -28,7 +29,11 @@ def _compact(v) -> str:
 
 
 def sparkline(values, width: int = 86, height: int = 20, stroke: str = "#36c") -> str:
-    pts = [(i, v) for i, v in enumerate(values) if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    pts = [
+        (i, v)
+        for i, v in enumerate(values)
+        if isinstance(v, (int, float)) and not isinstance(v, bool)
+    ]
     if len(pts) < 2:
         return ""
     xs = [p[0] for p in pts]
@@ -46,18 +51,27 @@ def sparkline(values, width: int = 86, height: int = 20, stroke: str = "#36c") -
 
     poly = " ".join(f"{X(i):.1f},{Y(v):.1f}" for i, v in pts)
     lx, lv = pts[-1]
-    return (f"<svg class='spark' width='{width}' height='{height}' viewBox='0 0 {width} {height}'>"
-            f"<polyline fill='none' stroke='{stroke}' stroke-width='1.5' points='{poly}'/>"
-            f"<circle cx='{X(lx):.1f}' cy='{Y(lv):.1f}' r='1.8' fill='{stroke}'/></svg>")
+    return (
+        f"<svg class='spark' width='{width}' height='{height}' viewBox='0 0 {width} {height}'>"
+        f"<polyline fill='none' stroke='{stroke}' stroke-width='1.5' points='{poly}'/>"
+        f"<circle cx='{X(lx):.1f}' cy='{Y(lv):.1f}' r='1.8' fill='{stroke}'/></svg>"
+    )
 
 
-def bars(labels, values, width: int = 460, height: int = 190, title: str | None = None,
-         color: str = "#36c", neg_color: str = "#c33") -> str:
+def bars(
+    labels,
+    values,
+    width: int = 460,
+    height: int = 190,
+    title: str | None = None,
+    color: str = "#36c",
+    neg_color: str = "#c33",
+) -> str:
     fin = _finite(values)
     if not fin:
         return ""
-    vmax = max(fin + [0])
-    vmin = min(fin + [0])
+    vmax = max([*fin, 0])
+    vmin = min([*fin, 0])
     span = (vmax - vmin) or 1
     n = len(values)
     pad_l, pad_b = 8, 18
@@ -72,9 +86,13 @@ def bars(labels, values, width: int = 460, height: int = 190, title: str | None 
     y0 = Y(0)
     out = [f"<svg class='bars' width='{width}' height='{height}' viewBox='0 0 {width} {height}'>"]
     if title:
-        out.append(f"<text x='{pad_l}' y='13' font-size='11' fill='#555' font-weight='600'>"
-                   f"{html.escape(str(title))}</text>")
-    out.append(f"<line x1='{pad_l}' y1='{y0:.1f}' x2='{width - pad_l}' y2='{y0:.1f}' stroke='#ccc'/>")
+        out.append(
+            f"<text x='{pad_l}' y='13' font-size='11' fill='#555' font-weight='600'>"
+            f"{html.escape(str(title))}</text>"
+        )
+    out.append(
+        f"<line x1='{pad_l}' y1='{y0:.1f}' x2='{width - pad_l}' y2='{y0:.1f}' stroke='#ccc'/>"
+    )
     for i, v in enumerate(values):
         cx = pad_l + gap * i + (gap - bw) / 2
         mid = cx + bw / 2
@@ -83,12 +101,18 @@ def bars(labels, values, width: int = 460, height: int = 190, title: str | None 
             top = Y(max(v, 0))
             h = abs(Y(v) - y0)
             fill = color if v >= 0 else neg_color
-            out.append(f"<rect class='bar' x='{cx:.1f}' y='{top:.1f}' width='{bw:.1f}' "
-                       f"height='{h:.1f}' fill='{fill}' rx='1'/>")
+            out.append(
+                f"<rect class='bar' x='{cx:.1f}' y='{top:.1f}' width='{bw:.1f}' "
+                f"height='{h:.1f}' fill='{fill}' rx='1'/>"
+            )
             ly = top - 3 if v >= 0 else Y(v) + 10
-            out.append(f"<text x='{mid:.1f}' y='{ly:.1f}' text-anchor='middle' "
-                       f"font-size='9' fill='#555'>{_compact(v)}</text>")
-        out.append(f"<text x='{mid:.1f}' y='{height - 5}' text-anchor='middle' "
-                   f"font-size='9' fill='#888'>{label}</text>")
+            out.append(
+                f"<text x='{mid:.1f}' y='{ly:.1f}' text-anchor='middle' "
+                f"font-size='9' fill='#555'>{_compact(v)}</text>"
+            )
+        out.append(
+            f"<text x='{mid:.1f}' y='{height - 5}' text-anchor='middle' "
+            f"font-size='9' fill='#888'>{label}</text>"
+        )
     out.append("</svg>")
     return "".join(out)

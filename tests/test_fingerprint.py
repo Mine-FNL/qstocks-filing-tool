@@ -1,10 +1,10 @@
 """Pins `qscreen_fingerprint` for stable hashing + filing-level diff."""
+
 from __future__ import annotations
 
 import pytest
 
 import qscreen_fingerprint as fp
-
 
 # ── text_fingerprint ────────────────────────────────────────────────────────
 
@@ -16,8 +16,9 @@ def test_text_fingerprint_stable_across_whitespace():
 
 
 def test_text_fingerprint_changes_on_content():
-    assert fp.text_fingerprint("Total assets 1,077,000") != \
-           fp.text_fingerprint("Total assets 1,078,000")
+    assert fp.text_fingerprint("Total assets 1,077,000") != fp.text_fingerprint(
+        "Total assets 1,078,000"
+    )
 
 
 def test_text_fingerprint_empty():
@@ -35,14 +36,22 @@ def test_text_fingerprint_preserves_numbers():
 
 
 def test_fingerprint_filing_picks_up_audit_and_statements():
-    f = {"metadata": {"symbol": "QNBK", "fiscal_year": 2024},
-         "audit": {"verbatim_text": "In our opinion, the financial statements ..."},
-         "statements": [
-             {"type": "balance_sheet", "title": "BS",
-                "verbatim_text": "Total assets 1,000 Equity 300"},
-             {"type": "income_statement", "title": "IS",
-                "verbatim_text": "Revenue 500 Net income 100"},
-         ]}
+    f = {
+        "metadata": {"symbol": "QNBK", "fiscal_year": 2024},
+        "audit": {"verbatim_text": "In our opinion, the financial statements ..."},
+        "statements": [
+            {
+                "type": "balance_sheet",
+                "title": "BS",
+                "verbatim_text": "Total assets 1,000 Equity 300",
+            },
+            {
+                "type": "income_statement",
+                "title": "IS",
+                "verbatim_text": "Revenue 500 Net income 100",
+            },
+        ],
+    }
     out = fp.fingerprint_filing(f, short_label="QNBK/2024")
     assert out["filing_id"] == "QNBK/2024"
     keys = {x["key"] for x in out["items"]}
@@ -58,29 +67,37 @@ def test_fingerprint_filing_picks_up_audit_and_statements():
 def test_fingerprint_filing_stable_under_reordering():
     """The overall fingerprint should be order-independent — re-running
     extraction with shuffled window order produces the same hash."""
-    a = {"audit": {"verbatim_text": "audit"},
-          "statements": [
-              {"type": "balance_sheet", "verbatim_text": "BS contents"},
-              {"type": "income_statement", "verbatim_text": "IS contents"},
-          ]}
+    a = {
+        "audit": {"verbatim_text": "audit"},
+        "statements": [
+            {"type": "balance_sheet", "verbatim_text": "BS contents"},
+            {"type": "income_statement", "verbatim_text": "IS contents"},
+        ],
+    }
     b = dict(a)
     b["statements"] = list(reversed(a["statements"]))
-    assert fp.fingerprint_filing(a)["overall_fingerprint"] == \
-           fp.fingerprint_filing(b)["overall_fingerprint"]
+    assert (
+        fp.fingerprint_filing(a)["overall_fingerprint"]
+        == fp.fingerprint_filing(b)["overall_fingerprint"]
+    )
 
 
 def test_fingerprint_filing_skips_blank_verbatims():
-    f = {"audit": {"verbatim_text": "   "},
-          "statements": [{"type": "balance_sheet", "verbatim_text": ""}]}
+    f = {
+        "audit": {"verbatim_text": "   "},
+        "statements": [{"type": "balance_sheet", "verbatim_text": ""}],
+    }
     out = fp.fingerprint_filing(f)
     # Whitespace-only text counts as absent so the diff stays clean.
     assert out["items"] == []
 
 
 def test_fingerprint_filing_includes_notes():
-    f = {"audit": {}, "statements": [],
-          "notes": [{"category": "audit_basis",
-                       "verbatim_text": "Basis of qualified opinion ..."}]}
+    f = {
+        "audit": {},
+        "statements": [],
+        "notes": [{"category": "audit_basis", "verbatim_text": "Basis of qualified opinion ..."}],
+    }
     out = fp.fingerprint_filing(f)
     assert len(out["items"]) == 1
     assert out["items"][0]["key"].startswith("notes[0].audit_basis")
@@ -90,8 +107,10 @@ def test_fingerprint_filing_includes_notes():
 
 
 def test_diff_identical_when_no_changes():
-    f = {"audit": {"verbatim_text": "audit v1"},
-          "statements": [{"type": "balance_sheet", "verbatim_text": "BS v1"}]}
+    f = {
+        "audit": {"verbatim_text": "audit v1"},
+        "statements": [{"type": "balance_sheet", "verbatim_text": "BS v1"}],
+    }
     a = fp.fingerprint_filing(f)
     b = fp.fingerprint_filing(f)
     d = fp.diff_fingerprints(a, b)
@@ -103,10 +122,14 @@ def test_diff_identical_when_no_changes():
 
 
 def test_diff_detects_modified_statement():
-    a = {"audit": {"verbatim_text": "v1"},
-          "statements": [{"type": "balance_sheet", "verbatim_text": "BS v1"}]}
-    b = {"audit": {"verbatim_text": "v1"},
-          "statements": [{"type": "balance_sheet", "verbatim_text": "BS v2"}]}
+    a = {
+        "audit": {"verbatim_text": "v1"},
+        "statements": [{"type": "balance_sheet", "verbatim_text": "BS v1"}],
+    }
+    b = {
+        "audit": {"verbatim_text": "v1"},
+        "statements": [{"type": "balance_sheet", "verbatim_text": "BS v2"}],
+    }
     da = fp.fingerprint_filing(a)
     db = fp.fingerprint_filing(b)
     d = fp.diff_fingerprints(da, db)
@@ -115,11 +138,17 @@ def test_diff_detects_modified_statement():
 
 
 def test_diff_detects_added_statement():
-    a = {"audit": {"verbatim_text": "v1"},
-          "statements": [{"type": "balance_sheet", "verbatim_text": "BS"}]}
-    b = {"audit": {"verbatim_text": "v1"},
-          "statements": [{"type": "balance_sheet", "verbatim_text": "BS"},
-                          {"type": "income_statement", "verbatim_text": "IS"}]}
+    a = {
+        "audit": {"verbatim_text": "v1"},
+        "statements": [{"type": "balance_sheet", "verbatim_text": "BS"}],
+    }
+    b = {
+        "audit": {"verbatim_text": "v1"},
+        "statements": [
+            {"type": "balance_sheet", "verbatim_text": "BS"},
+            {"type": "income_statement", "verbatim_text": "IS"},
+        ],
+    }
     da = fp.fingerprint_filing(a)
     db = fp.fingerprint_filing(b)
     d = fp.diff_fingerprints(da, db)
@@ -127,11 +156,17 @@ def test_diff_detects_added_statement():
 
 
 def test_diff_detects_removed_statement():
-    a = {"audit": {"verbatim_text": "v1"},
-          "statements": [{"type": "balance_sheet", "verbatim_text": "BS"},
-                          {"type": "income_statement", "verbatim_text": "IS"}]}
-    b = {"audit": {"verbatim_text": "v1"},
-          "statements": [{"type": "balance_sheet", "verbatim_text": "BS"}]}
+    a = {
+        "audit": {"verbatim_text": "v1"},
+        "statements": [
+            {"type": "balance_sheet", "verbatim_text": "BS"},
+            {"type": "income_statement", "verbatim_text": "IS"},
+        ],
+    }
+    b = {
+        "audit": {"verbatim_text": "v1"},
+        "statements": [{"type": "balance_sheet", "verbatim_text": "BS"}],
+    }
     da = fp.fingerprint_filing(a)
     db = fp.fingerprint_filing(b)
     d = fp.diff_fingerprints(da, db)

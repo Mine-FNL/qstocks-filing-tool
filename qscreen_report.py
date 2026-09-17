@@ -14,6 +14,7 @@ CLI:
     python3 qscreen_report.py --symbol QNBK QNBK_2022_FY_filing.json QNBK_2023_FY_filing.json \
         --price 16 --shares 9200000000
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,14 +23,27 @@ import json
 import sys
 from pathlib import Path
 
-from qscreen_series import build_series
 import qscreen_analyze as az
-import qscreen_dcf as dcf
 import qscreen_charts as ch
+import qscreen_dcf as dcf
+from qscreen_series import build_series
 
-_PCT_RATIOS = {"roe", "roa", "nim", "cost_income", "npl", "car", "coverage", "ldr",
-               "net_margin", "operating_margin", "loss_ratio", "expense_ratio",
-               "combined_ratio", "dividend_payout"}
+_PCT_RATIOS = {
+    "roe",
+    "roa",
+    "nim",
+    "cost_income",
+    "npl",
+    "car",
+    "coverage",
+    "ldr",
+    "net_margin",
+    "operating_margin",
+    "loss_ratio",
+    "expense_ratio",
+    "combined_ratio",
+    "dividend_payout",
+}
 
 _CSS = """
 body{font:14px/1.55 -apple-system,system-ui,sans-serif;color:#1a1a1a;max-width:820px;margin:24px auto;padding:0 18px}
@@ -51,6 +65,7 @@ svg.bars{border:1px solid #f0f0f0;border-radius:6px;background:#fff} svg.spark{v
 
 # ── formatting helpers ───────────────────────────────────────────────────────
 
+
 def _num(x):
     if x is None:
         return "—"
@@ -64,7 +79,7 @@ def _num(x):
 def _pct(x):
     if x is None:
         return "—"
-    return f"{x * 100:.1f}%"      # ratio values are fractions (KPIs normalized at source)
+    return f"{x * 100:.1f}%"  # ratio values are fractions (KPIs normalized at source)
 
 
 def _signed_pct(x):
@@ -75,8 +90,14 @@ def _signed_pct(x):
 
 
 def _code_label(code):
-    return (code.replace("IS_", "").replace("BS_", "").replace("CF_", "")
-            .replace("KPI_", "").replace("_", " ").title())
+    return (
+        code.replace("IS_", "")
+        .replace("BS_", "")
+        .replace("CF_", "")
+        .replace("KPI_", "")
+        .replace("_", " ")
+        .title()
+    )
 
 
 def _ratio_html(name, r):
@@ -93,11 +114,15 @@ def _ratio_html(name, r):
 
 # ── HTML sections ────────────────────────────────────────────────────────────
 
+
 def _sensitivity_html(v, sg):
     per_share = v.get("per_share") is not None
     bg, br = v["assumptions"]["growth"], v["assumptions"]["discount_rate"]
-    h = ["<h3>Sensitivity (" + ("per share" if per_share else "equity")
-         + ") — growth → / discount ↓</h3><table><tr><th></th>"]
+    h = [
+        "<h3>Sensitivity ("
+        + ("per share" if per_share else "equity")
+        + ") — growth → / discount ↓</h3><table><tr><th></th>"
+    ]
     h += [f"<th>{g * 100:.1f}%</th>" for g in sg["growth_values"]] + ["</tr>"]
     for i, r in enumerate(sg["rate_values"]):
         h.append(f"<tr><th>{r * 100:.1f}%</th>")
@@ -115,8 +140,11 @@ def _series_table_html(series, archetype):
     if not years:
         return ""
     codes = az._TREND_CODES.get(archetype, az._DEFAULT_TREND)
-    present = [c for c in codes
-               if any((series["years"][y].get("metrics") or {}).get(c) is not None for y in years)]
+    present = [
+        c
+        for c in codes
+        if any((series["years"][y].get("metrics") or {}).get(c) is not None for y in years)
+    ]
     if not present:
         return ""
     h = ["<table><tr><th>Metric</th>"] + [f"<th>{y}</th>" for y in years] + ["<th>Trend</th></tr>"]
@@ -133,10 +161,13 @@ def _trends_chart_html(series, archetype):
     if len(years) < 2:
         return ""
     codes = az._TREND_CODES.get(archetype, az._DEFAULT_TREND)
-    present = [c for c in codes
-               if any((series["years"][y].get("metrics") or {}).get(c) is not None for y in years)]
+    present = [
+        c
+        for c in codes
+        if any((series["years"][y].get("metrics") or {}).get(c) is not None for y in years)
+    ]
     charts = []
-    for c in present[:2]:                              # up to two headline metrics, side by side
+    for c in present[:2]:  # up to two headline metrics, side by side
         vals = [(series["years"][y].get("metrics") or {}).get(c) for y in years]
         charts.append(ch.bars([str(y) for y in years], vals, title=_code_label(c)))
     return "<div class='charts'>" + "".join(charts) + "</div>" if any(charts) else ""
@@ -146,48 +177,75 @@ def _render_html(ctx, series, ratios, trends, flags, segments, valuation):
     E = html.escape
     yrs = ctx["years"]
     latest = yrs[-1] if yrs else None
-    cur = E(str(ctx.get("currency") or ""))      # filing-derived → must be escaped
+    cur = E(str(ctx.get("currency") or ""))  # filing-derived → must be escaped
     sym = E(str(ctx.get("symbol") or ""))
-    P = [f"<h1>{E(ctx['name'])} <span class='muted'>[{sym}]</span></h1>",
-         f"<p class='sub'>{E(ctx.get('sub_sector') or '')} · {E(ctx['archetype'].replace('_', ' '))} · "
-         f"reports in {cur or '—'} under {E(ctx.get('framework') or 'IFRS')}</p>"]
+    P = [
+        f"<h1>{E(ctx['name'])} <span class='muted'>[{sym}]</span></h1>",
+        f"<p class='sub'>{E(ctx.get('sub_sector') or '')} · {E(ctx['archetype'].replace('_', ' '))} · "
+        f"reports in {cur or '—'} under {E(ctx.get('framework') or 'IFRS')}</p>",
+    ]
     if yrs:
-        P.append(f"<p class='muted'>Analyst report · fiscal years {yrs[0]}–{yrs[-1]} · "
-                 f"generated offline from filing data</p>")
+        P.append(
+            f"<p class='muted'>Analyst report · fiscal years {yrs[0]}–{yrs[-1]} · "
+            f"generated offline from filing data</p>"
+        )
 
     if ctx["events"] or ctx["subs"] or ctx["quirks"]:
         P.append("<h2>Company context</h2>")
         if ctx["subs"]:
-            P.append("<p>Foreign operations: " + "".join(
-                f"<span class='tag'>{E(s.get('name', ''))} · {E(s.get('country', ''))}/"
-                f"{E(s.get('currency', ''))}</span>" for s in ctx["subs"]) + "</p>")
+            P.append(
+                "<p>Foreign operations: "
+                + "".join(
+                    f"<span class='tag'>{E(s.get('name', ''))} · {E(s.get('country', ''))}/"
+                    f"{E(s.get('currency', ''))}</span>"
+                    for s in ctx["subs"]
+                )
+                + "</p>"
+            )
         if ctx["events"]:
             P.append("<ul class='tl'>")
             for e in sorted(ctx["events"], key=lambda e: e.get("year") or 0):
-                P.append(f"<li><b>{e.get('year', '')}</b> — {E(e.get('title', ''))}. "
-                         f"<span class='muted'>{E(e.get('effect', ''))}</span></li>")
+                P.append(
+                    f"<li><b>{e.get('year', '')}</b> — {E(e.get('title', ''))}. "
+                    f"<span class='muted'>{E(e.get('effect', ''))}</span></li>"
+                )
             P.append("</ul>")
         if ctx["quirks"]:
-            P.append("<p class='muted'>Accounting notes: " + "; ".join(E(q) for q in ctx["quirks"]) + "</p>")
+            P.append(
+                "<p class='muted'>Accounting notes: "
+                + "; ".join(E(q) for q in ctx["quirks"])
+                + "</p>"
+            )
 
     if latest and ratios.get(latest):
         P.append(f"<h2>Key ratios — {latest}</h2><table><tr><th>Ratio</th><th>Value</th></tr>")
-        P += [f"<tr><td>{n.replace('_', ' ')}</td><td>{_ratio_html(n, r)}</td></tr>"
-              for n, r in ratios[latest].items()]
-        P.append("</table><p class='muted'>® = as reported by the company; others computed from the filing.</p>")
+        P += [
+            f"<tr><td>{n.replace('_', ' ')}</td><td>{_ratio_html(n, r)}</td></tr>"
+            for n, r in ratios[latest].items()
+        ]
+        P.append(
+            "</table><p class='muted'>® = as reported by the company; others computed from the filing.</p>"
+        )
 
     if trends:
-        P.append("<h2>Trends</h2><table><tr><th>Metric</th><th>Latest</th><th>YoY</th><th>CAGR</th></tr>")
-        P += [f"<tr><td>{_code_label(c)}</td><td>{_num(t['latest'])}</td>"
-              f"<td>{_signed_pct(t['yoy'])}</td><td>{_signed_pct(t['cagr'])}</td></tr>"
-              for c, t in trends.items()]
+        P.append(
+            "<h2>Trends</h2><table><tr><th>Metric</th><th>Latest</th><th>YoY</th><th>CAGR</th></tr>"
+        )
+        P += [
+            f"<tr><td>{_code_label(c)}</td><td>{_num(t['latest'])}</td>"
+            f"<td>{_signed_pct(t['yoy'])}</td><td>{_signed_pct(t['cagr'])}</td></tr>"
+            for c, t in trends.items()
+        ]
         P.append("</table>")
 
     P.append("<h2>Red flags</h2>")
     if flags:
         P.append("<ul class='flags'>")
-        P += [f"<li class='{'alert' if f['severity'] == 'alert' else 'warn'}'>"
-              f"{'🚨' if f['severity'] == 'alert' else '⚠️'} {E(f['message'])}</li>" for f in flags]
+        P += [
+            f"<li class='{'alert' if f['severity'] == 'alert' else 'warn'}'>"
+            f"{'🚨' if f['severity'] == 'alert' else '⚠️'} {E(f['message'])}</li>"
+            for f in flags
+        ]
         P.append("</ul>")
     else:
         P.append("<p class='muted'>None triggered.</p>")
@@ -196,104 +254,177 @@ def _render_html(ctx, series, ratios, trends, flags, segments, valuation):
     if dims:
         P.append("<h2>Segments</h2>")
         for dim, d in dims.items():
-            P.append(f"<h3>by {dim.replace('_', ' ')}</h3><table>"
-                     "<tr><th>Segment</th><th>Revenue</th><th>YoY</th><th>Share</th><th>Net profit</th></tr>")
+            P.append(
+                f"<h3>by {dim.replace('_', ' ')}</h3><table>"
+                "<tr><th>Segment</th><th>Revenue</th><th>YoY</th><th>Share</th><th>Net profit</th></tr>"
+            )
             for r in d["segments"]:
-                fx = f" <span class='fx'>FX {E(r.get('currency') or '')}</span>" if r.get("fx_exposed") else ""
-                ev = (f" <span class='muted'>({E('; '.join(r.get('events') or []))})</span>"
-                      if r.get("events") else "")
+                fx = (
+                    f" <span class='fx'>FX {E(r.get('currency') or '')}</span>"
+                    if r.get("fx_exposed")
+                    else ""
+                )
+                ev = (
+                    f" <span class='muted'>({E('; '.join(r.get('events') or []))})</span>"
+                    if r.get("events")
+                    else ""
+                )
                 m, y, s = r.get("metrics") or {}, r.get("yoy") or {}, r.get("share") or {}
-                P.append(f"<tr><td>{E(str(r['name']))}{fx}{ev}</td><td>{_num(m.get('revenue'))}</td>"
-                         f"<td>{_signed_pct(y.get('revenue'))}</td><td>{_pct(s.get('revenue'))}</td>"
-                         f"<td>{_num(m.get('net_profit'))}</td></tr>")
+                P.append(
+                    f"<tr><td>{E(str(r['name']))}{fx}{ev}</td><td>{_num(m.get('revenue'))}</td>"
+                    f"<td>{_signed_pct(y.get('revenue'))}</td><td>{_pct(s.get('revenue'))}</td>"
+                    f"<td>{_num(m.get('net_profit'))}</td></tr>"
+                )
             P.append("</table>")
 
     v = (valuation or {}).get("valuation")
     if v:
         P.append("<h2>Valuation (DCF)</h2>")
-        head = (f"{cur} {_num(v['per_share'])} / share" if v.get("per_share")
-                else f"{cur} {_num(v['equity_value'])} equity value")
+        head = (
+            f"{cur} {_num(v['per_share'])} / share"
+            if v.get("per_share")
+            else f"{cur} {_num(v['equity_value'])} equity value"
+        )
         P.append(f"<p class='hl'>{head}</p>")
         up = valuation.get("upside")
-        P.append(f"<p class='muted'>model: {v['model']} · terminal {v['terminal_pct'] * 100:.0f}% of value"
-                 + (f" · upside <span class='{'neg' if up < 0 else 'pos'}'>{up * 100:+.0f}%</span> "
-                    f"vs {valuation.get('price')}" if up is not None else "") + "</p>")
+        P.append(
+            f"<p class='muted'>model: {v['model']} · terminal {v['terminal_pct'] * 100:.0f}% of value"
+            + (
+                f" · upside <span class='{'neg' if up < 0 else 'pos'}'>{up * 100:+.0f}%</span> "
+                f"vs {valuation.get('price')}"
+                if up is not None
+                else ""
+            )
+            + "</p>"
+        )
         if valuation.get("sensitivity"):
             P.append(_sensitivity_html(v, valuation["sensitivity"]))
     elif valuation and valuation.get("warnings"):
-        P.append("<h2>Valuation (DCF)</h2><p class='muted'>" + E("; ".join(valuation["warnings"])) + "</p>")
+        P.append(
+            "<h2>Valuation (DCF)</h2><p class='muted'>"
+            + E("; ".join(valuation["warnings"]))
+            + "</p>"
+        )
 
     table = _series_table_html(series, ctx["archetype"])
     if table:
-        P.append("<h2>Multi-year figures</h2>" + _trends_chart_html(series, ctx["archetype"]) + table)
-    P.append("<p class='muted'>Generated by QScreen — computed offline from filing data; "
-             "figures are as reported or derived from the filings, never invented.</p>")
-    return ("<!doctype html><html><head><meta charset='utf-8'><title>"
-            + E(ctx["name"]) + " — analyst report</title><style>" + _CSS + "</style></head><body>"
-            + "".join(P) + "</body></html>")
+        P.append(
+            "<h2>Multi-year figures</h2>" + _trends_chart_html(series, ctx["archetype"]) + table
+        )
+    P.append(
+        "<p class='muted'>Generated by QScreen — computed offline from filing data; "
+        "figures are as reported or derived from the filings, never invented.</p>"
+    )
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'><title>"
+        + E(ctx["name"])
+        + " — analyst report</title><style>"
+        + _CSS
+        + "</style></head><body>"
+        + "".join(P)
+        + "</body></html>"
+    )
 
 
 def _render_md(ctx, series, ratios, trends, flags, segments, valuation):
     yrs = ctx["years"]
     latest = yrs[-1] if yrs else None
-    L = [f"# {ctx['name']} [{ctx['symbol']}]",
-         f"_{ctx.get('sub_sector') or ''} · {ctx['archetype'].replace('_', ' ')} · "
-         f"{ctx.get('currency') or ''} · {ctx.get('framework') or 'IFRS'}_", ""]
+    L = [
+        f"# {ctx['name']} [{ctx['symbol']}]",
+        f"_{ctx.get('sub_sector') or ''} · {ctx['archetype'].replace('_', ' ')} · "
+        f"{ctx.get('currency') or ''} · {ctx.get('framework') or 'IFRS'}_",
+        "",
+    ]
     if ctx["events"]:
         L.append("## Company context")
-        L += [f"- **{e.get('year', '')}** — {e.get('title', '')}. {e.get('effect', '')}"
-              for e in sorted(ctx["events"], key=lambda e: e.get("year") or 0)]
+        L += [
+            f"- **{e.get('year', '')}** — {e.get('title', '')}. {e.get('effect', '')}"
+            for e in sorted(ctx["events"], key=lambda e: e.get("year") or 0)
+        ]
         L.append("")
     if latest and ratios.get(latest):
         L += [f"## Key ratios — {latest}", "", "| Ratio | Value |", "|---|---|"]
         for n, r in ratios[latest].items():
             v = r.get("value")
-            cell = "—" if v is None else (_num(v) if n in ("fcf",) else
-                                          (f"{v:.2f}×" if n == "liabilities_to_equity" else _pct(v)))
+            cell = (
+                "—"
+                if v is None
+                else (
+                    _num(v)
+                    if n in ("fcf",)
+                    else (f"{v:.2f}×" if n == "liabilities_to_equity" else _pct(v))
+                )
+            )
             if r.get("basis") == "reported" and v is not None:
                 cell += " (reported)"
             L.append(f"| {n.replace('_', ' ')} | {cell} |")
         L.append("")
     L.append("## Red flags")
-    L += ([f"- {'🚨' if f['severity'] == 'alert' else '⚠️'} {f['message']}" for f in flags]
-          if flags else ["_None triggered._"])
+    L += (
+        [f"- {'🚨' if f['severity'] == 'alert' else '⚠️'} {f['message']}" for f in flags]
+        if flags
+        else ["_None triggered._"]
+    )
     L.append("")
     v = (valuation or {}).get("valuation")
     if v:
-        head = (f"{ctx.get('currency') or ''} {_num(v['per_share'])} / share" if v.get("per_share")
-                else f"{ctx.get('currency') or ''} {_num(v['equity_value'])} equity value")
+        head = (
+            f"{ctx.get('currency') or ''} {_num(v['per_share'])} / share"
+            if v.get("per_share")
+            else f"{ctx.get('currency') or ''} {_num(v['equity_value'])} equity value"
+        )
         up = valuation.get("upside")
-        L += ["## Valuation (DCF)", f"**{head}** — model {v['model']}, terminal "
-              f"{v['terminal_pct'] * 100:.0f}% of value"
-              + (f", upside {up * 100:+.0f}% vs {valuation.get('price')}" if up is not None else ""), ""]
+        L += [
+            "## Valuation (DCF)",
+            f"**{head}** — model {v['model']}, terminal "
+            f"{v['terminal_pct'] * 100:.0f}% of value"
+            + (f", upside {up * 100:+.0f}% vs {valuation.get('price')}" if up is not None else ""),
+            "",
+        ]
     L.append("_Generated by QScreen — computed offline from filing data; never invented._")
     return "\n".join(L)
 
 
 # ── orchestration ────────────────────────────────────────────────────────────
 
-def build_report(symbol: str, filings: list[dict], profile: dict | None = None, *,
-                 assumptions: dict | None = None, price: float | None = None,
-                 shares: float | None = None) -> dict:
+
+def build_report(
+    symbol: str,
+    filings: list[dict],
+    profile: dict | None = None,
+    *,
+    assumptions: dict | None = None,
+    price: float | None = None,
+    shares: float | None = None,
+) -> dict:
     symbol = symbol.upper()
     series = build_series(symbol, filings)
     archetype = (profile or {}).get("archetype") or "other"
     ratios = az.compute_ratios(series, archetype)
     trends = az.compute_trends(series, archetype)
     flags = az.red_flags(series, ratios, profile, filings)
-    latest_filing = (max(filings, key=lambda f: (f.get("metadata") or {}).get("fiscal_year") or 0)
-                     if filings else {})
+    latest_filing = (
+        max(filings, key=lambda f: (f.get("metadata") or {}).get("fiscal_year") or 0)
+        if filings
+        else {}
+    )
     segments = az.analyze_segments(latest_filing, profile)
     valuation = dcf.value(symbol, filings, profile, assumptions or {}, price=price, shares=shares)
     ctx = {
-        "symbol": symbol, "archetype": archetype, "currency": series.get("currency"),
+        "symbol": symbol,
+        "archetype": archetype,
+        "currency": series.get("currency"),
         "name": (profile or {}).get("name_as_of") or (profile or {}).get("company_name") or symbol,
         "sub_sector": (profile or {}).get("sub_sector"),
-        "framework": ((profile or {}).get("framework_as_of")
-                      or ((profile or {}).get("framework_timeline") or [{}])[0].get("framework")),
+        "framework": (
+            (profile or {}).get("framework_as_of")
+            or ((profile or {}).get("framework_timeline") or [{}])[0].get("framework")
+        ),
         "years": sorted(series.get("years") or {}),
         "events": (profile or {}).get("active_events") or (profile or {}).get("events") or [],
-        "subs": (profile or {}).get("active_subsidiaries") or (profile or {}).get("subsidiaries") or [],
+        "subs": (profile or {}).get("active_subsidiaries")
+        or (profile or {}).get("subsidiaries")
+        or [],
         "quirks": (profile or {}).get("accounting_quirks") or [],
     }
     return {
@@ -321,13 +452,22 @@ def main() -> int:
     profile = None
     try:
         import qatar
-        profile = qatar.profile_for_year(args.symbol, (filings[0].get("metadata") or {}).get("fiscal_year"))
+
+        profile = qatar.profile_for_year(
+            args.symbol, (filings[0].get("metadata") or {}).get("fiscal_year")
+        )
     except Exception:
         pass
-    a = {"discount_rate": args.discount_rate, "terminal_growth": args.terminal_growth, "years": args.years}
+    a = {
+        "discount_rate": args.discount_rate,
+        "terminal_growth": args.terminal_growth,
+        "years": args.years,
+    }
     if args.growth is not None:
         a["growth"] = args.growth
-    rep = build_report(args.symbol, filings, profile, assumptions=a, price=args.price, shares=args.shares)
+    rep = build_report(
+        args.symbol, filings, profile, assumptions=a, price=args.price, shares=args.shares
+    )
     base = args.symbol.upper()
     Path(f"{base}_report.html").write_text(rep["html"], encoding="utf-8")
     Path(f"{base}_report.md").write_text(rep["markdown"], encoding="utf-8")

@@ -3,6 +3,7 @@
 Plain pytest style. No real engine invocation; these exercise the perf
 machinery itself (StageTimer, aggregate, check_regression, emit_metrics).
 """
+
 from __future__ import annotations
 
 import logging
@@ -83,7 +84,7 @@ def test_emit_metrics_produces_valid_prometheus_format():
     assert text.count("# TYPE qscreen_perf_stage_duration_ms histogram") == 2
     # Standard buckets are present in the bucket lines (Prometheus convention).
     for bucket in ("50", "100", "250", "500", "1000", "2500", "5000", "10000"):
-        assert f'le="{bucket}"' in text, f"missing le=\"{bucket}\""
+        assert f'le="{bucket}"' in text, f'missing le="{bucket}"'
     # +Inf bucket must be emitted so a Prometheus client treats the histogram as total.
     assert 'le="+Inf"' in text
     # _count and _sum series are required for a histogram metric.

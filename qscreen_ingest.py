@@ -44,6 +44,7 @@ OR Pro (one big LLM prompt extracts everything; use a strong model) -> normalize
 merged lossless JSON -> validated against the contract -> saved AND uploaded.
 Self-test: --self-test.   Providers/modes: --list-providers.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -63,16 +64,17 @@ __version__ = "1.6.0"
 
 # ── .env loader (no python-dotenv dependency) ────────────────────────────────
 
+
 def _dotenv_value(val: str) -> str:
     """Parse one .env value: honour a surrounding quote, else drop an inline
     comment. So `KEY=abc   # note` → 'abc', `KEY="a # b"` → 'a # b', and a value
     that is only a comment → ''. (The shipped .env.example puts a ' # ...' note
     after each key, so this stops that note being captured as part of the key.)"""
     v = val.strip()
-    if v[:1] in ('"', "'"):                       # quoted → take what's inside the quotes
+    if v[:1] in ('"', "'"):  # quoted → take what's inside the quotes
         end = v.find(v[0], 1)
         return v[1:end] if end != -1 else v[1:]
-    for i, ch in enumerate(v):                    # unquoted → cut at a '#' comment
+    for i, ch in enumerate(v):  # unquoted → cut at a '#' comment
         if ch == "#" and (i == 0 or v[i - 1] in " \t"):
             return v[:i].rstrip()
     return v.rstrip()
@@ -92,7 +94,7 @@ def _parse_dotenv(text: str) -> dict:
         key, _, val = line.partition("=")
         key = key.strip()
         if key.startswith("export "):
-            key = key[len("export "):].strip()
+            key = key[len("export ") :].strip()
         if key:
             out[key] = _dotenv_value(val)
     return out
@@ -107,7 +109,7 @@ def _load_dotenv() -> None:
         # "UTF-8 with BOM" (the Windows/Notepad default); without this the first
         # key would parse as '\ufeffMOONSHOT_API_KEY' and never be detected.
         for key, val in _parse_dotenv(candidate.read_text(encoding="utf-8-sig")).items():
-            if key not in os.environ:             # real env vars win over .env
+            if key not in os.environ:  # real env vars win over .env
                 os.environ[key] = val
 
 
@@ -122,7 +124,7 @@ _load_dotenv()
 # event per line (uses ``python-json-logger`` from the ``[dev]`` extras — the
 # core engine only depends on stdlib).
 log = logging.getLogger("qscreen.ingest")
-if not log.handlers:                                  # idempotent across re-imports
+if not log.handlers:  # idempotent across re-imports
     _level = os.getenv("LOG_LEVEL", "INFO").upper()
     if os.getenv("LOG_JSON", "").strip() in ("1", "true", "TRUE", "yes", "YES"):
         # JSON output — only available when the dev extras are installed. We
@@ -130,16 +132,18 @@ if not log.handlers:                                  # idempotent across re-imp
         # stdlib-only.
         try:
             from pythonjsonlogger import json as _jsonfmt
+
             _fmt: logging.Formatter = _jsonfmt.JsonFormatter(
-                "%(asctime)s %(levelname)s %(name)s %(message)s")
+                "%(asctime)s %(levelname)s %(name)s %(message)s"
+            )
         except Exception:
             _fmt = logging.Formatter(
-                "%(asctime)s %(levelname)s %(name)s | %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S")
+                "%(asctime)s %(levelname)s %(name)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            )
     else:
         _fmt = logging.Formatter(
-            "%(asctime)s %(levelname)s %(name)s | %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S")
+            "%(asctime)s %(levelname)s %(name)s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        )
     _h = logging.StreamHandler(stream=sys.stderr)
     _h.setFormatter(_fmt)
     log.addHandler(_h)
@@ -154,7 +158,9 @@ if not log.handlers:                                  # idempotent across re-imp
 # before invoking the engine). The default ``_perf_record`` attribute on the
 # argparse Namespace makes every ``stage_timer(...)`` call site zero-overhead
 # when timing is off — see ``qscreen_perf.stage_timer``.
-import qscreen_perf as _perf  # noqa: E402
+import contextlib
+
+import qscreen_perf as _perf
 
 
 def set_dotenv_value(key: str, value: str, path: Path | None = None) -> Path:
@@ -185,7 +191,7 @@ def set_dotenv_value(key: str, value: str, path: Path | None = None) -> Path:
             continue
         existing = stripped.partition("=")[0].strip()
         if existing.startswith("export "):
-            existing = existing[len("export "):].strip()
+            existing = existing[len("export ") :].strip()
         if existing == key:
             lines[i] = new_line
             replaced = True
@@ -196,16 +202,15 @@ def set_dotenv_value(key: str, value: str, path: Path | None = None) -> Path:
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
     try:
-        os.chmod(tmp, 0o600)               # secrets live here → keep it private
+        os.chmod(tmp, 0o600)  # secrets live here → keep it private
     except OSError:
-        pass                               # best-effort (no-op on e.g. Windows)
-    os.replace(tmp, path)                  # atomic swap
-    try:
+        pass  # best-effort (no-op on e.g. Windows)
+    os.replace(tmp, path)  # atomic swap
+    with contextlib.suppress(OSError):
         os.chmod(path, 0o600)
-    except OSError:
-        pass
-    os.environ[key] = value                # take effect without a restart
+    os.environ[key] = value  # take effect without a restart
     return path
+
 
 # Optional jurisdiction knowledge base. The engine works without it (the LLM
 # is told the company + year and figures things out by itself); when a
@@ -213,15 +218,15 @@ def set_dotenv_value(key: str, value: str, path: Path | None = None) -> Path:
 # context that materially helps extraction quality.
 try:
     import profiles
-except Exception:                            # pragma: no cover - defensive
+except Exception:  # pragma: no cover - defensive
     profiles = None
 
 # Post-extraction gates: skeleton detection + math-identity checks + currency/
 # unit sanity. Optional dep — only need it when the tool actually runs.
 try:
     import qscreen_gates
-except Exception:                            # pragma: no cover - defensive
-    qscreen_gates = None                     # type: ignore[assignment]
+except Exception:  # pragma: no cover - defensive
+    qscreen_gates = None  # type: ignore[assignment]
 
 
 def _resolve_profile(symbol: str | None, year: int | None, jurisdiction: str | None):
@@ -245,39 +250,105 @@ def _resolve_profile(symbol: str | None, year: int | None, jurisdiction: str | N
 # ════════════════════════════════════════════════════════════════════════════
 
 KNOWN_ACCOUNT_CODES = {
-    "IS_REVENUE", "IS_NET_INTEREST", "IS_INTEREST_INCOME", "IS_INTEREST_EXP",
-    "IS_FEES_COMM", "IS_FX_GAIN", "IS_INVESTMENT_INCOME", "IS_OTHER_INCOME",
-    "IS_GROSS_PREMIUMS", "IS_NET_PREMIUMS", "IS_CLAIMS", "IS_NET_ECL",
-    "IS_OTHER_PROVISIONS", "IS_STAFF", "IS_OPERATING_EXP", "IS_DEPRECIATION",
-    "IS_AMORT_INTANGIBLE", "IS_SHARE_ASSOCIATES", "IS_OPERATING_PROFIT",
-    "IS_PROFIT_BEFORE_TAX", "IS_INCOME_TAX", "IS_NET_MONETARY", "IS_NCI",
-    "IS_NET_INCOME", "IS_EPS",
-    "BS_CASH", "BS_TREASURY", "BS_DUE_FROM_BANKS", "BS_TRADING_INVEST",
-    "BS_FVTPL", "BS_FVOCI", "BS_LOANS", "BS_SUKUK", "BS_AT1", "BS_TOTAL_ASSETS",
-    "BS_DUE_TO_BANKS", "BS_CUSTOMER_DEPOSITS", "BS_TOTAL_LIABILITIES",
-    "BS_SHARE_CAPITAL", "BS_RETAINED", "BS_TOTAL_EQUITY", "BS_TLOE",
-    "CF_OCF", "CF_ICF", "CF_FCF", "CF_CAPEX", "CF_DIVIDENDS_PAID", "CF_NET_CHANGE",
-    "KPI_NIM", "KPI_NPL", "KPI_CAR", "KPI_LDR", "KPI_COST_INCOME",
-    "KPI_COVERAGE", "KPI_ROE", "KPI_ROA", "KPI_GWP", "KPI_NET_PREMIUMS",
-    "KPI_LOSS_RATIO", "KPI_EXPENSE_RATIO", "KPI_COMBINED",
+    "IS_REVENUE",
+    "IS_NET_INTEREST",
+    "IS_INTEREST_INCOME",
+    "IS_INTEREST_EXP",
+    "IS_FEES_COMM",
+    "IS_FX_GAIN",
+    "IS_INVESTMENT_INCOME",
+    "IS_OTHER_INCOME",
+    "IS_GROSS_PREMIUMS",
+    "IS_NET_PREMIUMS",
+    "IS_CLAIMS",
+    "IS_NET_ECL",
+    "IS_OTHER_PROVISIONS",
+    "IS_STAFF",
+    "IS_OPERATING_EXP",
+    "IS_DEPRECIATION",
+    "IS_AMORT_INTANGIBLE",
+    "IS_SHARE_ASSOCIATES",
+    "IS_OPERATING_PROFIT",
+    "IS_PROFIT_BEFORE_TAX",
+    "IS_INCOME_TAX",
+    "IS_NET_MONETARY",
+    "IS_NCI",
+    "IS_NET_INCOME",
+    "IS_EPS",
+    "BS_CASH",
+    "BS_TREASURY",
+    "BS_DUE_FROM_BANKS",
+    "BS_TRADING_INVEST",
+    "BS_FVTPL",
+    "BS_FVOCI",
+    "BS_LOANS",
+    "BS_SUKUK",
+    "BS_AT1",
+    "BS_TOTAL_ASSETS",
+    "BS_DUE_TO_BANKS",
+    "BS_CUSTOMER_DEPOSITS",
+    "BS_TOTAL_LIABILITIES",
+    "BS_SHARE_CAPITAL",
+    "BS_RETAINED",
+    "BS_TOTAL_EQUITY",
+    "BS_TLOE",
+    "CF_OCF",
+    "CF_ICF",
+    "CF_FCF",
+    "CF_CAPEX",
+    "CF_DIVIDENDS_PAID",
+    "CF_NET_CHANGE",
+    "KPI_NIM",
+    "KPI_NPL",
+    "KPI_CAR",
+    "KPI_LDR",
+    "KPI_COST_INCOME",
+    "KPI_COVERAGE",
+    "KPI_ROE",
+    "KPI_ROA",
+    "KPI_GWP",
+    "KPI_NET_PREMIUMS",
+    "KPI_LOSS_RATIO",
+    "KPI_EXPENSE_RATIO",
+    "KPI_COMBINED",
 }
 
 STATEMENT_TYPES = {
-    "income_statement", "balance_sheet", "cash_flow",
-    "changes_in_equity", "comprehensive_income",
+    "income_statement",
+    "balance_sheet",
+    "cash_flow",
+    "changes_in_equity",
+    "comprehensive_income",
 }
 
 AUDIT_OPINION_TYPES = {
-    "unqualified", "qualified", "adverse", "disclaimer", "review", "unknown",
+    "unqualified",
+    "qualified",
+    "adverse",
+    "disclaimer",
+    "review",
+    "unknown",
 }
 
 NOTE_CATEGORIES = {
-    "accounting_policies", "critical_estimates", "segment_information",
-    "cost_breakdown", "other_income", "other_comprehensive_income",
-    "contingent_liabilities", "commitments", "related_party",
-    "subsequent_events", "going_concern", "fair_value",
-    "financial_instruments_risk", "capital_adequacy", "ecl_provisions",
-    "sukuk_islamic", "insurance_technical", "other",
+    "accounting_policies",
+    "critical_estimates",
+    "segment_information",
+    "cost_breakdown",
+    "other_income",
+    "other_comprehensive_income",
+    "contingent_liabilities",
+    "commitments",
+    "related_party",
+    "subsequent_events",
+    "going_concern",
+    "fair_value",
+    "financial_instruments_risk",
+    "capital_adequacy",
+    "ecl_provisions",
+    "sukuk_islamic",
+    "insurance_technical",
+    "other",
 }
 
 FISCAL_PERIODS = {"FY", "Q1", "Q2", "Q3", "Q4", "H1", "9M"}
@@ -293,16 +364,28 @@ def empty_filing() -> dict:
     report in that currency."""
     return {
         "metadata": {
-            "symbol": None, "company_name": None, "sector": None,
-            "fiscal_year": None, "fiscal_period": None, "period_end": None,
-            "currency": None, "unit_scale": 1, "reporting_framework": None,
-            "consolidated": None, "language": None, "source_file": None,
-            "source_sha256": None, "extracted_at": None,
+            "symbol": None,
+            "company_name": None,
+            "sector": None,
+            "fiscal_year": None,
+            "fiscal_period": None,
+            "period_end": None,
+            "currency": None,
+            "unit_scale": 1,
+            "reporting_framework": None,
+            "consolidated": None,
+            "language": None,
+            "source_file": None,
+            "source_sha256": None,
+            "extracted_at": None,
             "extractor": {"provider": None, "model": None},
         },
         "audit": {
-            "opinion_type": "unknown", "auditor_name": None, "report_date": None,
-            "emphasis_of_matter": [], "key_audit_matters": [],
+            "opinion_type": "unknown",
+            "auditor_name": None,
+            "report_date": None,
+            "emphasis_of_matter": [],
+            "key_audit_matters": [],
             "material_uncertainty_going_concern": {"present": False, "text": ""},
             "verbatim_text": "",
         },
@@ -325,7 +408,9 @@ def validate_filing(data: dict) -> list[str]:
         if meta.get("fiscal_period") not in (None, *FISCAL_PERIODS):
             problems.append(f"metadata.fiscal_period: invalid value {meta.get('fiscal_period')!r}")
         if meta.get("unit_scale") not in (1, 1000, 1000000, None):
-            problems.append(f"metadata.unit_scale: must be 1/1000/1000000, got {meta.get('unit_scale')!r}")
+            problems.append(
+                f"metadata.unit_scale: must be 1/1000/1000000, got {meta.get('unit_scale')!r}"
+            )
 
     audit = data.get("audit")
     if not isinstance(audit, dict):
@@ -343,7 +428,9 @@ def validate_filing(data: dict) -> list[str]:
     if not isinstance(statements, list):
         problems.append("statements: missing or not a list")
     elif not statements:
-        problems.append("statements: empty — extraction likely failed (no core statements captured)")
+        problems.append(
+            "statements: empty — extraction likely failed (no core statements captured)"
+        )
     else:
         for i, st in enumerate(statements):
             if st.get("type") not in STATEMENT_TYPES:
@@ -353,22 +440,32 @@ def validate_filing(data: dict) -> list[str]:
             for j, li in enumerate(st.get("line_items", [])):
                 code = li.get("account_code")
                 if code is not None and code not in KNOWN_ACCOUNT_CODES:
-                    problems.append(f"statements[{i}].line_items[{j}].account_code: unknown {code!r}")
+                    problems.append(
+                        f"statements[{i}].line_items[{j}].account_code: unknown {code!r}"
+                    )
                 if not li.get("label_verbatim"):
-                    problems.append(f"statements[{i}].line_items[{j}].label_verbatim: empty (lossy)")
+                    problems.append(
+                        f"statements[{i}].line_items[{j}].label_verbatim: empty (lossy)"
+                    )
                 comps = li.get("comparatives")
                 if comps is not None:
                     if not isinstance(comps, list):
-                        problems.append(f"statements[{i}].line_items[{j}].comparatives: must be a list")
+                        problems.append(
+                            f"statements[{i}].line_items[{j}].comparatives: must be a list"
+                        )
                     else:
                         for c, comp in enumerate(comps):
                             # Require BOTH a period_label and a value — a comparative
                             # with a label but no value is silently lost downstream.
-                            if not isinstance(comp, dict) or not comp.get("period_label") \
-                                    or comp.get("value") is None:
+                            if (
+                                not isinstance(comp, dict)
+                                or not comp.get("period_label")
+                                or comp.get("value") is None
+                            ):
                                 problems.append(
                                     f"statements[{i}].line_items[{j}].comparatives[{c}]: "
-                                    "need both period_label and value")
+                                    "need both period_label and value"
+                                )
 
     # segments[] is an optional, additive section (absent or [] is fine).
     segments = data.get("segments")
@@ -414,61 +511,136 @@ def validate_filing(data: dict) -> list[str]:
 # localhost and need NO API key. `key_url` for a local provider is the
 # install/download page, and `setup` is a one-line "how to run it" hint.
 PROVIDERS = {
-    "minimax":    {"label": "MiniMax", "base_url": "https://api.minimax.io/v1", "kind": "openai",
-                   "env": ("MINIMAX_API_KEY",), "default_model": "MiniMax-M2",
-                   "key_url": "https://platform.minimax.io/"},
-    "openrouter": {"label": "OpenRouter", "base_url": "https://openrouter.ai/api/v1", "kind": "openai",
-                   "env": ("OPENROUTER_API_KEY",), "default_model": "minimax/minimax-01",
-                   "key_url": "https://openrouter.ai/keys"},
-    "kimi":       {"label": "Kimi (Moonshot)", "base_url": "https://api.moonshot.ai/v1", "kind": "openai",
-                   "env": ("MOONSHOT_API_KEY", "KIMI_API_KEY"), "default_model": "kimi-k2-0905-preview",
-                   "key_url": "https://platform.moonshot.ai/console/api-keys"},
-    "openai":     {"label": "OpenAI", "base_url": "https://api.openai.com/v1", "kind": "openai",
-                   "env": ("OPENAI_API_KEY",), "default_model": "gpt-4o",
-                   "key_url": "https://platform.openai.com/api-keys"},
-    "anthropic":  {"label": "Claude (Anthropic)", "base_url": "https://api.anthropic.com/v1", "kind": "anthropic",
-                   "env": ("ANTHROPIC_API_KEY",), "default_model": "claude-sonnet-4-5",
-                   "key_url": "https://console.anthropic.com/settings/keys"},
+    "minimax": {
+        "label": "MiniMax",
+        "base_url": "https://api.minimax.io/v1",
+        "kind": "openai",
+        "env": ("MINIMAX_API_KEY",),
+        "default_model": "MiniMax-M2",
+        "key_url": "https://platform.minimax.io/",
+    },
+    "openrouter": {
+        "label": "OpenRouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "kind": "openai",
+        "env": ("OPENROUTER_API_KEY",),
+        "default_model": "minimax/minimax-01",
+        "key_url": "https://openrouter.ai/keys",
+    },
+    "kimi": {
+        "label": "Kimi (Moonshot)",
+        "base_url": "https://api.moonshot.ai/v1",
+        "kind": "openai",
+        "env": ("MOONSHOT_API_KEY", "KIMI_API_KEY"),
+        "default_model": "kimi-k2-0905-preview",
+        "key_url": "https://platform.moonshot.ai/console/api-keys",
+    },
+    "openai": {
+        "label": "OpenAI",
+        "base_url": "https://api.openai.com/v1",
+        "kind": "openai",
+        "env": ("OPENAI_API_KEY",),
+        "default_model": "gpt-4o",
+        "key_url": "https://platform.openai.com/api-keys",
+    },
+    "anthropic": {
+        "label": "Claude (Anthropic)",
+        "base_url": "https://api.anthropic.com/v1",
+        "kind": "anthropic",
+        "env": ("ANTHROPIC_API_KEY",),
+        "default_model": "claude-sonnet-4-5",
+        "key_url": "https://console.anthropic.com/settings/keys",
+    },
     # ── Local / offline runtimes (no API key; run a model on your laptop) ──
     # `no_system`: chat template has no system role (fold it into the user turn).
     # `schema_style`: how this server accepts a JSON schema for the small Basic asks
     # ("ollama_format" = native `format`; "openai_json_schema" = response_format; None = neither).
-    "ollama":     {"label": "Ollama (local)", "base_url": "http://localhost:11434/v1", "kind": "openai",
-                   "env": ("OLLAMA_API_KEY",), "default_model": "gemma2:2b", "local": True,
-                   "schema_style": "ollama_format", "key_url": "https://ollama.com/download",
-                   "setup": "install Ollama, then:  ollama pull gemma2:2b"},
-    "lmstudio":   {"label": "LM Studio (local)", "base_url": "http://localhost:1234/v1", "kind": "openai",
-                   "env": ("LMSTUDIO_API_KEY",), "default_model": "local-model", "local": True,
-                   "schema_style": "openai_json_schema", "key_url": "https://lmstudio.ai/",
-                   "setup": "open LM Studio → load a model → Developer → Start Server"},
-    "llamacpp":   {"label": "llama.cpp (local)", "base_url": "http://localhost:8080/v1", "kind": "openai",
-                   "env": ("LLAMACPP_API_KEY",), "default_model": "local-model", "local": True,
-                   "key_url": "https://github.com/ggml-org/llama.cpp",
-                   "setup": "run:  llama-server -m your-model.gguf"},
-    "jan":        {"label": "Jan (local)", "base_url": "http://localhost:1337/v1", "kind": "openai",
-                   "env": ("JAN_API_KEY",), "default_model": "local-model", "local": True,
-                   "key_url": "https://jan.ai/",
-                   "setup": "Jan → Settings → Local API Server → Start"},
-    "gpt4all":    {"label": "GPT4All (local)", "base_url": "http://localhost:4891/v1", "kind": "openai",
-                   "env": ("GPT4ALL_API_KEY",), "default_model": "local-model", "local": True,
-                   "key_url": "https://www.nomic.ai/gpt4all",
-                   "setup": "GPT4All → Settings → enable the local API server"},
-    "mlx":        {"label": "MLX (Apple, local)", "base_url": "http://localhost:8080/v1", "kind": "openai",
-                   "env": ("MLX_API_KEY",), "default_model": "mlx-community/gemma-3-270m-it-4bit",
-                   "local": True, "no_system": True,
-                   "key_url": "https://github.com/ml-explore/mlx-lm",
-                   "setup": "pip install mlx-lm; mlx_lm.server --model mlx-community/gemma-3-270m-it-4bit"},
+    "ollama": {
+        "label": "Ollama (local)",
+        "base_url": "http://localhost:11434/v1",
+        "kind": "openai",
+        "env": ("OLLAMA_API_KEY",),
+        "default_model": "gemma2:2b",
+        "local": True,
+        "schema_style": "ollama_format",
+        "key_url": "https://ollama.com/download",
+        "setup": "install Ollama, then:  ollama pull gemma2:2b",
+    },
+    "lmstudio": {
+        "label": "LM Studio (local)",
+        "base_url": "http://localhost:1234/v1",
+        "kind": "openai",
+        "env": ("LMSTUDIO_API_KEY",),
+        "default_model": "local-model",
+        "local": True,
+        "schema_style": "openai_json_schema",
+        "key_url": "https://lmstudio.ai/",
+        "setup": "open LM Studio → load a model → Developer → Start Server",
+    },
+    "llamacpp": {
+        "label": "llama.cpp (local)",
+        "base_url": "http://localhost:8080/v1",
+        "kind": "openai",
+        "env": ("LLAMACPP_API_KEY",),
+        "default_model": "local-model",
+        "local": True,
+        "key_url": "https://github.com/ggml-org/llama.cpp",
+        "setup": "run:  llama-server -m your-model.gguf",
+    },
+    "jan": {
+        "label": "Jan (local)",
+        "base_url": "http://localhost:1337/v1",
+        "kind": "openai",
+        "env": ("JAN_API_KEY",),
+        "default_model": "local-model",
+        "local": True,
+        "key_url": "https://jan.ai/",
+        "setup": "Jan → Settings → Local API Server → Start",
+    },
+    "gpt4all": {
+        "label": "GPT4All (local)",
+        "base_url": "http://localhost:4891/v1",
+        "kind": "openai",
+        "env": ("GPT4ALL_API_KEY",),
+        "default_model": "local-model",
+        "local": True,
+        "key_url": "https://www.nomic.ai/gpt4all",
+        "setup": "GPT4All → Settings → enable the local API server",
+    },
+    "mlx": {
+        "label": "MLX (Apple, local)",
+        "base_url": "http://localhost:8080/v1",
+        "kind": "openai",
+        "env": ("MLX_API_KEY",),
+        "default_model": "mlx-community/gemma-3-270m-it-4bit",
+        "local": True,
+        "no_system": True,
+        "key_url": "https://github.com/ml-explore/mlx-lm",
+        "setup": "pip install mlx-lm; mlx_lm.server --model mlx-community/gemma-3-270m-it-4bit",
+    },
 }
 # Friendly aliases the user can type for --provider / QSCREEN_PROVIDER.
-PROVIDER_ALIASES = {"claude": "anthropic", "moonshot": "kimi", "gpt": "openai", "oai": "openai",
-                    "llama.cpp": "llamacpp", "llama-cpp": "llamacpp", "lm-studio": "lmstudio",
-                    "lm_studio": "lmstudio", "local": "ollama", "apple": "mlx", "mlx-lm": "mlx"}
+PROVIDER_ALIASES = {
+    "claude": "anthropic",
+    "moonshot": "kimi",
+    "gpt": "openai",
+    "oai": "openai",
+    "llama.cpp": "llamacpp",
+    "llama-cpp": "llamacpp",
+    "lm-studio": "lmstudio",
+    "lm_studio": "lmstudio",
+    "local": "ollama",
+    "apple": "mlx",
+    "mlx-lm": "mlx",
+}
 
 
 def is_local_provider(name: str | None) -> bool:
     """True for a runtime that runs on the user's own machine (no API key)."""
     cfg = PROVIDERS.get(canonical_provider(name) or "")
     return bool(cfg and cfg.get("local"))
+
+
 # Provider names accepted on the CLI (plus "custom" for any OpenAI-compatible URL).
 PROVIDER_CHOICES = sorted(set(PROVIDERS) | set(PROVIDER_ALIASES) | {"custom"})
 
@@ -492,7 +664,9 @@ def list_providers() -> str:
     for name, p in cloud.items():
         rows.append(f"  {name:11s} {p['label']:18s} {p['env'][0]:20s} model={p['default_model']}")
         rows.append(f"  {'':11s} └─ get a key:  {p['key_url']}")
-    rows.append(f"  {'custom':11s} {'(any OpenAI URL)':18s} {'LLM_API_KEY':20s} pass --base-url --model")
+    rows.append(
+        f"  {'custom':11s} {'(any OpenAI URL)':18s} {'LLM_API_KEY':20s} pass --base-url --model"
+    )
     rows.append("")
     rows.append("Local runtimes — run a model on your own laptop, NO API key needed:")
     rows.append("")
@@ -501,13 +675,19 @@ def list_providers() -> str:
         rows.append(f"  {'':11s} └─ {p.get('setup', 'download: ' + p['key_url'])}")
     rows.append("")
     rows.append("Aliases: " + ", ".join(f"{a}→{b}" for a, b in PROVIDER_ALIASES.items()))
-    rows.append("Force one with --provider NAME (or env QSCREEN_PROVIDER); pick a model with "
-                "--model (or env QSCREEN_MODEL).")
+    rows.append(
+        "Force one with --provider NAME (or env QSCREEN_PROVIDER); pick a model with "
+        "--model (or env QSCREEN_MODEL)."
+    )
     rows.append("")
-    rows.append("Modes:  --basic = deterministic-first (reads numbers from the PDF's tables; "
-                "great for tiny/local models, auto-on for local runtimes)")
-    rows.append("        --pro   = the model extracts everything (use a strong model: "
-                "GPT-4.5+/Claude Sonnet 4+/MiniMax-M2)")
+    rows.append(
+        "Modes:  --basic = deterministic-first (reads numbers from the PDF's tables; "
+        "great for tiny/local models, auto-on for local runtimes)"
+    )
+    rows.append(
+        "        --pro   = the model extracts everything (use a strong model: "
+        "GPT-4.5+/Claude Sonnet 4+/MiniMax-M2)"
+    )
     rows.append("        --no-llm = Basic with NO model at all (fully offline; needs no key)")
     return "\n".join(rows)
 
@@ -529,8 +709,10 @@ def provider_diagnostic() -> str:
     misplaced key (e.g. a Kimi key left in MINIMAX_API_KEY)."""
     name = detect_provider()
     if not name:
-        return ("✗ No provider detected. Put one *_API_KEY in .env (the key alone after '=', "
-                "an inline '# ...' note is fine), or set QSCREEN_PROVIDER for a local runtime.")
+        return (
+            "✗ No provider detected. Put one *_API_KEY in .env (the key alone after '=', "
+            "an inline '# ...' note is fine), or set QSCREEN_PROVIDER for a local runtime."
+        )
     if is_local_provider(name):
         return f"✓ Detected local runtime: {name} (no API key needed)."
     cfg = PROVIDERS.get(name) or {}
@@ -538,8 +720,10 @@ def provider_diagnostic() -> str:
         env_name = next((k for k in (cfg.get("env") or ()) if os.getenv(k)), "LLM_API_KEY")
         return f"✓ Detected provider: {name} (API key found in {env_name})."
     want = (cfg.get("env") or ["<KEY>"])[0]
-    return (f"⚠ Provider '{name}' is selected (QSCREEN_PROVIDER) but no API key is set for it — "
-            f"add {want}=... to .env.")
+    return (
+        f"⚠ Provider '{name}' is selected (QSCREEN_PROVIDER) but no API key is set for it — "
+        f"add {want}=... to .env."
+    )
 
 
 def resolve_provider(args) -> dict:
@@ -548,13 +732,20 @@ def resolve_provider(args) -> dict:
     provider or key can't be determined — no network is touched."""
     name = canonical_provider(getattr(args, "provider", None)) or detect_provider()
     if not name:
-        raise SystemExit("No LLM provider selected and no provider API key found.\n\n" + list_providers())
+        raise SystemExit(
+            "No LLM provider selected and no provider API key found.\n\n" + list_providers()
+        )
 
     if name == "custom":
-        base = (getattr(args, "base_url", None) or os.getenv("QSCREEN_BASE_URL")
-                or os.getenv("LLM_BASE_URL"))
+        base = (
+            getattr(args, "base_url", None)
+            or os.getenv("QSCREEN_BASE_URL")
+            or os.getenv("LLM_BASE_URL")
+        )
         if not base:
-            raise SystemExit("--provider custom requires --base-url (any OpenAI-compatible endpoint).")
+            raise SystemExit(
+                "--provider custom requires --base-url (any OpenAI-compatible endpoint)."
+            )
         cfg = {"base_url": base, "kind": "openai", "env": ("LLM_API_KEY",), "default_model": None}
     else:
         cfg = PROVIDERS.get(name)
@@ -562,8 +753,11 @@ def resolve_provider(args) -> dict:
             raise SystemExit(f"Unknown provider {name!r}.\n\n" + list_providers())
         cfg = dict(cfg)
         # Let a local runtime live on a different host/port without --base-url.
-        override = (getattr(args, "base_url", None) or os.getenv("QSCREEN_BASE_URL")
-                    or (os.getenv("LLM_BASE_URL") if cfg.get("local") else None))
+        override = (
+            getattr(args, "base_url", None)
+            or os.getenv("QSCREEN_BASE_URL")
+            or (os.getenv("LLM_BASE_URL") if cfg.get("local") else None)
+        )
         if override:
             cfg["base_url"] = override
 
@@ -575,31 +769,49 @@ def resolve_provider(args) -> dict:
     model = getattr(args, "model", None) or os.getenv("QSCREEN_MODEL") or cfg["default_model"]
     if not model:
         raise SystemExit(f"No model for provider {name!r}; pass --model or set QSCREEN_MODEL.")
-    key = (getattr(args, "llm_key", None)
-           or next((os.getenv(k) for k in cfg["env"] if os.getenv(k)), None)
-           or os.getenv("LLM_API_KEY"))
+    key = (
+        getattr(args, "llm_key", None)
+        or next((os.getenv(k) for k in cfg["env"] if os.getenv(k)), None)
+        or os.getenv("LLM_API_KEY")
+    )
     if not key:
         if key_optional:
-            key = "local"   # local servers ignore the bearer token; send a placeholder
+            key = "local"  # local servers ignore the bearer token; send a placeholder
         else:
             want = " or ".join(cfg["env"]) + " (or LLM_API_KEY)"
-            raise SystemExit(f"No API key for provider {name!r}. Set {want} in .env or pass --llm-key.")
-    return {"name": name, "base_url": cfg["base_url"].rstrip("/"),
-            "kind": cfg["kind"], "model": model, "key": key, "local": local,
-            "no_system": bool(cfg.get("no_system")), "schema_style": cfg.get("schema_style")}
+            raise SystemExit(
+                f"No API key for provider {name!r}. Set {want} in .env or pass --llm-key."
+            )
+    return {
+        "name": name,
+        "base_url": cfg["base_url"].rstrip("/"),
+        "kind": cfg["kind"],
+        "model": model,
+        "key": key,
+        "local": local,
+        "no_system": bool(cfg.get("no_system")),
+        "schema_style": cfg.get("schema_style"),
+    }
 
 
 def deterministic_cfg() -> dict:
     """A metadata-only provider stub for fully-offline (--no-llm) runs, so the
     extractor never has to resolve a real provider or touch the network."""
-    return {"name": "deterministic", "base_url": "", "kind": "openai",
-            "model": "none", "key": "local", "local": True,
-            "no_system": False, "schema_style": None}
+    return {
+        "name": "deterministic",
+        "base_url": "",
+        "kind": "openai",
+        "model": "none",
+        "key": "local",
+        "local": True,
+        "no_system": False,
+        "schema_style": None,
+    }
 
 
 # ── PDF → pages (text + recovered tables, optional OCR) ──────────────────────
 
-OCR_MIN_CHARS = 20   # a page with fewer than this many non-space chars is "empty"
+OCR_MIN_CHARS = 20  # a page with fewer than this many non-space chars is "empty"
 OCR_DPI = 300
 
 
@@ -616,7 +828,7 @@ def _get_rapidocr():
     if _RAPIDOCR_ENGINE is None:
         try:
             from rapidocr_onnxruntime import RapidOCR
-        except Exception as e:                 # not installed
+        except Exception as e:  # not installed
             raise OcrUnavailable(str(e))
         _RAPIDOCR_ENGINE = RapidOCR()
     return _RAPIDOCR_ENGINE
@@ -629,6 +841,7 @@ def _render_page_bitmaps(pdf_path: str, page_numbers: list[int], dpi: int) -> di
     pixels can be converted back to PDF points (pixels / scale).
     """
     import pypdfium2 as pdfium
+
     out: dict = {}
     pdf = pdfium.PdfDocument(pdf_path)
     try:
@@ -658,22 +871,35 @@ def _ocr_image_words(img, scale: float) -> list[dict]:
         engine = None
     if engine is not None:
         import numpy as np
+
         result, _ = engine(np.asarray(img))
         words: list[dict] = []
-        for box, text, _score in (result or []):
+        for box, text, _score in result or []:
             xs = [pt[0] for pt in box]
             ys = [pt[1] for pt in box]
-            words.append({"text": str(text), "x0": min(xs) / scale,
-                          "x1": max(xs) / scale, "top": min(ys) / scale})
+            words.append(
+                {
+                    "text": str(text),
+                    "x0": min(xs) / scale,
+                    "x1": max(xs) / scale,
+                    "top": min(ys) / scale,
+                }
+            )
         return words
-    import pytesseract                          # fallback — needs the tesseract binary
+    import pytesseract  # fallback — needs the tesseract binary
+
     data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
     words = []
     for i, text in enumerate(data["text"]):
         if text and text.strip():
-            words.append({"text": text, "x0": data["left"][i] / scale,
-                          "x1": (data["left"][i] + data["width"][i]) / scale,
-                          "top": data["top"][i] / scale})
+            words.append(
+                {
+                    "text": text,
+                    "x0": data["left"][i] / scale,
+                    "x1": (data["left"][i] + data["width"][i]) / scale,
+                    "top": data["top"][i] / scale,
+                }
+            )
     return words
 
 
@@ -688,8 +914,9 @@ def _ocr_flat_text(words: list[dict]) -> str:
         else:
             rows.append({"top": w["top"], "ws": [w]})
     rows.sort(key=lambda r: r["top"])
-    return "\n".join(" ".join(x["text"] for x in sorted(r["ws"], key=lambda w: w["x0"]))
-                     for r in rows)
+    return "\n".join(
+        " ".join(x["text"] for x in sorted(r["ws"], key=lambda w: w["x0"])) for r in rows
+    )
 
 
 def _ocr_pages(pdf_path: str, page_numbers: list[int]) -> dict[int, list[dict]]:
@@ -699,7 +926,7 @@ def _ocr_pages(pdf_path: str, page_numbers: list[int]) -> dict[int, list[dict]]:
     so offline OCR works from a plain `pip install` with no system software. Raises
     OcrUnavailable only when neither RapidOCR nor pytesseract can be imported.
     """
-    try:                                        # probe an engine up-front
+    try:  # probe an engine up-front
         _get_rapidocr()
     except OcrUnavailable:
         try:
@@ -726,6 +953,7 @@ def pdf_to_pages(pdf_path: str, ocr_mode: str = "auto") -> tuple[list[dict], str
     never  — text layer only.
     """
     import pdfplumber
+
     raw = Path(pdf_path).read_bytes()
     sha = hashlib.sha256(raw).hexdigest()
     pages: list[dict] = []
@@ -752,12 +980,11 @@ def pdf_to_pages(pdf_path: str, ocr_mode: str = "auto") -> tuple[list[dict], str
                 words = ocr_map.get(p["num"]) or []
                 if not words:
                     continue
-                add = _ocr_flat_text(words)             # readable verbatim text
+                add = _ocr_flat_text(words)  # readable verbatim text
                 block = _words_to_table_rows(words, row_tol=_OCR_ROW_TOL)
-                if block:                                # recovered a numeric table too
+                if block:  # recovered a numeric table too
                     add = f"{add}\n\n[OCR TABLES on page {p['num']}]\n{block}"
-                p["text"] = (f"{p['text']}\n\n[OCR text]\n{add}"
-                             if p["text"].strip() else add)
+                p["text"] = f"{p['text']}\n\n[OCR text]\n{add}" if p["text"].strip() else add
                 recovered += 1
             if recovered:
                 # NB: kept as a plain stdout print so the existing
@@ -766,12 +993,14 @@ def pdf_to_pages(pdf_path: str, ocr_mode: str = "auto") -> tuple[list[dict], str
                 print(f"   🔎 OCR recovered text from {recovered} page(s)")
         except OcrUnavailable:
             scanned = len([p for p in pages if len(p["text"].strip()) < OCR_MIN_CHARS])
-            msg = ("OCR is not available (install it with: pip install rapidocr-onnxruntime)")
+            msg = "OCR is not available (install it with: pip install rapidocr-onnxruntime)"
             if ocr_mode == "always":
                 raise SystemExit(f"--ocr always requested but {msg}.")
             # Same stdout-print rationale as above.
-            print(f"   ⚠️  {scanned} page(s) have little/no extractable text (likely "
-                  f"scanned). {msg}; re-run with --ocr always to force.")
+            print(
+                f"   ⚠️  {scanned} page(s) have little/no extractable text (likely "
+                f"scanned). {msg}; re-run with --ocr always to force."
+            )
     return pages, sha
 
 
@@ -787,10 +1016,10 @@ def pdf_to_pages(pdf_path: str, ocr_mode: str = "auto") -> tuple[list[dict], str
 # _render_tables already produces, so the whole deterministic pipeline downstream
 # (parse_rendered_tables → _row_to_triplet → deterministic_statements) is reused
 # unchanged. The same helper also serves the OCR path (it takes generic boxes).
-_WORD_ROW_TOL = 3.0          # vertical tolerance (pt) for grouping words into one row
-_OCR_ROW_TOL = 6.0           # looser tolerance for OCR boxes (noisier top coordinates)
-_WORD_MERGE_GAP = 3.0        # max x-gap (pt) to re-join a split number fragment
-_WORD_MIN_NUMERIC_ROWS = 4   # a page needs this many label+number rows to be a "table"
+_WORD_ROW_TOL = 3.0  # vertical tolerance (pt) for grouping words into one row
+_OCR_ROW_TOL = 6.0  # looser tolerance for OCR boxes (noisier top coordinates)
+_WORD_MERGE_GAP = 3.0  # max x-gap (pt) to re-join a split number fragment
+_WORD_MIN_NUMERIC_ROWS = 4  # a page needs this many label+number rows to be a "table"
 # A numeric token or fragment (optionally bracketed/signed). Allows a leading comma
 # so a split thousands group ("2" + ",607,153") is recognised and re-joined.
 _FRAG_RE = re.compile(r"^[\(\)]?[-+]?[\d,]*\d[\d,]*(?:\.\d+)?\)?$")
@@ -837,10 +1066,17 @@ def _merge_number_fragments(words: list[dict]) -> list[dict]:
             cur_num = bool(_FRAG_RE.match(w["text"]))
             if gap <= _WORD_MERGE_GAP and prev_num and cur_num:
                 combined = prev["text"] + w["text"]
-                if ("," in combined) or ("." in combined) \
-                        or sum(c.isdigit() for c in combined) >= 2:
-                    out[-1] = {"text": combined, "x0": prev["x0"],
-                               "x1": w["x1"], "top": prev["top"]}
+                if (
+                    ("," in combined)
+                    or ("." in combined)
+                    or sum(c.isdigit() for c in combined) >= 2
+                ):
+                    out[-1] = {
+                        "text": combined,
+                        "x0": prev["x0"],
+                        "x1": w["x1"],
+                        "top": prev["top"],
+                    }
                     continue
         out.append({"text": w["text"], "x0": w["x0"], "x1": w["x1"], "top": w["top"]})
     return out
@@ -903,9 +1139,9 @@ def _words_to_table_rows(words: list[dict], row_tol: float = _WORD_ROW_TOL) -> s
         if n_nums >= 4:
             wide_rows += 1
     if numeric_rows < _WORD_MIN_NUMERIC_ROWS:
-        return ""                       # prose page — don't emit a noisy block
+        return ""  # prose page — don't emit a noisy block
     if wide_rows >= 2:
-        return ""                       # wide matrix (changes-in-equity) — never a triplet
+        return ""  # wide matrix (changes-in-equity) — never a triplet
     out = ["-- table 1 --"]
     for cells in built:
         if any(c.strip() for c in cells):
@@ -917,11 +1153,17 @@ def _reconstruct_tables_from_words(page) -> str:
     """Word-position fallback for a pdfplumber page with no ruled tables."""
     try:
         words = page.extract_words(use_text_flow=False, keep_blank_chars=False) or []
-    except Exception:                   # a page object without extract_words (e.g. a stub)
+    except Exception:  # a page object without extract_words (e.g. a stub)
         return ""
-    norm = [{"text": w.get("text", ""), "x0": float(w.get("x0", 0.0)),
-             "x1": float(w.get("x1", 0.0)), "top": float(w.get("top", 0.0))}
-            for w in words]
+    norm = [
+        {
+            "text": w.get("text", ""),
+            "x0": float(w.get("x0", 0.0)),
+            "x1": float(w.get("x1", 0.0)),
+            "top": float(w.get("top", 0.0)),
+        }
+        for w in words
+    ]
     return _words_to_table_rows(norm)
 
 
@@ -931,7 +1173,7 @@ def page_windows(pages: list[dict], size: int, overlap: int) -> list[list[dict]]
     step = max(1, size - overlap)
     windows, i = [], 0
     while i < len(pages):
-        windows.append(pages[i:i + size])
+        windows.append(pages[i : i + size])
         if i + size >= len(pages):
             break
         i += step
@@ -943,6 +1185,7 @@ def render_window(window: list[dict]) -> str:
 
 
 # ── Prompt ───────────────────────────────────────────────────────────────────
+
 
 def _profile_context(pf: dict | None) -> str:
     """Render a company-and-year specific context block from a resolved profile
@@ -957,10 +1200,20 @@ def _profile_context(pf: dict | None) -> str:
     seg = pf.get("segments_expected") or {}
     geos = ", ".join(seg.get("by_geography") or []) or "—"
     biz = ", ".join(seg.get("by_business") or []) or "—"
-    subs = "; ".join(f"{s['name']} ({s.get('country', '?')}/{s.get('currency', '?')})"
-                     for s in pf.get("active_subsidiaries") or []) or "none recorded"
-    evs = "; ".join(f"{e.get('year', '?')} {e.get('title', '')} — {e.get('effect', '')}"
-                    for e in pf.get("active_events") or []) or "none recorded"
+    subs = (
+        "; ".join(
+            f"{s['name']} ({s.get('country', '?')}/{s.get('currency', '?')})"
+            for s in pf.get("active_subsidiaries") or []
+        )
+        or "none recorded"
+    )
+    evs = (
+        "; ".join(
+            f"{e.get('year', '?')} {e.get('title', '')} — {e.get('effect', '')}"
+            for e in pf.get("active_events") or []
+        )
+        or "none recorded"
+    )
     kpis = ", ".join(pf.get("watch_kpis") or []) or "—"
     quirks = "; ".join(pf.get("accounting_quirks") or []) or "—"
     yr = pf.get("as_of_year")
@@ -972,9 +1225,9 @@ def _profile_context(pf: dict | None) -> str:
 {yr}. Use it to know what to look for. If the filing differs from it (a new \
 acquisition, a disposal, a rename, or a regime change), capture what the filing \
 ACTUALLY shows and add a short note to extraction_quality.warnings.
-  Company (as of {yr}): {pf.get('name_as_of')} [{pf.get('ticker')}], \
-{pf.get('sub_sector')}; reports in {pf.get('reporting_currency')} under \
-{pf.get('framework_as_of')}.
+  Company (as of {yr}): {pf.get("name_as_of")} [{pf.get("ticker")}], \
+{pf.get("sub_sector")}; reports in {pf.get("reporting_currency")} under \
+{pf.get("framework_as_of")}.
   Expected business segments: {biz}
   Expected geographic segments: {geos}
   Active foreign subsidiaries & currencies by {yr}: {subs}
@@ -999,8 +1252,9 @@ def _system_prompt(sector: str, windowed: bool, profile: dict | None = None) -> 
         "and every note that APPEARS in these pages. Arrays may be partial — only "
         "include what is present here; another pass covers the rest. If the "
         "independent auditor's report appears in this range, fill `audit`, else "
-        "leave audit.opinion_type = \"unknown\"."
-        if windowed else "Extract the COMPLETE filing in one object."
+        'leave audit.opinion_type = "unknown".'
+        if windowed
+        else "Extract the COMPLETE filing in one object."
     )
     return f"""You are a meticulous financial-filing extraction engine. You convert \
 filing text into a single JSON object. You never invent numbers and never drop \
@@ -1072,11 +1326,12 @@ notes[] as well (lossless).
 extraction_quality.warnings. Set extraction_quality.confidence in [0,1].
 
 Return ONLY the JSON object, no prose, no markdown fences.""".replace(
-        "{JURISDICTION_LABEL}", jurisdiction_label.upper())
+        "{JURISDICTION_LABEL}", jurisdiction_label.upper()
+    )
 
 
 def build_messages(filing_text: str, args, windowed: bool, page_hint: str = "") -> list[dict]:
-    user = f"""Extract this filing{(' segment ' + page_hint) if page_hint else ''}.
+    user = f"""Extract this filing{(" segment " + page_hint) if page_hint else ""}.
 
 Known metadata (trust these over anything parsed):
   symbol: {args.symbol}
@@ -1087,13 +1342,16 @@ Known metadata (trust these over anything parsed):
 FILING TEXT (page-delimited):
 {filing_text}"""
     return [
-        {"role": "system",
-         "content": _system_prompt(args.sector, windowed, getattr(args, "_profile", None))},
+        {
+            "role": "system",
+            "content": _system_prompt(args.sector, windowed, getattr(args, "_profile", None)),
+        },
         {"role": "user", "content": user},
     ]
 
 
 # ── LLM call ──────────────────────────────────────────────────────────────────
+
 
 def _merge_system_into_user(messages: list[dict]) -> list[dict]:
     """Fold all system-role content into the first user message — for chat
@@ -1125,19 +1383,25 @@ def _attach_schema(payload: dict, cfg: dict, args) -> None:
     if not schema or not style:
         return
     if style == "ollama_format":
-        payload["format"] = schema               # Ollama's native JSON-schema field
-        payload.pop("response_format", None)     # avoid sending both
+        payload["format"] = schema  # Ollama's native JSON-schema field
+        payload.pop("response_format", None)  # avoid sending both
     elif style == "openai_json_schema":
-        payload["response_format"] = {"type": "json_schema",
-                                      "json_schema": {"name": "extraction", "schema": schema}}
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "extraction", "schema": schema},
+        }
 
 
 def _openai_request(messages: list[dict], cfg: dict, args):
     url = f"{cfg['base_url']}/chat/completions"
     if cfg.get("no_system"):
-        messages = _merge_system_into_user(messages)   # Gemma & friends: no system role
-    payload = {"model": cfg["model"], "messages": messages,
-               "temperature": 0, "max_tokens": args.max_tokens}
+        messages = _merge_system_into_user(messages)  # Gemma & friends: no system role
+    payload = {
+        "model": cfg["model"],
+        "messages": messages,
+        "temperature": 0,
+        "max_tokens": args.max_tokens,
+    }
     if not getattr(args, "no_json_mode", False):
         payload["response_format"] = {"type": "json_object"}
     _attach_schema(payload, cfg, args)
@@ -1145,6 +1409,7 @@ def _openai_request(messages: list[dict], cfg: dict, args):
 
     def extract(j):
         return j["choices"][0]["message"]["content"]
+
     return url, headers, payload, extract
 
 
@@ -1158,19 +1423,29 @@ def _anthropic_request(messages: list[dict], cfg: dict, args):
     if json_mode:
         chat.append({"role": "assistant", "content": "{"})
     url = f"{cfg['base_url']}/messages"
-    payload = {"model": cfg["model"], "max_tokens": args.max_tokens, "temperature": 0,
-               "system": system, "messages": chat}
-    headers = {"x-api-key": cfg["key"], "anthropic-version": "2023-06-01",
-               "content-type": "application/json"}
+    payload = {
+        "model": cfg["model"],
+        "max_tokens": args.max_tokens,
+        "temperature": 0,
+        "system": system,
+        "messages": chat,
+    }
+    headers = {
+        "x-api-key": cfg["key"],
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
 
     def extract(j):
         text = "".join(b.get("text", "") for b in j.get("content", []) if b.get("type") == "text")
-        return ("{" + text) if json_mode else text   # reattach the prefilled brace in JSON mode
+        return ("{" + text) if json_mode else text  # reattach the prefilled brace in JSON mode
+
     return url, headers, payload, extract
 
 
 def call_llm(messages: list[dict], args) -> str:
     import requests
+
     cfg = resolve_provider(args)
     builder = _anthropic_request if cfg["kind"] == "anthropic" else _openai_request
     url, headers, payload, extract = builder(messages, cfg, args)
@@ -1188,24 +1463,37 @@ def call_llm(messages: list[dict], args) -> str:
                 detail = resp.text[:300]
                 hint = ""
                 if resp.status_code in (401, 403):
-                    hint = (" — check the API key, or this network may be blocking the "
-                            f"provider (the network policy must allow {cfg['base_url']}).")
+                    hint = (
+                        " — check the API key, or this network may be blocking the "
+                        f"provider (the network policy must allow {cfg['base_url']})."
+                    )
                     if cfg["name"] == "kimi":
                         # Moonshot runs two regions with non-interchangeable keys:
                         # a platform.moonshot.cn key 401s against api.moonshot.ai.
-                        hint += (" Moonshot keys are region-specific: a key from "
-                                 "platform.moonshot.cn won't work on api.moonshot.ai — "
-                                 "set QSCREEN_BASE_URL=https://api.moonshot.cn/v1 to use the .cn region.")
+                        hint += (
+                            " Moonshot keys are region-specific: a key from "
+                            "platform.moonshot.cn won't work on api.moonshot.ai — "
+                            "set QSCREEN_BASE_URL=https://api.moonshot.cn/v1 to use the .cn region."
+                        )
                 elif "model" in detail.lower():
-                    hint = f" — model {cfg['model']!r} may be invalid for {cfg['name']}; pass --model."
-                raise SystemExit(f"{cfg['name']} provider error HTTP {resp.status_code}: {detail}{hint}")
+                    hint = (
+                        f" — model {cfg['model']!r} may be invalid for {cfg['name']}; pass --model."
+                    )
+                raise SystemExit(
+                    f"{cfg['name']} provider error HTTP {resp.status_code}: {detail}{hint}"
+                )
             else:
                 resp.raise_for_status()
                 return extract(resp.json())
         if attempt < args.retries:
-            wait = 2 ** attempt
-            log.warning("LLM call failed (%s); retry %d/%d in %ss",
-                        last_err, attempt, args.retries - 1, wait)
+            wait = 2**attempt
+            log.warning(
+                "LLM call failed (%s); retry %d/%d in %ss",
+                last_err,
+                attempt,
+                args.retries - 1,
+                wait,
+            )
             time.sleep(wait)
     raise SystemExit(f"{cfg['name']} call failed after {args.retries} attempts: {last_err}")
 
@@ -1213,9 +1501,9 @@ def call_llm(messages: list[dict], args) -> str:
 def _strip_code_fences(text: str) -> str:
     t = text.strip()
     if t.startswith("```"):
-        nl = t.find("\n")          # drop the ``` or ```json opening line
+        nl = t.find("\n")  # drop the ``` or ```json opening line
         if nl != -1:
-            t = t[nl + 1:]
+            t = t[nl + 1 :]
         if t.rstrip().endswith("```"):
             t = t.rstrip()[:-3]
     return t.strip()
@@ -1248,13 +1536,13 @@ def _first_json_object(text: str) -> str | None:
         elif ch == "}":
             depth -= 1
             if depth == 0:
-                return text[start:i + 1]
+                return text[start : i + 1]
     return None
 
 
 def parse_llm_json(raw: str) -> dict:
     text = _strip_code_fences(raw)
-    try:                            # fast path: the whole response is the object
+    try:  # fast path: the whole response is the object
         obj = json.loads(text)
         if isinstance(obj, dict):
             return obj
@@ -1269,19 +1557,32 @@ def parse_llm_json(raw: str) -> dict:
 # ── Normalization (map common LLM aliases to the contract) ───────────────────
 
 _META_ALIASES = {
-    "ticker": "symbol", "company": "company_name", "company_name": "company_name",
-    "reporting_currency": "currency", "framework": "reporting_framework",
-    "reporting_framework": "reporting_framework", "period_end": "period_end",
+    "ticker": "symbol",
+    "company": "company_name",
+    "company_name": "company_name",
+    "reporting_currency": "currency",
+    "framework": "reporting_framework",
+    "reporting_framework": "reporting_framework",
+    "period_end": "period_end",
 }
 _UNIT_WORDS = {"thousand": 1000, "thousands": 1000, "million": 1000000, "millions": 1000000}
 
 
 _DIMENSION_ALIASES = {
-    "business": "business_line", "operating": "business_line", "operating_segment": "business_line",
-    "segment": "business_line", "division": "business_line", "activity": "business_line",
-    "geographic": "geography", "geographical": "geography", "country": "geography",
-    "region": "geography", "location": "geography",
-    "entity": "legal_entity", "subsidiary": "legal_entity", "company": "legal_entity",
+    "business": "business_line",
+    "operating": "business_line",
+    "operating_segment": "business_line",
+    "segment": "business_line",
+    "division": "business_line",
+    "activity": "business_line",
+    "geographic": "geography",
+    "geographical": "geography",
+    "country": "geography",
+    "region": "geography",
+    "location": "geography",
+    "entity": "legal_entity",
+    "subsidiary": "legal_entity",
+    "company": "legal_entity",
 }
 
 
@@ -1364,7 +1665,7 @@ def normalize_filing(d: dict) -> dict:
         if "period_label" not in st and "period" in st:
             st["period_label"] = st.pop("period")
         clean_items = []
-        for li in (st.get("line_items") or []):
+        for li in st.get("line_items") or []:
             if not (isinstance(li, dict) and li.get("label_verbatim")):
                 continue
             # The model sometimes invents a plausible-looking code that isn't
@@ -1380,8 +1681,12 @@ def normalize_filing(d: dict) -> dict:
             if not li.get("comparatives"):
                 pv = li.get("prior_value", li.get("previous_value", li.get("prior_year_value")))
                 if pv is not None:
-                    pl = (li.get("prior_period_label") or li.get("previous_period_label")
-                          or li.get("prior_year") or "prior")
+                    pl = (
+                        li.get("prior_period_label")
+                        or li.get("previous_period_label")
+                        or li.get("prior_year")
+                        or "prior"
+                    )
                     li["comparatives"] = [{"period_label": str(pl), "value": pv}]
             clean_items.append(li)
         st["line_items"] = clean_items
@@ -1414,6 +1719,7 @@ def normalize_filing(d: dict) -> dict:
 
 # ── Merge partial filings from windows ───────────────────────────────────────
 
+
 def _statement_score(st: dict) -> tuple[int, int]:
     return (len(st.get("line_items") or []), len(st.get("verbatim_text") or ""))
 
@@ -1440,8 +1746,8 @@ def _merge_statement_group(stype: str, group: list[dict]) -> dict:
             if not (isinstance(li, dict) and li.get("label_verbatim")):
                 continue
             key = _line_item_key(li)
-            if key in seen:                       # overlap duplicate — keep one,
-                kept = items[seen[key]]           # but upgrade a null code if a
+            if key in seen:  # overlap duplicate — keep one,
+                kept = items[seen[key]]  # but upgrade a null code if a
                 if not kept.get("account_code") and li.get("account_code"):
                     kept["account_code"] = li["account_code"]  # later copy mapped it
                 if not kept.get("comparatives") and li.get("comparatives"):
@@ -1480,7 +1786,7 @@ def merge_filings(parts: list[dict]) -> dict:
             cur = merged["metadata"].get(k)
             # Placeholder defaults are always replaceable so a detected value wins.
             is_placeholder = cur in (None, "")
-            if k == "unit_scale" and cur == 1:        # the placeholder for unit_scale
+            if k == "unit_scale" and cur == 1:  # the placeholder for unit_scale
                 is_placeholder = True
             if is_placeholder or k not in merged["metadata"]:
                 merged["metadata"][k] = v
@@ -1493,16 +1799,23 @@ def merge_filings(parts: list[dict]) -> dict:
         all_eom.extend(a.get("emphasis_of_matter") or [])
         opinion = a.get("opinion_type")
         has_real = (opinion and opinion != "unknown") or a.get("verbatim_text")
-        if has_real and (best_audit is None or len(a.get("verbatim_text") or "") > len(best_audit.get("verbatim_text") or "")):
+        if has_real and (
+            best_audit is None
+            or len(a.get("verbatim_text") or "") > len(best_audit.get("verbatim_text") or "")
+        ):
             best_audit = a
     if best_audit:
-        merged["audit"].update({
-            "opinion_type": best_audit.get("opinion_type") or "unknown",
-            "auditor_name": best_audit.get("auditor_name"),
-            "report_date": best_audit.get("report_date"),
-            "verbatim_text": best_audit.get("verbatim_text") or "",
-            "material_uncertainty_going_concern": best_audit.get("material_uncertainty_going_concern"),
-        })
+        merged["audit"].update(
+            {
+                "opinion_type": best_audit.get("opinion_type") or "unknown",
+                "auditor_name": best_audit.get("auditor_name"),
+                "report_date": best_audit.get("report_date"),
+                "verbatim_text": best_audit.get("verbatim_text") or "",
+                "material_uncertainty_going_concern": best_audit.get(
+                    "material_uncertainty_going_concern"
+                ),
+            }
+        )
     seen_k, kams = set(), []
     for k in all_kams:
         key = (k.get("title") or "") + (k.get("text") or "")[:60]
@@ -1510,7 +1823,7 @@ def merge_filings(parts: list[dict]) -> dict:
             seen_k.add(key)
             kams.append(k)
     merged["audit"]["key_audit_matters"] = kams
-    merged["audit"]["emphasis_of_matter"] = sorted(set(e for e in all_eom if e and e.strip()))
+    merged["audit"]["emphasis_of_matter"] = sorted({e for e in all_eom if e and e.strip()})
 
     by_type: dict[str, list[dict]] = {}
     for part in parts:
@@ -1528,8 +1841,11 @@ def merge_filings(parts: list[dict]) -> dict:
         for sg in part.get("segments") or []:
             if not (isinstance(sg, dict) and sg.get("name")):
                 continue
-            key = (sg.get("dimension"), " ".join(str(sg["name"]).split()).lower(),
-                   sg.get("period_label"))
+            key = (
+                sg.get("dimension"),
+                " ".join(str(sg["name"]).split()).lower(),
+                sg.get("period_label"),
+            )
             score = (len(sg.get("metrics") or {}), len(sg.get("verbatim_text") or ""))
             if key not in by_seg or score > by_seg[key][0]:
                 by_seg[key] = (score, sg)
@@ -1540,7 +1856,9 @@ def merge_filings(parts: list[dict]) -> dict:
         for nt in part.get("notes") or []:
             key = (nt.get("number") or nt.get("title") or "").strip() or f"__{id(nt)}"
             cur = by_note.get(key)
-            if cur is None or len(nt.get("verbatim_text") or "") > len(cur.get("verbatim_text") or ""):
+            if cur is None or len(nt.get("verbatim_text") or "") > len(
+                cur.get("verbatim_text") or ""
+            ):
                 by_note[key] = nt
     merged["notes"] = list(by_note.values())
 
@@ -1561,6 +1879,7 @@ def merge_filings(parts: list[dict]) -> dict:
 
 # ── Upload ────────────────────────────────────────────────────────────────────
 
+
 def _validate_upload_url(base: str) -> str:
     """Harden the configured upload endpoint before we ever send the bearer
     token across the wire.
@@ -1577,6 +1896,7 @@ def _validate_upload_url(base: str) -> str:
     than leak the ingest token.
     """
     from urllib.parse import urlparse
+
     p = urlparse(base)
     if p.scheme not in ("http", "https"):
         raise SystemExit(f"QSCREEN_API_URL must be http(s); got scheme={p.scheme!r}")
@@ -1585,8 +1905,9 @@ def _validate_upload_url(base: str) -> str:
     return base.rstrip("/")
 
 
-def upload_filing(filing: dict, args, analysis: dict | None = None,
-                   dedup_key: str | None = None) -> dict:
+def upload_filing(
+    filing: dict, args, analysis: dict | None = None, dedup_key: str | None = None
+) -> dict:
     """POST the filing to the configured ingest endpoint.
 
     - One bearer-token warning if you point at a non-localhost http:// URL.
@@ -1601,16 +1922,21 @@ def upload_filing(filing: dict, args, analysis: dict | None = None,
       and ``429`` get retried with backoff.
     """
     import requests
+
     base = _validate_upload_url(args.api_url)
     scheme = base.split("://", 1)[0]
     if scheme == "http" and not any(h in base for h in ("localhost", "127.0.0.1")):
-        log.warning("uploading over plaintext HTTP to a non-local host — "
-                    "the ingest token would be exposed in transit; "
-                    "use an https:// QSCREEN_API_URL.")
+        log.warning(
+            "uploading over plaintext HTTP to a non-local host — "
+            "the ingest token would be exposed in transit; "
+            "use an https:// QSCREEN_API_URL."
+        )
     url = f"{base}/api/v1/ingest/filing"
-    headers = {"Authorization": f"Bearer {args.token}",
-               "Content-Type": "application/json",
-               "User-Agent": f"qscreen-filing-tool/{__version__}"}
+    headers = {
+        "Authorization": f"Bearer {args.token}",
+        "Content-Type": "application/json",
+        "User-Agent": f"qscreen-filing-tool/{__version__}",
+    }
     if dedup_key:
         headers["If-None-Match"] = dedup_key
     # Additive: when asked, fold the derived analysis in as a sibling key. The
@@ -1627,8 +1953,7 @@ def upload_filing(filing: dict, args, analysis: dict | None = None,
             resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
         except requests.exceptions.RequestException as e:
             last_err = e
-            log.warning("upload: network error on attempt %d/%d: %s",
-                        attempt + 1, retries + 1, e)
+            log.warning("upload: network error on attempt %d/%d: %s", attempt + 1, retries + 1, e)
         else:
             sc = getattr(resp, "status_code", None)
             # Server signals "already there" → treat as success without retry.
@@ -1637,14 +1962,15 @@ def upload_filing(filing: dict, args, analysis: dict | None = None,
                 return {"status": "duplicate", "dedup_key": dedup_key}
             if sc is not None and sc in (429, 500, 502, 503, 504):
                 last_err = RuntimeError(f"HTTP {sc}: {getattr(resp, 'text', '')[:200]}")
-                log.warning("upload: transient HTTP %d on attempt %d/%d",
-                            sc, attempt + 1, retries + 1)
+                log.warning(
+                    "upload: transient HTTP %d on attempt %d/%d", sc, attempt + 1, retries + 1
+                )
             else:
                 if hasattr(resp, "raise_for_status"):
                     resp.raise_for_status()
                 return resp.json()
         if attempt < retries:
-            wait = backoff * (2 ** attempt)
+            wait = backoff * (2**attempt)
             log.info("upload: backing off %.1fs before retry", wait)
             time.sleep(wait)
     # All retries exhausted.
@@ -1659,7 +1985,7 @@ def build_analysis_artifacts(filing: dict, args) -> dict:
     try:
         import qscreen_analyze
         import qscreen_dcf
-    except ImportError as e:                      # analysis layer genuinely absent
+    except ImportError as e:  # analysis layer genuinely absent
         return {"analysis_error": f"analysis modules unavailable: {e}"}
     # Real bugs inside analyze()/value() propagate to the caller (who decides whether
     # to degrade) rather than being silently stringified here.
@@ -1687,7 +2013,7 @@ def build_analysis_artifacts(filing: dict, args) -> dict:
 # code instead, so even a tiny context window is enough. The output is the same
 # lossless filing contract, assembled and merged with the normal machinery.
 
-GUIDED_DEFAULT_PAGES = 3      # small windows keep each ask inside a tiny context
+GUIDED_DEFAULT_PAGES = 3  # small windows keep each ask inside a tiny context
 
 # Standard IFRS / IFRS-as-adopted-elsewhere statement headings → our statement
 # type. Order matters:
@@ -1712,74 +2038,216 @@ STATEMENT_TITLE_PATTERNS: list[tuple[str, str]] = [
 # "interest income"; "total liabilities and equity" before "total liabilities").
 _LABEL_RULES: dict[str, list[tuple[str, tuple[str, ...]]]] = {
     "income": [
-        ("IS_NET_INTEREST", ("net interest income", "net interest", "net financing income",
-                             "net income from financing", "net profit from financing")),
-        ("IS_INTEREST_INCOME", ("interest income", "income from financing", "financing income",
-                                "income from islamic financing")),
-        ("IS_INTEREST_EXP", ("interest expense", "finance cost", "financing cost",
-                             "profit paid", "return to depositors", "depositors' share")),
-        ("IS_FEES_COMM", ("fee and commission", "fees and commission", "net fee",
-                          "commission income", "fee income")),
+        (
+            "IS_NET_INTEREST",
+            (
+                "net interest income",
+                "net interest",
+                "net financing income",
+                "net income from financing",
+                "net profit from financing",
+            ),
+        ),
+        (
+            "IS_INTEREST_INCOME",
+            (
+                "interest income",
+                "income from financing",
+                "financing income",
+                "income from islamic financing",
+            ),
+        ),
+        (
+            "IS_INTEREST_EXP",
+            (
+                "interest expense",
+                "finance cost",
+                "financing cost",
+                "profit paid",
+                "return to depositors",
+                "depositors' share",
+            ),
+        ),
+        (
+            "IS_FEES_COMM",
+            (
+                "fee and commission",
+                "fees and commission",
+                "net fee",
+                "commission income",
+                "fee income",
+            ),
+        ),
         ("IS_FX_GAIN", ("foreign exchange", "exchange gain", "fx gain")),
-        ("IS_INVESTMENT_INCOME", ("investment income", "income from investment", "dividend income")),
+        (
+            "IS_INVESTMENT_INCOME",
+            ("investment income", "income from investment", "dividend income"),
+        ),
         ("IS_GROSS_PREMIUMS", ("gross premium", "gross written premium")),
         ("IS_NET_PREMIUMS", ("net premium", "net earned premium")),
         ("IS_CLAIMS", ("claims incurred", "net claims", "gross claims", "claims paid", "claim")),
-        ("IS_NET_ECL", ("expected credit loss", "impairment loss", "net impairment", "credit loss",
-                        "impairment of", "impairment on", "provision for impairment", "ecl")),
+        (
+            "IS_NET_ECL",
+            (
+                "expected credit loss",
+                "impairment loss",
+                "net impairment",
+                "credit loss",
+                "impairment of",
+                "impairment on",
+                "provision for impairment",
+                "ecl",
+            ),
+        ),
         ("IS_OTHER_PROVISIONS", ("other provisions", "provision for")),
         ("IS_STAFF", ("staff cost", "personnel", "salaries", "employee benefit", "wages")),
         ("IS_DEPRECIATION", ("depreciation",)),
         ("IS_AMORT_INTANGIBLE", ("amortis", "amortiz")),
-        ("IS_SHARE_ASSOCIATES", ("share of results of associate", "share of profit of associate",
-                                 "share of associate", "associates and joint")),
+        (
+            "IS_SHARE_ASSOCIATES",
+            (
+                "share of results of associate",
+                "share of profit of associate",
+                "share of associate",
+                "associates and joint",
+            ),
+        ),
         ("IS_OPERATING_PROFIT", ("operating profit", "profit from operations")),
-        ("IS_PROFIT_BEFORE_TAX", ("profit before tax", "profit before income tax",
-                                  "profit before zakat", "profit for the year before tax")),
+        (
+            "IS_PROFIT_BEFORE_TAX",
+            (
+                "profit before tax",
+                "profit before income tax",
+                "profit before zakat",
+                "profit for the year before tax",
+            ),
+        ),
         ("IS_INCOME_TAX", ("income tax", "tax expense", "zakat and tax", "taxation")),
         ("IS_NET_MONETARY", ("monetary position", "net monetary")),
         ("IS_NCI", ("non-controlling", "minority interest")),
         ("IS_EPS", ("earnings per share", "per share")),
-        ("IS_NET_INCOME", ("profit for the year", "profit for the period", "net profit",
-                           "profit attributable", "net income")),
-        ("IS_OPERATING_EXP", ("operating expense", "general and admin", "other expenses",
-                              "total expenses", "administrative expenses")),
+        (
+            "IS_NET_INCOME",
+            (
+                "profit for the year",
+                "profit for the period",
+                "net profit",
+                "profit attributable",
+                "net income",
+            ),
+        ),
+        (
+            "IS_OPERATING_EXP",
+            (
+                "operating expense",
+                "general and admin",
+                "other expenses",
+                "total expenses",
+                "administrative expenses",
+            ),
+        ),
         ("IS_OTHER_INCOME", ("other operating income", "other income")),
-        ("IS_REVENUE", ("total revenue", "revenue from contracts", "revenue", "total income",
-                        "operating income", "total operating income")),
+        (
+            "IS_REVENUE",
+            (
+                "total revenue",
+                "revenue from contracts",
+                "revenue",
+                "total income",
+                "operating income",
+                "total operating income",
+            ),
+        ),
     ],
     "balance": [
-        ("BS_TLOE", ("total liabilities and equity", "total equity and liabilities",
-                     "total liabilities and shareholders")),
+        (
+            "BS_TLOE",
+            (
+                "total liabilities and equity",
+                "total equity and liabilities",
+                "total liabilities and shareholders",
+            ),
+        ),
         ("BS_TOTAL_LIABILITIES", ("total liabilities",)),
-        ("BS_TOTAL_EQUITY", ("total equity", "total shareholders", "shareholders' equity",
-                             "shareholders’ equity", "equity attributable to")),
+        (
+            "BS_TOTAL_EQUITY",
+            (
+                "total equity",
+                "total shareholders",
+                "shareholders' equity",
+                "shareholders’ equity",
+                "equity attributable to",
+            ),
+        ),
         ("BS_TOTAL_ASSETS", ("total assets",)),
-        ("BS_CASH", ("cash and balances", "cash and cash equivalent", "cash on hand", "cash and short")),
+        (
+            "BS_CASH",
+            ("cash and balances", "cash and cash equivalent", "cash on hand", "cash and short"),
+        ),
         ("BS_TREASURY", ("treasury bill", "with central bank", "with qatar central bank")),
-        ("BS_DUE_FROM_BANKS", ("due from banks", "due from financial institution",
-                               "placements with banks")),
+        (
+            "BS_DUE_FROM_BANKS",
+            ("due from banks", "due from financial institution", "placements with banks"),
+        ),
         ("BS_TRADING_INVEST", ("held for trading", "trading investment")),
         ("BS_FVTPL", ("fair value through profit",)),
-        ("BS_FVOCI", ("fair value through other comprehensive", "fair value through equity",
-                      "available for sale", "available-for-sale")),
-        ("BS_LOANS", ("loans and advances", "financing assets", "islamic financing",
-                      "loans and financing", "financing and investing")),
+        (
+            "BS_FVOCI",
+            (
+                "fair value through other comprehensive",
+                "fair value through equity",
+                "available for sale",
+                "available-for-sale",
+            ),
+        ),
+        (
+            "BS_LOANS",
+            (
+                "loans and advances",
+                "financing assets",
+                "islamic financing",
+                "loans and financing",
+                "financing and investing",
+            ),
+        ),
         ("BS_SUKUK", ("sukuk financing", "sukuk")),
         ("BS_AT1", ("additional tier 1", "tier 1 capital", "tier i capital")),
-        ("BS_DUE_TO_BANKS", ("due to banks", "due to financial institution", "deposits from banks")),
-        ("BS_CUSTOMER_DEPOSITS", ("customer deposit", "customers' deposit", "customers’ deposit",
-                                  "customer account", "customers' account", "customers’ account",
-                                  "deposits from customers")),
+        (
+            "BS_DUE_TO_BANKS",
+            ("due to banks", "due to financial institution", "deposits from banks"),
+        ),
+        (
+            "BS_CUSTOMER_DEPOSITS",
+            (
+                "customer deposit",
+                "customers' deposit",
+                "customers’ deposit",
+                "customer account",
+                "customers' account",
+                "customers’ account",
+                "deposits from customers",
+            ),
+        ),
         ("BS_SHARE_CAPITAL", ("share capital", "paid up capital", "paid-up capital")),
         ("BS_RETAINED", ("retained earnings", "accumulated profit", "accumulated losses")),
     ],
     "cash": [
-        ("CF_OCF", ("operating activities", "cash from operating", "cash generated from operations")),
+        (
+            "CF_OCF",
+            ("operating activities", "cash from operating", "cash generated from operations"),
+        ),
         ("CF_ICF", ("investing activities", "cash from investing")),
         ("CF_FCF", ("financing activities", "cash from financing")),
-        ("CF_CAPEX", ("purchase of property", "acquisition of property", "capital expenditure",
-                      "additions to property", "purchase of fixed assets")),
+        (
+            "CF_CAPEX",
+            (
+                "purchase of property",
+                "acquisition of property",
+                "capital expenditure",
+                "additions to property",
+                "purchase of fixed assets",
+            ),
+        ),
         ("CF_DIVIDENDS_PAID", ("dividends paid", "dividend paid")),
         ("CF_NET_CHANGE", ("net increase in cash", "net decrease in cash", "net change in cash")),
     ],
@@ -1787,7 +2255,10 @@ _LABEL_RULES: dict[str, list[tuple[str, tuple[str, ...]]]] = {
         ("KPI_CAR", ("capital adequacy",)),
         ("KPI_NPL", ("non-performing", "npl ratio")),
         ("KPI_NIM", ("net interest margin",)),
-        ("KPI_COST_INCOME", ("cost to income", "cost-income", "cost income ratio", "efficiency ratio")),
+        (
+            "KPI_COST_INCOME",
+            ("cost to income", "cost-income", "cost income ratio", "efficiency ratio"),
+        ),
         ("KPI_LDR", ("loan to deposit", "loans to deposit", "financing to deposit")),
         ("KPI_ROE", ("return on equity", "return on average equity")),
         ("KPI_ROA", ("return on assets", "return on average assets")),
@@ -1835,30 +2306,43 @@ def map_label_to_code(label: str, stype: str | None = None) -> str | None:
 # phrase. We deliberately DON'T accept "parent"/"separate" here so the parent-bank
 # supplementary statements (and prose that merely mentions a statement) are not
 # mistaken for the consolidated primary statements.
-_TITLE_QUALIFIER = (r"(?:the\s+|consolidated\s+|interim\s+|condensed\s+|group\s+|"
-                    r"unaudited\s+|reviewed\s+|audited\s+)*")
-_TITLE_RES: list[tuple] = [(re.compile(_TITLE_QUALIFIER + pat, re.IGNORECASE), stype)
-                           for pat, stype in STATEMENT_TITLE_PATTERNS]
+_TITLE_QUALIFIER = (
+    r"(?:the\s+|consolidated\s+|interim\s+|condensed\s+|group\s+|"
+    r"unaudited\s+|reviewed\s+|audited\s+)*"
+)
+_TITLE_RES: list[tuple] = [
+    (re.compile(_TITLE_QUALIFIER + pat, re.IGNORECASE), stype)
+    for pat, stype in STATEMENT_TITLE_PATTERNS
+]
+
+
 # Space-insensitive variants: OCR sometimes renders a heading with no spaces
 # ("ConsolidatedStatementofFinancialPosition"). Drop the spaces / \s+ from both the
 # qualifier and each phrase so the squashed line still matches (still start-anchored).
 def _squash_re_src(p: str) -> str:
     return p.replace(r"\s+", "").replace(" ", "")
+
+
 _TITLE_RES_SQ: list[tuple] = [
     (re.compile(_squash_re_src(_TITLE_QUALIFIER) + _squash_re_src(pat), re.IGNORECASE), stype)
-    for pat, stype in STATEMENT_TITLE_PATTERNS]
+    for pat, stype in STATEMENT_TITLE_PATTERNS
+]
 # Start of the notes / supplementary section — primary statements end here.
 _NOTES_BOUNDARY_RE = re.compile(
     r"(?:notes\s+to\s+the|supplementary\s+information\s+to\s+the)\s+"
     r"(?:consolidated\s+|interim\s+|condensed\s+|separate\s+|annual\s+)*"
-    r"financial\s+statements", re.IGNORECASE)
+    r"financial\s+statements",
+    re.IGNORECASE,
+)
 # A non-item row: a period/date header ("For the Year Ended …", "As at 31 December")
 # or the boilerplate footer ("The attached notes 1 to 40 form an integral part …").
 # Never a real line item; dropped when it carries no account code.
 _NONITEM_LABEL_RE = re.compile(
     r"^\s*(?:for\s+the\s+(?:year|period|quarter|half|three|six|nine|twelve|\d)|"
     r"as\s+at|as\s+of|year\s+ended|period\s+ended|"
-    r"the\s+(?:attached|accompanying)\s+notes)\b", re.IGNORECASE)
+    r"the\s+(?:attached|accompanying)\s+notes)\b",
+    re.IGNORECASE,
+)
 
 
 def detect_statement_titles(text: str) -> list[tuple[str, str, int]]:
@@ -1886,19 +2370,19 @@ def detect_statement_titles(text: str) -> list[tuple[str, str, int]]:
         if not stripped or len(stripped) > 120:
             continue
         if notes_at is not None and line_pos >= notes_at:
-            break                          # crossed into the notes — stop detecting
+            break  # crossed into the notes — stop detecting
         for rx, stype in _TITLE_RES:
             if stype in found:
                 continue
             m = rx.match(stripped)
-            if m and _heading_tail_ok(stripped[m.end():]):
+            if m and _heading_tail_ok(stripped[m.end() :]):
                 found[stype] = (stripped, line_pos)
-        sq = re.sub(r"\s+", "", stripped)              # OCR no-space heading fallback
+        sq = re.sub(r"\s+", "", stripped)  # OCR no-space heading fallback
         for rx, stype in _TITLE_RES_SQ:
             if stype in found:
                 continue
             m = rx.match(sq)
-            if m and _heading_tail_ok(sq[m.end():]):
+            if m and _heading_tail_ok(sq[m.end() :]):
                 found[stype] = (stripped, line_pos)
     return sorted(((st, t, i) for st, (t, i) in found.items()), key=lambda x: x[2])
 
@@ -1927,27 +2411,37 @@ def _heading_tail_ok(rest: str) -> bool:
 #   3. the 000'000 / 000 / '000 shapes a printer leaves near the line total
 # The narrative word "millions of customers" must NOT false-fire (a test pins
 # this in tests/test_audit_fixes2.py::test_unit_scale_ignores_narrative_millions).
-_CCY_TOK = r"(?:[A-Z]{2,5}|riyals?|dirhams?|dinars?|pounds?|dollars?" \
-           r"|euros?|francs?|yen|won|riyal|rial)s?"
+_CCY_TOK = (
+    r"(?:[A-Z]{2,5}|riyals?|dirhams?|dinars?|pounds?|dollars?"
+    r"|euros?|francs?|yen|won|riyal|rial)s?"
+)
 _UNIT_SCALE_PATTERNS = [
-    (1000000, re.compile(
-        rf"\bin\s+(?:{_CCY_TOK}\s+)?millions?\b"
-        rf"|\bmillions?\s+of\s+{_CCY_TOK}\b"
-        rf"|\b{_CCY_TOK}\b\s*'?\s*000\s*'?\s*000\b"
-        rf"|\b'000\s*'?\s*000\b",
-        re.IGNORECASE)),
-    (1000,    re.compile(
-        rf"\bin\s+(?:{_CCY_TOK}\s+)?thousands?\b"
-        rf"|\bthousands?\s+of\s+{_CCY_TOK}\b"
-        rf"|\b{_CCY_TOK}\b\s*'?\s*000\b"
-        rf"|\b'000\b",
-        re.IGNORECASE)),
+    (
+        1000000,
+        re.compile(
+            rf"\bin\s+(?:{_CCY_TOK}\s+)?millions?\b"
+            rf"|\bmillions?\s+of\s+{_CCY_TOK}\b"
+            rf"|\b{_CCY_TOK}\b\s*'?\s*000\s*'?\s*000\b"
+            rf"|\b'000\s*'?\s*000\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        1000,
+        re.compile(
+            rf"\bin\s+(?:{_CCY_TOK}\s+)?thousands?\b"
+            rf"|\bthousands?\s+of\s+{_CCY_TOK}\b"
+            rf"|\b{_CCY_TOK}\b\s*'?\s*000\b"
+            rf"|\b'000\b",
+            re.IGNORECASE,
+        ),
+    ),
 ]
 
 
 def detect_unit_scale(text: str) -> int | None:
     """Read 'in thousands' / 'in millions' / "QR'000" from a statement header."""
-    head = text[:4000]   # the scale note sits at the top of the statement
+    head = text[:4000]  # the scale note sits at the top of the statement
     for scale, pat in _UNIT_SCALE_PATTERNS:
         if pat.search(head):
             return scale
@@ -1959,23 +2453,36 @@ def detect_unit_scale(text: str) -> int | None:
 # type them. Heuristic and IFRS-report-oriented (cover page + statement headers);
 # like detect_unit_scale it scans only a head window and returns None when unsure.
 _MONTHS = {
-    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
-    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
     "december": 12,
 }
 _DATE_DMY_RE = re.compile(
-    r"\b(\d{1,2})\s*(?:st|nd|rd|th)?\s+(" + "|".join(_MONTHS) + r")\s+(20\d{2})\b",
-    re.IGNORECASE)
+    r"\b(\d{1,2})\s*(?:st|nd|rd|th)?\s+(" + "|".join(_MONTHS) + r")\s+(20\d{2})\b", re.IGNORECASE
+)
 _DATE_ISO_RE = re.compile(r"\b(20\d{2})-(\d{2})-(\d{2})\b")
 # A date right after one of these phrases is the reporting (period-end) date —
 # trusted over a stray comparative year elsewhere on the cover.
 _PERIOD_END_ANCHOR_RE = re.compile(
     r"(?:year|period|quarter|months?)\s+ended|ended\s+(?:on\s+)?|as\s+at|as\s+of|"
-    r"for\s+the\s+(?:year|period|quarter)", re.IGNORECASE)
+    r"for\s+the\s+(?:year|period|quarter)",
+    re.IGNORECASE,
+)
 # Last resort for the year: a 4-digit year sitting next to a report title.
 _TITLE_YEAR_RE = re.compile(
     r"(?:financial\s+statements|annual\s+report|annual\s+financial)\D{0,40}(20\d{2})"
-    r"|(20\d{2})\D{0,40}(?:financial\s+statements|annual\s+report)", re.IGNORECASE)
+    r"|(20\d{2})\D{0,40}(?:financial\s+statements|annual\s+report)",
+    re.IGNORECASE,
+)
 # Interim signals → fiscal_period, checked most-specific first.
 _PERIOD_SIGNALS = [
     ("9M", re.compile(r"nine[\s-]?months?|9\s*months|\b9M\b", re.IGNORECASE)),
@@ -1988,7 +2495,8 @@ _PERIOD_SIGNALS = [
 _THREE_MONTH_RE = re.compile(r"three[\s-]?months?|3\s*months", re.IGNORECASE)
 _ANNUAL_RE = re.compile(
     r"year\s+ended|full[\s-]?year|annual\s+report|annual\s+financial|for\s+the\s+year",
-    re.IGNORECASE)
+    re.IGNORECASE,
+)
 _QUARTER_BY_MONTH = {3: "Q1", 6: "Q2", 9: "Q3", 12: "Q4"}
 
 
@@ -2018,7 +2526,7 @@ def detect_fiscal_year_period(pages: list[dict]) -> dict:
     #    "as at" anchor; otherwise the first plausible date on the cover.
     period_end = year = month = None
     for am in _PERIOD_END_ANCHOR_RE.finditer(head):
-        window = head[am.end():am.end() + 40]
+        window = head[am.end() : am.end() + 40]
         dm = _DATE_DMY_RE.search(window) or _DATE_ISO_RE.search(window)
         if dm and (parsed := _parse_report_date(dm)):
             period_end, year, month = parsed
@@ -2096,14 +2604,21 @@ def _coerce_opinion(s: str | None) -> str:
 
 _AUDIT_HINT = re.compile(
     r"independent auditor|auditor'?s report|in our opinion|report on the audit|"
-    r"report of the (?:independent )?auditor", re.IGNORECASE)
+    r"report of the (?:independent )?auditor",
+    re.IGNORECASE,
+)
 _NOTES_HINT = re.compile(
     r"notes? to the (?:consolidated )?financial statements|significant accounting policies|"
-    r"\bnote\s+\d+\b", re.IGNORECASE)
+    r"\bnote\s+\d+\b",
+    re.IGNORECASE,
+)
 
 _NOTE_CATEGORY_HINTS: list[tuple[str, tuple[str, ...]]] = [
     ("accounting_policies", ("accounting policies", "basis of preparation")),
-    ("critical_estimates", ("critical estimates", "significant judgements", "key sources of estimation")),
+    (
+        "critical_estimates",
+        ("critical estimates", "significant judgements", "key sources of estimation"),
+    ),
     ("segment_information", ("segment",)),
     ("contingent_liabilities", ("contingent", "contingencies", "legal claims")),
     ("commitments", ("commitments", "capital commitments", "credit-related commitments")),
@@ -2115,7 +2630,10 @@ _NOTE_CATEGORY_HINTS: list[tuple[str, tuple[str, ...]]] = [
     ("ecl_provisions", ("expected credit loss", "impairment", "ecl", "staging")),
     ("sukuk_islamic", ("sukuk", "wakala", "mudaraba", "murabaha", "ijara", "quasi-equity")),
     ("insurance_technical", ("insurance contract", "technical provision", "claims development")),
-    ("financial_instruments_risk", ("risk management", "credit risk", "liquidity risk", "market risk")),
+    (
+        "financial_instruments_risk",
+        ("risk management", "credit risk", "liquidity risk", "market risk"),
+    ),
     ("other_comprehensive_income", ("comprehensive income",)),
     ("cost_breakdown", ("general and administrative", "other operating expenses")),
     ("other_income", ("other income",)),
@@ -2164,7 +2682,9 @@ _NOTE_REF_CELL_RE = re.compile(r"^\d{1,3}[a-z]?$", re.IGNORECASE)
 # otherwise turn into a stray value.
 _VALUE_CELL_RE = re.compile(
     r"^\s*(?:qar|qr|usd|sar|aed|kwd|bhd|omr|eur|gbp|[$€£])?\s*"
-    r"\(?\s*[-+]?[\d,]+(?:\.\d+)?\s*\)?\s*%?\s*$", re.IGNORECASE)
+    r"\(?\s*[-+]?[\d,]+(?:\.\d+)?\s*\)?\s*%?\s*$",
+    re.IGNORECASE,
+)
 
 
 def parse_rendered_tables(text: str) -> list[dict]:
@@ -2178,7 +2698,7 @@ def parse_rendered_tables(text: str) -> list[dict]:
     out: list[dict] = []
     headers = list(_TABLES_HDR_RE.finditer(text))
     for hi, m in enumerate(headers):
-        is_ocr = bool(m.group(1))                       # "[OCR TABLES …]" vs "[TABLES …]"
+        is_ocr = bool(m.group(1))  # "[OCR TABLES …]" vs "[TABLES …]"
         page, start, body_start = int(m.group(2)), m.start(), m.end()
         # the block ends at the next page delimiter, the next TABLES header, or EOF
         ends = [len(text)]
@@ -2187,7 +2707,7 @@ def parse_rendered_tables(text: str) -> list[dict]:
             ends.append(nxt)
         if hi + 1 < len(headers):
             ends.append(headers[hi + 1].start())
-        block = text[body_start:min(ends)]
+        block = text[body_start : min(ends)]
         tables: list[list[list[str]]] = []
         for raw in block.splitlines():
             line = raw.strip()
@@ -2222,30 +2742,40 @@ def _row_to_triplet(cells: list[str]) -> dict | None:
     being read as the figure.
     """
     cells = [(c if c is not None else "") for c in cells]
-    label_idx = next((i for i, c in enumerate(cells)
-                      if re.search(r"[A-Za-z]", c) and not _VALUE_CELL_RE.match(c)), None)
+    label_idx = next(
+        (
+            i
+            for i, c in enumerate(cells)
+            if re.search(r"[A-Za-z]", c) and not _VALUE_CELL_RE.match(c)
+        ),
+        None,
+    )
     if label_idx is None:
         return None
     label = cells[label_idx].strip()
     if not label:
         return None
     nums = []
-    for c in cells[label_idx + 1:]:
+    for c in cells[label_idx + 1 :]:
         if _VALUE_CELL_RE.match(c):
             v = _coerce_number(c)
             if v is not None:
                 nums.append((c.strip(), v))
     note_ref = None
-    if nums and _NOTE_REF_CELL_RE.match(nums[0][0]) and (
-            len(nums) >= 3 or (len(nums) == 2 and _looks_money(nums[1]))):
+    if (
+        nums
+        and _NOTE_REF_CELL_RE.match(nums[0][0])
+        and (len(nums) >= 3 or (len(nums) == 2 and _looks_money(nums[1])))
+    ):
         note_ref = nums.pop(0)[0]
     current = nums[0][1] if nums else None
     prior = nums[1][1] if len(nums) > 1 else None
     return {"label": label, "current": current, "prior": prior, "note_ref": note_ref}
 
 
-def _assign_table_stype(table_start: int,
-                        titles: list[tuple[str, str, int]]) -> tuple[str, str] | None:
+def _assign_table_stype(
+    table_start: int, titles: list[tuple[str, str, int]]
+) -> tuple[str, str] | None:
     """Bind a parsed table to the statement whose title most recently precedes it
     (else the nearest following title, else None → the table is skipped)."""
     preceding = [(s, t, i) for (s, t, i) in titles if i <= table_start]
@@ -2259,8 +2789,9 @@ def _assign_table_stype(table_start: int,
     return None
 
 
-def deterministic_statements(text: str, titles: list[tuple[str, str, int]],
-                             prior_label: str, period_label: str | None) -> dict:
+def deterministic_statements(
+    text: str, titles: list[tuple[str, str, int]], prior_label: str, period_label: str | None
+) -> dict:
     """Build typed statement dicts straight from a window's recovered tables.
 
     Returns {stype: statement_dict} in the same shape the LLM path emits. Empty
@@ -2275,28 +2806,32 @@ def deterministic_statements(text: str, titles: list[tuple[str, str, int]],
     bm = _NOTES_BOUNDARY_RE.search(text)
     notes_at = bm.start() if bm else None
     slices = {st: chunk for (st, _t, chunk) in _slice_statements(text, titles)}
-    title_for = {st: t for (st, t, _i) in titles}
+    {st: t for (st, t, _i) in titles}
     acc: dict[str, dict] = {}
     seen: dict[str, set] = {}
     for tbl in tables:
         if notes_at is not None and tbl["start"] >= notes_at:
-            continue                       # this table is inside the notes — skip
+            continue  # this table is inside the notes — skip
         assoc = _assign_table_stype(tbl["start"], titles)
         if not assoc:
             continue
         stype, title = assoc
-        basis = "ocr" if tbl.get("ocr") else "parsed"   # OCR'd rows flagged for review
+        basis = "ocr" if tbl.get("ocr") else "parsed"  # OCR'd rows flagged for review
         for cells in tbl["rows"]:
             tri = _row_to_triplet(cells)
             if not tri:
                 continue
             if tri["current"] is None and tri["prior"] is None:
-                continue                       # no figure on this row — header / spacer / prose
+                continue  # no figure on this row — header / spacer / prose
             if _NONITEM_LABEL_RE.match(tri["label"]) and not map_label_to_code(tri["label"], stype):
-                continue                       # date header / "attached notes" footer, no figure
-            li = _build_line_item({"label": tri["label"], "current": tri["current"],
-                                   "prior": tri["prior"]}, stype, prior_label,
-                                  note_ref=tri["note_ref"], basis=basis)
+                continue  # date header / "attached notes" footer, no figure
+            li = _build_line_item(
+                {"label": tri["label"], "current": tri["current"], "prior": tri["prior"]},
+                stype,
+                prior_label,
+                note_ref=tri["note_ref"],
+                basis=basis,
+            )
             if not li:
                 continue
             key = (" ".join(tri["label"].split()).lower(), li["value"])
@@ -2304,9 +2839,13 @@ def deterministic_statements(text: str, titles: list[tuple[str, str, int]],
                 continue
             seen[stype].add(key)
             if stype not in acc:
-                acc[stype] = {"type": stype, "title": title or stype.replace("_", " "),
-                              "period_label": period_label,
-                              "verbatim_text": slices.get(stype) or text, "line_items": []}
+                acc[stype] = {
+                    "type": stype,
+                    "title": title or stype.replace("_", " "),
+                    "period_label": period_label,
+                    "verbatim_text": slices.get(stype) or text,
+                    "line_items": [],
+                }
             acc[stype]["line_items"].append(li)
     return {st: s for st, s in acc.items() if s["line_items"]}
 
@@ -2315,18 +2854,49 @@ def deterministic_statements(text: str, titles: list[tuple[str, str, int]],
 
 # JSON schemas for the three small asks. Sent to runtimes that can enforce them
 # (Ollama, LM Studio) via _attach_schema; ignored elsewhere (we still parse robustly).
-_ROWS_SCHEMA = {"type": "object", "required": ["rows"], "properties": {
-    "rows": {"type": "array", "items": {"type": "object", "required": ["label"], "properties": {
-        "label": {"type": "string"},
-        "current": {"type": ["number", "null"]},
-        "prior": {"type": ["number", "null"]}}}}}}
-_AUDIT_SCHEMA = {"type": "object", "required": ["opinion"], "properties": {
-    "opinion": {"type": "string",
-                "enum": ["unqualified", "qualified", "adverse", "disclaimer", "review", "unknown"]},
-    "auditor": {"type": ["string", "null"]}}}
-_NOTES_SCHEMA = {"type": "object", "required": ["notes"], "properties": {
-    "notes": {"type": "array", "items": {"type": "object", "required": ["title"], "properties": {
-        "number": {"type": ["string", "null"]}, "title": {"type": "string"}}}}}}
+_ROWS_SCHEMA = {
+    "type": "object",
+    "required": ["rows"],
+    "properties": {
+        "rows": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["label"],
+                "properties": {
+                    "label": {"type": "string"},
+                    "current": {"type": ["number", "null"]},
+                    "prior": {"type": ["number", "null"]},
+                },
+            },
+        }
+    },
+}
+_AUDIT_SCHEMA = {
+    "type": "object",
+    "required": ["opinion"],
+    "properties": {
+        "opinion": {
+            "type": "string",
+            "enum": ["unqualified", "qualified", "adverse", "disclaimer", "review", "unknown"],
+        },
+        "auditor": {"type": ["string", "null"]},
+    },
+}
+_NOTES_SCHEMA = {
+    "type": "object",
+    "required": ["notes"],
+    "properties": {
+        "notes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {"number": {"type": ["string", "null"]}, "title": {"type": "string"}},
+            },
+        }
+    },
+}
 
 
 def _call_with_schema(messages: list[dict], args, schema: dict) -> str:
@@ -2341,15 +2911,19 @@ def _call_with_schema(messages: list[dict], args, schema: dict) -> str:
 
 def _guided_rows_messages(chunk: str, stype: str, title: str) -> list[dict]:
     pretty = stype.replace("_", " ")
-    system = ("You read ONE financial table from a company report and list its rows as JSON. "
-              "Copy numbers exactly as printed. A number in (brackets) is negative. "
-              "Output ONLY a JSON object, nothing else.")
-    user = (f'This table is the "{title}" (a {pretty}). List EVERY line that has a number.\n'
-            'For each line give its label and up to two numbers: the current period and the '
-            'previous period (prior-year column). If a line shows only one number, set "prior" to null.\n'
-            'Reply EXACTLY in this shape:\n'
-            '{"rows":[{"label":"Total assets","current":123,"prior":110}]}\n\n'
-            f"TABLE:\n{chunk}")
+    system = (
+        "You read ONE financial table from a company report and list its rows as JSON. "
+        "Copy numbers exactly as printed. A number in (brackets) is negative. "
+        "Output ONLY a JSON object, nothing else."
+    )
+    user = (
+        f'This table is the "{title}" (a {pretty}). List EVERY line that has a number.\n'
+        "For each line give its label and up to two numbers: the current period and the "
+        'previous period (prior-year column). If a line shows only one number, set "prior" to null.\n'
+        "Reply EXACTLY in this shape:\n"
+        '{"rows":[{"label":"Total assets","current":123,"prior":110}]}\n\n'
+        f"TABLE:\n{chunk}"
+    )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -2378,14 +2952,18 @@ def guided_extract_rows(chunk: str, stype: str, title: str, args) -> list[dict]:
         if not label:
             continue
         cur = _coerce_number(r.get("current", r.get("value", r.get("amount"))))
-        prior = _coerce_number(r.get("prior", r.get("previous", r.get("comparative")))) if any(
-            k in r for k in ("prior", "previous", "comparative")) else None
+        prior = (
+            _coerce_number(r.get("prior", r.get("previous", r.get("comparative"))))
+            if any(k in r for k in ("prior", "previous", "comparative"))
+            else None
+        )
         out.append({"label": str(label).strip(), "current": cur, "prior": prior})
     return out
 
 
-def _build_line_item(row: dict, stype: str, prior_label: str,
-                     note_ref: str | None = None, basis: str = "llm") -> dict | None:
+def _build_line_item(
+    row: dict, stype: str, prior_label: str, note_ref: str | None = None, basis: str = "llm"
+) -> dict | None:
     label = row.get("label")
     if not label:
         return None
@@ -2397,7 +2975,7 @@ def _build_line_item(row: dict, stype: str, prior_label: str,
         "note_ref": note_ref,
         "depth": 0,
         "is_subtotal": False,
-        "basis": basis,           # "parsed" = read from a PDF table; "llm" = from the model
+        "basis": basis,  # "parsed" = read from a PDF table; "llm" = from the model
     }
     if row.get("prior") is not None:
         li["comparatives"] = [{"period_label": prior_label, "value": row["prior"]}]
@@ -2405,21 +2983,30 @@ def _build_line_item(row: dict, stype: str, prior_label: str,
 
 
 def _guided_audit_messages(chunk: str) -> list[dict]:
-    system = ("You read the independent auditor's report from a company filing and answer as JSON. "
-              "Output ONLY a JSON object.")
-    user = ('From the auditor\'s report below, what is the opinion and who signed it?\n'
-            'opinion must be one of: unqualified, qualified, adverse, disclaimer, review.\n'
-            'Reply EXACTLY: {"opinion":"unqualified","auditor":"KPMG"}\n'
-            'If there is no auditor report here, reply {"opinion":"unknown","auditor":null}.\n\n'
-            f"TEXT:\n{chunk[:6000]}")
+    system = (
+        "You read the independent auditor's report from a company filing and answer as JSON. "
+        "Output ONLY a JSON object."
+    )
+    user = (
+        "From the auditor's report below, what is the opinion and who signed it?\n"
+        "opinion must be one of: unqualified, qualified, adverse, disclaimer, review.\n"
+        'Reply EXACTLY: {"opinion":"unqualified","auditor":"KPMG"}\n'
+        'If there is no auditor report here, reply {"opinion":"unknown","auditor":null}.\n\n'
+        f"TEXT:\n{chunk[:6000]}"
+    )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
 def guided_extract_audit(chunk: str, args) -> dict:
     """Best-effort audit opinion from one model ask; verbatim_text stays lossless."""
-    audit = {"opinion_type": "unknown", "auditor_name": None, "verbatim_text": "",
-             "emphasis_of_matter": [], "key_audit_matters": [],
-             "material_uncertainty_going_concern": {"present": False, "text": ""}}
+    audit = {
+        "opinion_type": "unknown",
+        "auditor_name": None,
+        "verbatim_text": "",
+        "emphasis_of_matter": [],
+        "key_audit_matters": [],
+        "material_uncertainty_going_concern": {"present": False, "text": ""},
+    }
     try:
         obj = parse_llm_json(_call_with_schema(_guided_audit_messages(chunk), args, _AUDIT_SCHEMA))
     except (ValueError, json.JSONDecodeError):
@@ -2429,17 +3016,21 @@ def guided_extract_audit(chunk: str, args) -> dict:
     auditor = obj.get("auditor") or obj.get("auditor_name")
     audit["auditor_name"] = str(auditor).strip() if auditor else None
     if opinion != "unknown":
-        audit["verbatim_text"] = chunk      # keep the source text (validator needs it)
+        audit["verbatim_text"] = chunk  # keep the source text (validator needs it)
     return audit
 
 
 def _guided_notes_messages(chunk: str) -> list[dict]:
-    system = ("You list the numbered accounting notes on these report pages as JSON. "
-              "Output ONLY a JSON object.")
-    user = ('List each note that appears below by its number and title.\n'
-            'Reply EXACTLY: {"notes":[{"number":"5","title":"Contingent liabilities"}]}\n'
-            'If there are no notes here, reply {"notes":[]}.\n\n'
-            f"TEXT:\n{chunk[:6000]}")
+    system = (
+        "You list the numbered accounting notes on these report pages as JSON. "
+        "Output ONLY a JSON object."
+    )
+    user = (
+        "List each note that appears below by its number and title.\n"
+        'Reply EXACTLY: {"notes":[{"number":"5","title":"Contingent liabilities"}]}\n'
+        'If there are no notes here, reply {"notes":[]}.\n\n'
+        f"TEXT:\n{chunk[:6000]}"
+    )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -2457,13 +3048,15 @@ def guided_extract_notes(chunk: str, args) -> list[dict]:
         title = n.get("title") or n.get("name")
         if not title:
             continue
-        notes.append({
-            "number": str(n.get("number") or "").strip() or None,
-            "title": str(title).strip(),
-            "category": _note_category(title),
-            "structured": {},
-            "verbatim_text": chunk,          # lossless: keep the page text
-        })
+        notes.append(
+            {
+                "number": str(n.get("number") or "").strip() or None,
+                "title": str(title).strip(),
+                "category": _note_category(title),
+                "structured": {},
+                "verbatim_text": chunk,  # lossless: keep the page text
+            }
+        )
     return notes
 
 
@@ -2485,8 +3078,7 @@ def extract_filing_guided(pages: list[dict], args) -> dict:
     prior_label = str(int(args.year) - 1) if getattr(args, "year", None) else "prior"
     period_label = str(args.year) if getattr(args, "year", None) else None
     how = "deterministic only (no model)" if no_llm else "deterministic-first, model fills gaps"
-    log.info("Basic extraction: %d small window(s) of <=%d page(s) — %s",
-             len(windows), size, how)
+    log.info("Basic extraction: %d small window(s) of <=%d page(s) — %s", len(windows), size, how)
 
     parts: list[dict] = []
     _rec = _perf.get_record(args)
@@ -2510,13 +3102,19 @@ def extract_filing_guided(pages: list[dict], args) -> dict:
                 rows = guided_extract_rows(chunk, stype, title, args)
                 items = [li for li in (_build_line_item(r, stype, prior_label) for r in rows) if li]
                 if items:
-                    part["statements"].append({
-                        "type": stype, "title": title, "period_label": period_label,
-                        "verbatim_text": chunk or text, "line_items": items,
-                    })
+                    part["statements"].append(
+                        {
+                            "type": stype,
+                            "title": title,
+                            "period_label": period_label,
+                            "verbatim_text": chunk or text,
+                            "line_items": items,
+                        }
+                    )
         names = ", ".join(f"{s['type']}x{len(s['line_items'])}" for s in part["statements"]) or "—"
-        log.info("window %d/%d (pages %d-%d): %s",
-                 wi, len(windows), win[0]["num"], win[-1]["num"], names)
+        log.info(
+            "window %d/%d (pages %d-%d): %s", wi, len(windows), win[0]["num"], win[-1]["num"], names
+        )
 
         # audit: deterministic opinion first, then a closed-set model ask
         if _AUDIT_HINT.search(text):
@@ -2535,17 +3133,27 @@ def extract_filing_guided(pages: list[dict], args) -> dict:
     n_llm = sum(1 for li in all_li if li.get("basis") == "llm")
     n_ocr = sum(1 for li in all_li if li.get("basis") == "ocr")
     n_codes = sum(1 for li in all_li if li.get("account_code"))
-    note = (f"{len(all_li)} line item(s): {n_parsed} parsed from tables, "
-            f"{n_ocr} read by OCR, {n_llm} from the model")
-    eq = merged.setdefault("extraction_quality", {"confidence": None, "warnings": [], "unmapped_labels": []})
+    note = (
+        f"{len(all_li)} line item(s): {n_parsed} parsed from tables, "
+        f"{n_ocr} read by OCR, {n_llm} from the model"
+    )
+    eq = merged.setdefault(
+        "extraction_quality", {"confidence": None, "warnings": [], "unmapped_labels": []}
+    )
     eq.setdefault("warnings", []).append(note)
     if n_ocr:
-        eq["warnings"].append(f"{n_ocr} value(s) were read from a scanned page by OCR — "
-                              "please spot-check these figures against the PDF.")
-    if eq.get("confidence") is None and all_li:        # parsed = high trust, OCR = lower
+        eq["warnings"].append(
+            f"{n_ocr} value(s) were read from a scanned page by OCR — "
+            "please spot-check these figures against the PDF."
+        )
+    if eq.get("confidence") is None and all_li:  # parsed = high trust, OCR = lower
         eq["confidence"] = round(0.6 + 0.39 * (n_parsed / len(all_li)), 2)
-    log.info("Assembled %d statement(s); %s; %d mapped to account codes.",
-             len(merged.get("statements", [])), note, n_codes)
+    log.info(
+        "Assembled %d statement(s); %s; %d mapped to account codes.",
+        len(merged.get("statements", [])),
+        note,
+        n_codes,
+    )
     return merged
 
 
@@ -2568,8 +3176,10 @@ def apply_mode(args) -> None:
     mode = (getattr(args, "mode", None) or "").lower()
     wants_basic = getattr(args, "no_llm", False) or getattr(args, "basic", False) or mode == "basic"
     wants_pro = getattr(args, "pro", False) or mode == "pro"
-    if wants_basic and wants_pro:                  # contradictory — don't silently pick one
-        raise SystemExit("Conflicting mode: choose Basic (--basic/--no-llm) OR Pro (--pro), not both.")
+    if wants_basic and wants_pro:  # contradictory — don't silently pick one
+        raise SystemExit(
+            "Conflicting mode: choose Basic (--basic/--no-llm) OR Pro (--pro), not both."
+        )
     if wants_basic:
         args.guided = True
     elif wants_pro:
@@ -2578,6 +3188,7 @@ def apply_mode(args) -> None:
 
 
 # ── Orchestration ─────────────────────────────────────────────────────────────
+
 
 def _apply_pre_flags(filing: dict, args) -> dict:
     """Run the QSE / cross-cutting pre-flag catalog and merge into the filing.
@@ -2597,31 +3208,34 @@ def _apply_pre_flags(filing: dict, args) -> dict:
     with _perf.stage_timer(log, _rec, "pre_flag_catalog.run"):
         try:
             from profiles.qatar import pre_flags as _pf
-        except Exception as e:                              # pragma: no cover - defensive
+        except Exception as e:  # pragma: no cover - defensive
             log.info("pre-flag catalog unavailable (%s); skipping", e)
             return filing
         try:
             flags = _pf.run_pre_flags(filing)
-        except Exception as e:                              # pragma: no cover - defensive
+        except Exception as e:  # pragma: no cover - defensive
             log.warning("pre-flag run raised %s: %s", type(e).__name__, e)
             return filing
         if flags:
             _pf.merge_into_filing(filing, flags)
-            log.info("pre-flag catalog: %d flag(s) for %s %s",
-                     len(flags), (filing.get("metadata") or {}).get("symbol"),
-                     (filing.get("metadata") or {}).get("fiscal_year"))
+            log.info(
+                "pre-flag catalog: %d flag(s) for %s %s",
+                len(flags),
+                (filing.get("metadata") or {}).get("symbol"),
+                (filing.get("metadata") or {}).get("fiscal_year"),
+            )
             if not getattr(args, "quiet", False):
                 n_warn = sum(1 for f in flags if f.severity == "warn")
                 n_block = sum(1 for f in flags if f.severity == "block")
                 n_info = sum(1 for f in flags if f.severity == "info")
-                log.info("pre-flag catalog: %d warn / %d block / %d info",
-                         n_warn, n_block, n_info)
+                log.info("pre-flag catalog: %d warn / %d block / %d info", n_warn, n_block, n_info)
             # Fire one metric per warn-severity flag. The "case" label is the
             # rule_id so the operator can group by it in Prometheus.
             for f in flags:
                 if f.severity == "warn":
-                    _sink(name = "qscreen_pre_flags_warn_total",
-                          case = getattr(f, "rule_id", "unknown"))
+                    _sink(
+                        name="qscreen_pre_flags_warn_total", case=getattr(f, "rule_id", "unknown")
+                    )
         return filing
 
 
@@ -2631,7 +3245,7 @@ def _apply_language_detection(filing: dict, pages: list[dict]) -> dict:
     """
     try:
         import qscreen_langdetect as _ld
-    except Exception:                                # pragma: no cover
+    except Exception:  # pragma: no cover
         return filing
     try:
         _ld.apply_language_metadata(filing, pages=pages)
@@ -2650,7 +3264,7 @@ def _apply_fingerprint(filing: dict, args) -> dict:
     with _perf.stage_timer(log, _rec, "fingerprint.fingerprint_filing"):
         try:
             import qscreen_fingerprint as _fp
-        except Exception:                                # pragma: no cover
+        except Exception:  # pragma: no cover
             return filing
         try:
             filing["fingerprint"] = _fp.fingerprint_filing(filing)
@@ -2672,19 +3286,29 @@ def extract_filing(pages: list[dict], args) -> dict:
     if args.no_chunk or len(pages) <= args.pages_per_chunk:
         log.info("Extracting (single pass) …")
         with _perf.stage_timer(log, _rec, "extract", windowed=False):
-            out = normalize_filing(parse_llm_json(call_llm(build_messages(render_window(pages), args, windowed=False), args)))
+            out = normalize_filing(
+                parse_llm_json(
+                    call_llm(build_messages(render_window(pages), args, windowed=False), args)
+                )
+            )
             _apply_language_detection(out, pages)
             _apply_fingerprint(out, args)
             return _apply_pre_flags(out, args)
     windows = page_windows(pages, args.pages_per_chunk, args.overlap)
-    log.info("Extracting in %d windows of ~%d pages (overlap %d) …",
-             len(windows), args.pages_per_chunk, args.overlap)
+    log.info(
+        "Extracting in %d windows of ~%d pages (overlap %d) …",
+        len(windows),
+        args.pages_per_chunk,
+        args.overlap,
+    )
     parts = []
     for wi, win in enumerate(windows, 1):
         hint = f"pages {win[0]['num']}-{win[-1]['num']}"
         log.info("window %d/%d (%s)", wi, len(windows), hint)
         with _perf.stage_timer(log, _rec, "extract", windowed=True, window_index=wi):
-            raw = call_llm(build_messages(render_window(win), args, windowed=True, page_hint=hint), args)
+            raw = call_llm(
+                build_messages(render_window(win), args, windowed=True, page_hint=hint), args
+            )
             try:
                 parts.append(normalize_filing(parse_llm_json(raw)))
             except (ValueError, json.JSONDecodeError) as e:
@@ -2700,31 +3324,82 @@ def extract_filing(pages: list[dict], args) -> dict:
 
 # ── Self-test (offline; no PDF, no API key, no network) ──────────────────────
 
+
 def run_self_test() -> int:
     print("🧪 self-test: contract + normalize + merge …")
     good = empty_filing()
-    good["metadata"].update({"symbol": "QNBK", "sector": "conventional_bank",
-                             "fiscal_year": 2023, "fiscal_period": "FY", "unit_scale": 1000})
+    good["metadata"].update(
+        {
+            "symbol": "QNBK",
+            "sector": "conventional_bank",
+            "fiscal_year": 2023,
+            "fiscal_period": "FY",
+            "unit_scale": 1000,
+        }
+    )
     good["audit"].update({"opinion_type": "unqualified", "verbatim_text": "In our opinion …"})
-    good["statements"].append({"type": "income_statement", "title": "Income", "period_label": "2023",
-                               "line_items": [{"account_code": "IS_NET_INTEREST", "label_verbatim": "NII",
-                                               "value": 1, "note_ref": "24", "depth": 0, "is_subtotal": False}],
-                               "verbatim_text": "NII 1"})
-    good["notes"].append({"number": "27", "title": "Contingencies", "category": "contingent_liabilities",
-                          "structured": {}, "verbatim_text": "…"})
+    good["statements"].append(
+        {
+            "type": "income_statement",
+            "title": "Income",
+            "period_label": "2023",
+            "line_items": [
+                {
+                    "account_code": "IS_NET_INTEREST",
+                    "label_verbatim": "NII",
+                    "value": 1,
+                    "note_ref": "24",
+                    "depth": 0,
+                    "is_subtotal": False,
+                }
+            ],
+            "verbatim_text": "NII 1",
+        }
+    )
+    good["notes"].append(
+        {
+            "number": "27",
+            "title": "Contingencies",
+            "category": "contingent_liabilities",
+            "structured": {},
+            "verbatim_text": "…",
+        }
+    )
     if validate_filing(good):
-        print("❌ valid filing rejected:", validate_filing(good)); return 1
+        print("❌ valid filing rejected:", validate_filing(good))
+        return 1
 
     drifted = {
-        "metadata": {"ticker": "QIBK", "company": "Qatar Islamic Bank", "sector": "Islamic Bank",
-                     "reporting_currency": "QAR", "framework": "AAOIFI", "unit_scale": 1000},
-        "audit": {"opinion_type": "unqualified", "opinion_text": "In our opinion …",
-                  "key_audit_matters": [{"title": "ECL", "description": "judgemental ECL"}]},
-        "statements": [{"type": "income_statement", "period": "year_ended_2024", "verbatim_text": "…",
-                        "line_items": [{"label_verbatim": "x", "value": 1},
-                                       {"account_code": "IS_OTHER_COMPREHENSIVE_INCOME",
-                                        "label_verbatim": "OCI", "value": 2}]}],
-        "notes": [], "extraction_quality": {},
+        "metadata": {
+            "ticker": "QIBK",
+            "company": "Qatar Islamic Bank",
+            "sector": "Islamic Bank",
+            "reporting_currency": "QAR",
+            "framework": "AAOIFI",
+            "unit_scale": 1000,
+        },
+        "audit": {
+            "opinion_type": "unqualified",
+            "opinion_text": "In our opinion …",
+            "key_audit_matters": [{"title": "ECL", "description": "judgemental ECL"}],
+        },
+        "statements": [
+            {
+                "type": "income_statement",
+                "period": "year_ended_2024",
+                "verbatim_text": "…",
+                "line_items": [
+                    {"label_verbatim": "x", "value": 1},
+                    {
+                        "account_code": "IS_OTHER_COMPREHENSIVE_INCOME",
+                        "label_verbatim": "OCI",
+                        "value": 2,
+                    },
+                ],
+            }
+        ],
+        "notes": [],
+        "extraction_quality": {},
     }
     n = normalize_filing(drifted)
     checks = {
@@ -2737,32 +3412,65 @@ def run_self_test() -> int:
         "KAM description→text": n["audit"]["key_audit_matters"][0].get("text") == "judgemental ECL",
         "period→period_label": n["statements"][0].get("period_label") == "year_ended_2024",
         "unknown code→null": n["statements"][0]["line_items"][1].get("account_code") is None,
-        "unknown code recorded": any("IS_OTHER_COMPREHENSIVE_INCOME" in u
-                                     for u in n["extraction_quality"].get("unmapped_labels", [])),
+        "unknown code recorded": any(
+            "IS_OTHER_COMPREHENSIVE_INCOME" in u
+            for u in n["extraction_quality"].get("unmapped_labels", [])
+        ),
     }
     for name, ok in checks.items():
         if not ok:
-            print(f"❌ normalize failed: {name}"); return 1
+            print(f"❌ normalize failed: {name}")
+            return 1
 
-    a = empty_filing(); a["audit"].update({"opinion_type": "unqualified", "verbatim_text": "op …"})
-    b = empty_filing(); b["statements"].append({"type": "balance_sheet", "verbatim_text": "BS …",
-                                                "line_items": [{"label_verbatim": "Total assets", "value": 9, "account_code": "BS_TOTAL_ASSETS"}]})
-    c = empty_filing(); c["notes"].append({"number": "5", "title": "Sukuk", "category": "sukuk_islamic",
-                                          "structured": {}, "verbatim_text": "sukuk …"})
+    a = empty_filing()
+    a["audit"].update({"opinion_type": "unqualified", "verbatim_text": "op …"})
+    b = empty_filing()
+    b["statements"].append(
+        {
+            "type": "balance_sheet",
+            "verbatim_text": "BS …",
+            "line_items": [
+                {"label_verbatim": "Total assets", "value": 9, "account_code": "BS_TOTAL_ASSETS"}
+            ],
+        }
+    )
+    c = empty_filing()
+    c["notes"].append(
+        {
+            "number": "5",
+            "title": "Sukuk",
+            "category": "sukuk_islamic",
+            "structured": {},
+            "verbatim_text": "sukuk …",
+        }
+    )
     m = merge_filings([a, b, c])
     if m["audit"]["opinion_type"] != "unqualified" or not m["statements"] or not m["notes"]:
-        print("❌ merge failed to combine windows"); return 1
+        print("❌ merge failed to combine windows")
+        return 1
 
-    print(f"✅ self-test passed — contract + normalize ({len(checks)} aliases) + merge all OK "
-          f"({len(KNOWN_ACCOUNT_CODES)} codes, {len(NOTE_CATEGORIES)} note categories).")
+    print(
+        f"✅ self-test passed — contract + normalize ({len(checks)} aliases) + merge all OK "
+        f"({len(KNOWN_ACCOUNT_CODES)} codes, {len(NOTE_CATEGORIES)} note categories)."
+    )
     return 0
 
 
 # ── Exports (flattened line-items table for human review) ────────────────────
 
-EXPORT_COLUMNS = ["statement_type", "statement_title", "period_label", "account_code",
-                  "label_verbatim", "value", "prior_period_label", "prior_value",
-                  "note_ref", "depth", "is_subtotal"]
+EXPORT_COLUMNS = [
+    "statement_type",
+    "statement_title",
+    "period_label",
+    "account_code",
+    "label_verbatim",
+    "value",
+    "prior_period_label",
+    "prior_value",
+    "note_ref",
+    "depth",
+    "is_subtotal",
+]
 
 
 def flatten_line_items(filing: dict) -> list[dict]:
@@ -2770,26 +3478,29 @@ def flatten_line_items(filing: dict) -> list[dict]:
     for st in filing.get("statements") or []:
         for li in st.get("line_items") or []:
             comps = li.get("comparatives")
-            comps = comps if isinstance(comps, list) else []   # tolerate a non-list from the LLM
+            comps = comps if isinstance(comps, list) else []  # tolerate a non-list from the LLM
             prior = comps[0] if comps and isinstance(comps[0], dict) else {}
-            rows.append({
-                "statement_type": st.get("type"),
-                "statement_title": st.get("title"),
-                "period_label": st.get("period_label"),
-                "account_code": li.get("account_code"),
-                "label_verbatim": li.get("label_verbatim"),
-                "value": li.get("value"),
-                "prior_period_label": prior.get("period_label"),
-                "prior_value": prior.get("value"),
-                "note_ref": li.get("note_ref"),
-                "depth": li.get("depth"),
-                "is_subtotal": li.get("is_subtotal"),
-            })
+            rows.append(
+                {
+                    "statement_type": st.get("type"),
+                    "statement_title": st.get("title"),
+                    "period_label": st.get("period_label"),
+                    "account_code": li.get("account_code"),
+                    "label_verbatim": li.get("label_verbatim"),
+                    "value": li.get("value"),
+                    "prior_period_label": prior.get("period_label"),
+                    "prior_value": prior.get("value"),
+                    "note_ref": li.get("note_ref"),
+                    "depth": li.get("depth"),
+                    "is_subtotal": li.get("is_subtotal"),
+                }
+            )
     return rows
 
 
 def export_csv(filing: dict, path: str) -> int:
     import csv
+
     rows = flatten_line_items(filing)
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=EXPORT_COLUMNS)
@@ -2809,7 +3520,7 @@ def _dedup_key_from_filing(filing: dict) -> str:
     """
     try:
         from qscreen_state import dedup_key as _key
-    except Exception:                                # pragma: no cover - defensive
+    except Exception:  # pragma: no cover - defensive
         log.debug("qscreen_state unavailable; dedup_key degenerates to None")
         return None
     meta = filing.get("metadata") or {}
@@ -2832,8 +3543,9 @@ def _write_error_sidecar(filing: dict, args, headline, findings) -> str:
     sym = (meta.get("symbol") or (args.symbol if hasattr(args, "symbol") else "UNK")).upper()
     yr = meta.get("fiscal_year") or getattr(args, "year", "UNK")
     per = meta.get("fiscal_period") or getattr(args, "period", "UNK")
-    src = (meta.get("source_file")
-           or (Path(args.pdf).name if hasattr(args, "pdf") and args.pdf else "UNK"))
+    src = meta.get("source_file") or (
+        Path(args.pdf).name if hasattr(args, "pdf") and args.pdf else "UNK"
+    )
     out_dir = Path(getattr(args, "out_dir", ".") or ".").resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     fname = f"{sym}_{yr}_{per}_{Path(src).stem}.error.json"
@@ -2842,16 +3554,16 @@ def _write_error_sidecar(filing: dict, args, headline, findings) -> str:
         "reason": headline.rule,
         "message": headline.message,
         "evidence": headline.evidence,
-        "all_findings": [{"rule": f.rule, "severity": f.severity,
-                            "message": f.message, "evidence": f.evidence}
-                           for f in findings],
+        "all_findings": [
+            {"rule": f.rule, "severity": f.severity, "message": f.message, "evidence": f.evidence}
+            for f in findings
+        ],
         "source_file": str(src),
         "metadata": meta,
         "schema_version": "1.1",
         "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
-    out_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False),
-                         encoding="utf-8")
+    out_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     return str(out_path)
 
 
@@ -2871,18 +3583,20 @@ def write_outputs(filing: dict, args) -> tuple[list[str], dict | None]:
     base = f"{args.symbol.upper()}_{args.year}_{args.period}"
     written: list[str] = []
 
-    for fmt in (getattr(args, "export", None) or []):
+    for fmt in getattr(args, "export", None) or []:
         if fmt == "csv":
             out = f"{base}_filing.csv"
             log.info("Exported %d line item(s) -> %s", export_csv(filing, out), out)
         elif fmt == "xlsx":
-            out = f"{base}_filing.xlsx"           # the multi-sheet workbook transcript
+            out = f"{base}_filing.xlsx"  # the multi-sheet workbook transcript
             import qscreen_workbook
+
             qscreen_workbook.save_workbook(filing, out)
             log.info("Exported Excel transcript -> %s", out)
-        else:                                    # html → printable statements document
+        else:  # html → printable statements document
             out = f"{base}_statements.html"
             import qscreen_statements
+
             qscreen_statements.save_statements_html(filing, out)
             log.info("Exported statements document -> %s", out)
         written.append(out)
@@ -2897,24 +3611,35 @@ def write_outputs(filing: dict, args) -> tuple[list[str], dict | None]:
     if getattr(args, "analyze", False) and artifacts:
         if artifacts.get("analysis"):
             p = f"{base}_analysis.json"
-            Path(p).write_text(json.dumps(artifacts["analysis"], indent=2, ensure_ascii=False), encoding="utf-8")
-            log.info("Saved analysis -> %s (%d red flag(s))",
-                     p, len(artifacts["analysis"].get("red_flags", [])))
+            Path(p).write_text(
+                json.dumps(artifacts["analysis"], indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            log.info(
+                "Saved analysis -> %s (%d red flag(s))",
+                p,
+                len(artifacts["analysis"].get("red_flags", [])),
+            )
             written.append(p)
         if (artifacts.get("valuation") or {}).get("valuation"):
             p = f"{base}_valuation.json"
-            Path(p).write_text(json.dumps(artifacts["valuation"], indent=2, ensure_ascii=False), encoding="utf-8")
-            log.info("Saved valuation -> %s (%s)",
-                     p, artifacts["valuation"]["valuation"]["model"])
+            Path(p).write_text(
+                json.dumps(artifacts["valuation"], indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            log.info("Saved valuation -> %s (%s)", p, artifacts["valuation"]["valuation"]["model"])
             written.append(p)
 
     # Optionally also render the one-page analyst report (HTML + Markdown).
     if getattr(args, "report", False):
         try:
             import qscreen_report
+
             rep = qscreen_report.build_report(
-                args.symbol.upper(), [filing], getattr(args, "_profile", None),
-                price=getattr(args, "price", None), shares=getattr(args, "shares", None))
+                args.symbol.upper(),
+                [filing],
+                getattr(args, "_profile", None),
+                price=getattr(args, "price", None),
+                shares=getattr(args, "shares", None),
+            )
             for ext, content in (("html", rep["html"]), ("md", rep["markdown"])):
                 p = f"{base}_report.{ext}"
                 Path(p).write_text(content, encoding="utf-8")
@@ -2938,83 +3663,111 @@ def run_filing(args) -> int:
     """
     _rec = _perf.get_record(args)
     _sink = _perf.get_metric_sink(args)
-    _mode = ("basic" if (getattr(args, "no_llm", False) or
-                          getattr(args, "guided", False))
-              else "pro")
+    _mode = "basic" if (getattr(args, "no_llm", False) or getattr(args, "guided", False)) else "pro"
     _t0 = time.perf_counter()
     with _perf.stage_timer(log, _rec, "run_filing", mode=_mode):
         try:
             return _run_filing_body(args, _rec, _sink, _mode, _t0)
         except SystemExit:
             _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
-            _sink(name="qscreen_filings_processed_total",
-                  mode=_mode, status="error")
-            _sink(name="qscreen_extraction_duration_ms",
-                  mode=_mode, _value=_elapsed_ms)
+            _sink(name="qscreen_filings_processed_total", mode=_mode, status="error")
+            _sink(name="qscreen_extraction_duration_ms", mode=_mode, _value=_elapsed_ms)
             raise
         except Exception:
             _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
-            _sink(name="qscreen_filings_processed_total",
-                  mode=_mode, status="error")
-            _sink(name="qscreen_extraction_duration_ms",
-                  mode=_mode, _value=_elapsed_ms)
+            _sink(name="qscreen_filings_processed_total", mode=_mode, status="error")
+            _sink(name="qscreen_extraction_duration_ms", mode=_mode, _value=_elapsed_ms)
             raise
 
 
 def _run_filing_body(args, _rec, _sink, _mode, _t0) -> int:
     """The actual run_filing body, separated so the perf counter always fires
     (whether the run succeeds, fails the gate, or raises)."""
-    apply_mode(args)                    # --basic/--pro/--mode/--no-llm → guided flags
+    apply_mode(args)  # --basic/--pro/--mode/--no-llm → guided flags
     no_llm = bool(getattr(args, "no_llm", False))
     try:
-        cfg = resolve_provider(args)    # fail fast on bad provider/key before any work
+        cfg = resolve_provider(args)  # fail fast on bad provider/key before any work
     except SystemExit:
         explicit = getattr(args, "provider", None) or getattr(args, "llm_key", None)
         if no_llm:
-            cfg = deterministic_cfg()   # fully offline — no provider needed at all
+            cfg = deterministic_cfg()  # fully offline — no provider needed at all
         elif not explicit:
             # Auto default: no key configured → read the numbers offline instead of
             # failing. Set a provider key (or pass --no-llm) to change this.
-            log.info("No API key found — reading the numbers offline (deterministic). "
-                     "Add a provider key to .env to also capture the audit opinion & notes.")
+            log.info(
+                "No API key found — reading the numbers offline (deterministic). "
+                "Add a provider key to .env to also capture the audit opinion & notes."
+            )
             cfg = deterministic_cfg()
             no_llm = True
             args.no_llm = True
         else:
-            raise                       # they asked for a specific provider/key — surface it
-    args.guided = resolve_guided(args, cfg)   # small/local models → Basic by default
+            raise  # they asked for a specific provider/key — surface it
+    args.guided = resolve_guided(args, cfg)  # small/local models → Basic by default
     if no_llm:
-        args.guided = True              # the deterministic-first orchestrator lives in Basic
-    args._profile = _resolve_profile(getattr(args, "symbol", None),
-                                     getattr(args, "year", None),
-                                     getattr(args, "jurisdiction", None))
+        args.guided = True  # the deterministic-first orchestrator lives in Basic
+    args._profile = _resolve_profile(
+        getattr(args, "symbol", None),
+        getattr(args, "year", None),
+        getattr(args, "jurisdiction", None),
+    )
     if args._profile:
         jurisdiction = args._profile.get("jurisdiction", "n/a")
         arch = args._profile.get("archetype", "n/a")
         n_ev = len(args._profile.get("active_events") or [])
-        log.info("profile loaded: %s jurisdiction=%s archetype=%s events_in_force=%d",
-                 args._profile.get("ticker"), jurisdiction, arch, n_ev)
+        log.info(
+            "profile loaded: %s jurisdiction=%s archetype=%s events_in_force=%d",
+            args._profile.get("ticker"),
+            jurisdiction,
+            arch,
+            n_ev,
+        )
         if not getattr(args, "quiet", False):
-            log.info("Profile: %s [%s] — jurisdiction=%s, %d regime/event(s) in force by %s",
-                     args._profile.get("name_as_of"), arch, jurisdiction, n_ev, args.year)
-    mode_str = ("basic — deterministic, no model" if no_llm
-                else "basic (deterministic-first)" if args.guided else "pro (single big prompt)")
-    log.info("Reading %s … (provider: %s, model: %s, mode: %s)",
-             Path(args.pdf).name, cfg["name"], cfg["model"], mode_str)
+            log.info(
+                "Profile: %s [%s] — jurisdiction=%s, %d regime/event(s) in force by %s",
+                args._profile.get("name_as_of"),
+                arch,
+                jurisdiction,
+                n_ev,
+                args.year,
+            )
+    mode_str = (
+        "basic — deterministic, no model"
+        if no_llm
+        else "basic (deterministic-first)"
+        if args.guided
+        else "pro (single big prompt)"
+    )
+    log.info(
+        "Reading %s … (provider: %s, model: %s, mode: %s)",
+        Path(args.pdf).name,
+        cfg["name"],
+        cfg["model"],
+        mode_str,
+    )
     if not args.guided and cfg.get("local"):
-        log.warning("Pro mode leans on the model heavily — for best results use a strong model "
-                    "(GPT-4.5+/Claude Sonnet 4+/MiniMax-M2), or switch to Basic (--basic) for this small one.")
+        log.warning(
+            "Pro mode leans on the model heavily — for best results use a strong model "
+            "(GPT-4.5+/Claude Sonnet 4+/MiniMax-M2), or switch to Basic (--basic) for this small one."
+        )
     with _perf.stage_timer(log, _rec, "pdf_to_pages"):
         pages, sha = pdf_to_pages(args.pdf, args.ocr)
     total_chars = sum(len(pg["text"]) for pg in pages)
-    log.info("%d pages, %d chars (text + recovered tables), sha256=%s…",
-             len(pages), total_chars, sha[:12])
+    log.info(
+        "%d pages, %d chars (text + recovered tables), sha256=%s…",
+        len(pages),
+        total_chars,
+        sha[:12],
+    )
 
     filing = extract_filing(pages, args)
     meta_overlay = {
-        "symbol": args.symbol.upper(), "sector": args.sector,
-        "fiscal_year": args.year, "fiscal_period": args.period,
-        "source_file": Path(args.pdf).name, "source_sha256": sha,
+        "symbol": args.symbol.upper(),
+        "sector": args.sector,
+        "fiscal_year": args.year,
+        "fiscal_period": args.period,
+        "source_file": Path(args.pdf).name,
+        "source_sha256": sha,
         "extracted_at": datetime.now(timezone.utc).isoformat(),
         "extractor": {"provider": cfg["name"], "model": cfg["model"]},
     }
@@ -3025,8 +3778,9 @@ def _run_filing_body(args, _rec, _sink, _mode, _t0) -> int:
     profile = getattr(args, "_profile", None) or {}
     overlay_defaults = {
         "currency": args.currency or profile.get("reporting_currency"),
-        "reporting_framework": args.framework or profile.get("framework_as_of")
-                                or (profile.get("framework_timeline") or [{}])[0].get("framework"),
+        "reporting_framework": args.framework
+        or profile.get("framework_as_of")
+        or (profile.get("framework_timeline") or [{}])[0].get("framework"),
     }
     for k, v in overlay_defaults.items():
         if v:
@@ -3040,10 +3794,9 @@ def _run_filing_body(args, _rec, _sink, _mode, _t0) -> int:
     if getattr(args, "auto_detect", True):
         try:
             import qscreen_autodetect as _ad
-            text_blob = "\n\n".join(
-                p.get("text", "") for p in pages if isinstance(p, dict))
-            _ad.apply_detected_metadata(filing, text_blob,
-                                         profile=getattr(args, "_profile", None))
+
+            text_blob = "\n\n".join(p.get("text", "") for p in pages if isinstance(p, dict))
+            _ad.apply_detected_metadata(filing, text_blob, profile=getattr(args, "_profile", None))
             # Mirror detected values into the operator-visible args too so
             # the log line + save_json see them.
             for k in ("sector", "fiscal_period", "reporting_framework"):
@@ -3058,10 +3811,12 @@ def _run_filing_body(args, _rec, _sink, _mode, _t0) -> int:
     # ``If-None-Match`` header to the ingest endpoint so re-runs are cheap.
     args._dedup_key = _dedup_key_from_filing(filing)
 
-    log.info("Extracted: %d statements, %d notes, audit=%s",
-             len(filing.get("statements", [])),
-             len(filing.get("notes", [])),
-             filing.get("audit", {}).get("opinion_type"))
+    log.info(
+        "Extracted: %d statements, %d notes, audit=%s",
+        len(filing.get("statements", [])),
+        len(filing.get("notes", [])),
+        filing.get("audit", {}).get("opinion_type"),
+    )
 
     problems = validate_filing(filing)
     if problems:
@@ -3087,47 +3842,37 @@ def _run_filing_body(args, _rec, _sink, _mode, _t0) -> int:
         log.warning("gate blocked save: %s", headline.message)
         log.warning("Gate FAIL: %s", headline.message)
         log.warning("sidecar -> %s", error_sidecar)
-        _sink(name="qscreen_gates_block_total",
-              reason=getattr(headline, "rule_id", "unknown"))
+        _sink(name="qscreen_gates_block_total", reason=getattr(headline, "rule_id", "unknown"))
         _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
-        _sink(name="qscreen_filings_processed_total",
-              mode=_mode, status="blocked")
-        _sink(name="qscreen_extraction_duration_ms",
-              mode=_mode, _value=_elapsed_ms)
-        return 6                                       # distinct from validate's 2
+        _sink(name="qscreen_filings_processed_total", mode=_mode, status="blocked")
+        _sink(name="qscreen_extraction_duration_ms", mode=_mode, _value=_elapsed_ms)
+        return 6  # distinct from validate's 2
 
     save_json(filing, args)
     _written, artifacts = write_outputs(filing, args)
 
     if gate.findings:
-        log.info("%d non-blocking gate note(s) (saved with warnings):",
-                 len(gate.findings))
+        log.info("%d non-blocking gate note(s) (saved with warnings):", len(gate.findings))
         for x in gate.findings:
             log.info("  - %s", x.message)
 
     if problems:
         log.warning("Not uploading — fix extraction problems above first.")
         _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
-        _sink(name="qscreen_filings_processed_total",
-              mode=_mode, status="non_conforming")
-        _sink(name="qscreen_extraction_duration_ms",
-              mode=_mode, _value=_elapsed_ms)
+        _sink(name="qscreen_filings_processed_total", mode=_mode, status="non_conforming")
+        _sink(name="qscreen_extraction_duration_ms", mode=_mode, _value=_elapsed_ms)
         return 2
     if args.dry_run:
         log.info("--dry-run — saved only, not uploaded.")
         _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
-        _sink(name="qscreen_filings_processed_total",
-              mode=_mode, status="dry_run")
-        _sink(name="qscreen_extraction_duration_ms",
-              mode=_mode, _value=_elapsed_ms)
+        _sink(name="qscreen_filings_processed_total", mode=_mode, status="dry_run")
+        _sink(name="qscreen_extraction_duration_ms", mode=_mode, _value=_elapsed_ms)
         return 0
     if not args.token:
         log.info("No INGEST_TOKEN set — saved only. Set INGEST_TOKEN to upload to qscreen.app.")
         _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
-        _sink(name="qscreen_filings_processed_total",
-              mode=_mode, status="no_token")
-        _sink(name="qscreen_extraction_duration_ms",
-              mode=_mode, _value=_elapsed_ms)
+        _sink(name="qscreen_filings_processed_total", mode=_mode, status="no_token")
+        _sink(name="qscreen_extraction_duration_ms", mode=_mode, _value=_elapsed_ms)
         return 0
 
     fold = (artifacts or {}).get("analysis") if getattr(args, "with_analysis", False) else None
@@ -3140,18 +3885,19 @@ def _run_filing_body(args, _rec, _sink, _mode, _t0) -> int:
     state = getattr(args, "_state", None)
     row_index = getattr(args, "_row_index", None)
     if state is not None and row_index is not None and args.token:
-        state.mark_uploaded("manifest_id", row_index, filing_id=str(Path(args.pdf).with_suffix("").name))
+        state.mark_uploaded(
+            "manifest_id", row_index, filing_id=str(Path(args.pdf).with_suffix("").name)
+        )
     _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
-    _sink(name="qscreen_filings_processed_total",
-          mode=_mode, status="uploaded")
-    _sink(name="qscreen_extraction_duration_ms",
-          mode=_mode, _value=_elapsed_ms)
+    _sink(name="qscreen_filings_processed_total", mode=_mode, status="uploaded")
+    _sink(name="qscreen_extraction_duration_ms", mode=_mode, _value=_elapsed_ms)
     return 0
 
 
 def read_manifest(path: str) -> list[dict]:
     """Parse a batch CSV with columns: pdf, symbol, sector, year[, period]."""
     import csv
+
     rows: list[dict] = []
     with open(path, newline="", encoding="utf-8-sig") as f:
         for i, raw in enumerate(csv.DictReader(f), 1):
@@ -3191,19 +3937,23 @@ def run_batch(args) -> int:
         can saturate the API. Lower ``--jobs`` if you see 429s.
     """
     import multiprocessing as _mp
+
     try:
-        from qscreen_state import BatchState, dedup_key as _dedup_key
-    except Exception as e:                                # pragma: no cover - defensive
+        from qscreen_state import BatchState
+        from qscreen_state import dedup_key as _dedup_key
+    except Exception as e:  # pragma: no cover - defensive
         log.warning("qscreen_state unavailable (%s); batch will be one-shot, no resume", e)
         state: object | None = None
     else:
-        state = BatchState(args.state_db) if getattr(args, "state_db", None) \
-                else BatchState()                          # pragma: no cover - default-path branch
+        state = (
+            BatchState(args.state_db) if getattr(args, "state_db", None) else BatchState()
+        )  # pragma: no cover - default-path branch
     rows = read_manifest(args.manifest)
     n = len(rows)
-    manifest_id = f"{Path(args.manifest).stem}-{hashlib.sha256(args.manifest.encode()).hexdigest()[:8]}"
-    log.info("Batch: %d filing(s) from %s (manifest_id=%s)",
-             n, args.manifest, manifest_id)
+    manifest_id = (
+        f"{Path(args.manifest).stem}-{hashlib.sha256(args.manifest.encode()).hexdigest()[:8]}"
+    )
+    log.info("Batch: %d filing(s) from %s (manifest_id=%s)", n, args.manifest, manifest_id)
 
     if state is not None:
         state.start_manifest(manifest_id, n)
@@ -3216,8 +3966,9 @@ def run_batch(args) -> int:
         # one once ``run_filing`` produces the filing, so the dedup here is
         # "same symbol/year/period across multiple rows of the manifest".
         for i, row in enumerate(rows, 1):
-            rk = _dedup_key(row["symbol"], int(row["year"]),
-                              (row.get("period") or "FY").upper(), "manifest")
+            rk = _dedup_key(
+                row["symbol"], int(row["year"]), (row.get("period") or "FY").upper(), "manifest"
+            )
             state.ensure_row(manifest_id, i, rk)
 
     resume = bool(getattr(args, "resume", False))
@@ -3250,10 +4001,18 @@ def run_batch(args) -> int:
         with _mp.Pool(jobs) as pool:
             codes = pool.starmap(
                 _run_batch_row_worker,
-                [(i, rows[i - 1], args, manifest_id,
-                  getattr(args, "state_db", None) or
-                  os.path.expanduser("~/.qstocks-filing-tool/state.db"))
-                 for i in todo_indices])
+                [
+                    (
+                        i,
+                        rows[i - 1],
+                        args,
+                        manifest_id,
+                        getattr(args, "state_db", None)
+                        or os.path.expanduser("~/.qstocks-filing-tool/state.db"),
+                    )
+                    for i in todo_indices
+                ],
+            )
         for i, code in zip(todo_indices, codes):
             results.append((i, code))
             worst = max(worst, code)
@@ -3263,8 +4022,9 @@ def run_batch(args) -> int:
         completed = s.get("completed", 0)
         errored = s.get("errored", 0)
         state.finish_manifest(manifest_id, completed=completed, errored=errored)
-        log.info("Batch finished: ok=%d  error=%d  worst_exit=%d",
-                 len(rows) - errored, errored, worst)
+        log.info(
+            "Batch finished: ok=%d  error=%d  worst_exit=%d", len(rows) - errored, errored, worst
+        )
     else:
         log.info("Batch finished: worst_exit=%d", worst)
     return worst
@@ -3285,7 +4045,12 @@ def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
         sector = "other"
     ra = copy.copy(args)
     ra.pdf, ra.symbol, ra.sector, ra.year, ra.period = (
-        row["pdf"], row["symbol"], sector, int(row["year"]), period)
+        row["pdf"],
+        row["symbol"],
+        sector,
+        int(row["year"]),
+        period,
+    )
     ra._state = state
     ra._row_index = i
     if state is not None and not state.claim_row(manifest_id, i):
@@ -3294,11 +4059,15 @@ def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
         return 0
     try:
         _rec = _perf.get_record(args)
-        with _perf.stage_timer(log, _rec, "run_batch.row",
-                                row_index=i,
-                                symbol=row.get("symbol"),
-                                year=int(row["year"]),
-                                period=period):
+        with _perf.stage_timer(
+            log,
+            _rec,
+            "run_batch.row",
+            row_index=i,
+            symbol=row.get("symbol"),
+            year=int(row["year"]),
+            period=period,
+        ):
             code = run_filing(ra)
         if state is not None:
             # State semantics:
@@ -3313,9 +4082,7 @@ def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
             #   anything else → mark_error with the exit code.
             if code == 6:
                 state.mark_error(manifest_id, i, error="gate_blocked_save")
-            elif code == 2:
-                state.mark_done(manifest_id, i, filing_id=ra.symbol)
-            elif code == 0:
+            elif code == 2 or code == 0:
                 state.mark_done(manifest_id, i, filing_id=ra.symbol)
             else:
                 state.mark_error(manifest_id, i, error=f"exit {code}")
@@ -3325,19 +4092,20 @@ def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
         if state is not None:
             state.mark_error(manifest_id, i, error=str(e))
         return 1
-    except Exception as e:                                # one bad filing must not abort the batch
+    except Exception as e:  # one bad filing must not abort the batch
         log.error("%s: %s", type(e).__name__, e)
         if state is not None:
             state.mark_error(manifest_id, i, error=f"{type(e).__name__}: {e}")
         return 1
 
 
-def _run_batch_row_worker(i: int, row: dict, args, manifest_id: str,
-                            state_db_path: str | None) -> int:
+def _run_batch_row_worker(
+    i: int, row: dict, args, manifest_id: str, state_db_path: str | None
+) -> int:
     """multiprocessing-pool entry: re-create the per-row args in this worker."""
     try:
         from qscreen_state import BatchState
-    except Exception:                                    # pragma: no cover - defensive
+    except Exception:  # pragma: no cover - defensive
         BatchState = None
     state = BatchState(state_db_path) if BatchState else None
     ra_args = copy.copy(args)
@@ -3386,102 +4154,200 @@ def main() -> int:
 
     p = argparse.ArgumentParser(
         description="Jurisdiction-agnostic PDF → lossless filing JSON ingestor. "
-                    "Originally authored for QSE; now accepts any exchange whose "
-                    "profile bundle ships in profiles/<jurisdiction>/ "
-                    "(qatar is the default). See --list-providers for LLM details.")
+        "Originally authored for QSE; now accepts any exchange whose "
+        "profile bundle ships in profiles/<jurisdiction>/ "
+        "(qatar is the default). See --list-providers for LLM details."
+    )
     p.add_argument("--version", action="version", version=f"qscreen-filing-tool {__version__}")
     p.add_argument("pdf", nargs="?", help="Path to the filing PDF")
     p.add_argument("--symbol", help="Issuer ticker (drives profile lookup)")
-    p.add_argument("--jurisdiction", default=os.getenv("QSCREEN_JURISDICTION"),
-                   help="Profile bundle id (default: profiles.qatar when available, "
-                        "else first registered jurisdiction).")
-    p.add_argument("--currency", default=os.getenv("QSCREEN_CURRENCY"),
-                   help="Reporting currency (defaults to the profile's value when "
-                        "present, else the LLM fills it in). Use ISO 4217 code (QAR, "
-                        "AED, USD, ...).")
-    p.add_argument("--framework", default=os.getenv("QSCREEN_FRAMEWORK"),
-                   help="Reporting framework label (e.g. IFRS / AAOIFI / IFRS as "
-                        "adopted by QCB (Islamic)). Default: profile value, else null.")
-    p.add_argument("--sector", choices=SECTORS, help="Extraction archetype (auto-detected from filing text if omitted)")
-    p.add_argument("--no-auto-detect", dest="auto_detect", action="store_false",
-                   help="Don't auto-detect sector/period/framework from the filing; "
-                        "require explicit --sector / --period / --framework.")
+    p.add_argument(
+        "--jurisdiction",
+        default=os.getenv("QSCREEN_JURISDICTION"),
+        help="Profile bundle id (default: profiles.qatar when available, "
+        "else first registered jurisdiction).",
+    )
+    p.add_argument(
+        "--currency",
+        default=os.getenv("QSCREEN_CURRENCY"),
+        help="Reporting currency (defaults to the profile's value when "
+        "present, else the LLM fills it in). Use ISO 4217 code (QAR, "
+        "AED, USD, ...).",
+    )
+    p.add_argument(
+        "--framework",
+        default=os.getenv("QSCREEN_FRAMEWORK"),
+        help="Reporting framework label (e.g. IFRS / AAOIFI / IFRS as "
+        "adopted by QCB (Islamic)). Default: profile value, else null.",
+    )
+    p.add_argument(
+        "--sector",
+        choices=SECTORS,
+        help="Extraction archetype (auto-detected from filing text if omitted)",
+    )
+    p.add_argument(
+        "--no-auto-detect",
+        dest="auto_detect",
+        action="store_false",
+        help="Don't auto-detect sector/period/framework from the filing; "
+        "require explicit --sector / --period / --framework.",
+    )
     p.add_argument("--year", type=int)
     p.add_argument("--period", choices=["FY", "Q1", "Q2", "Q3", "Q4", "H1", "9M"], default="FY")
-    p.add_argument("--provider", choices=PROVIDER_CHOICES, default=None,
-                   help="minimax | openrouter | kimi | openai | anthropic(=claude) | custom. "
-                        "Default: env QSCREEN_PROVIDER, else auto-detected from whichever API key is set.")
+    p.add_argument(
+        "--provider",
+        choices=PROVIDER_CHOICES,
+        default=None,
+        help="minimax | openrouter | kimi | openai | anthropic(=claude) | custom. "
+        "Default: env QSCREEN_PROVIDER, else auto-detected from whichever API key is set.",
+    )
     p.add_argument("--base-url", help="Override base URL (required for --provider custom)")
     p.add_argument("--model", help="Override model id (default per provider; or env QSCREEN_MODEL)")
-    p.add_argument("--list-providers", action="store_true", help="Show supported providers and exit")
+    p.add_argument(
+        "--list-providers", action="store_true", help="Show supported providers and exit"
+    )
     p.add_argument("--max-tokens", type=int, default=16384)
     p.add_argument("--timeout", type=int, default=600)
     p.add_argument("--retries", type=int, default=4)
     p.add_argument("--pages-per-chunk", type=int, default=12)
     p.add_argument("--overlap", type=int, default=1)
     p.add_argument("--no-chunk", action="store_true")
-    p.add_argument("--ocr", choices=["auto", "never", "always"], default="auto",
-                   help="OCR scanned pages (auto: only near-empty pages; needs pytesseract+tesseract)")
-    p.add_argument("--no-json-mode", action="store_true",
-                   help="Don't send response_format=json_object (some providers reject it)")
-    p.add_argument("--mode", choices=["auto", "basic", "pro"], default=None,
-                   help="basic = deterministic-first, great for tiny/local models; "
-                        "pro = the model extracts everything (use a strong model); "
-                        "auto (default) = basic for local runtimes, pro for cloud.")
+    p.add_argument(
+        "--ocr",
+        choices=["auto", "never", "always"],
+        default="auto",
+        help="OCR scanned pages (auto: only near-empty pages; needs pytesseract+tesseract)",
+    )
+    p.add_argument(
+        "--no-json-mode",
+        action="store_true",
+        help="Don't send response_format=json_object (some providers reject it)",
+    )
+    p.add_argument(
+        "--mode",
+        choices=["auto", "basic", "pro"],
+        default=None,
+        help="basic = deterministic-first, great for tiny/local models; "
+        "pro = the model extracts everything (use a strong model); "
+        "auto (default) = basic for local runtimes, pro for cloud.",
+    )
     p.add_argument("--basic", action="store_true", help="Shortcut for --mode basic.")
     p.add_argument("--pro", action="store_true", help="Shortcut for --mode pro.")
-    p.add_argument("--no-llm", action="store_true",
-                   help="Deterministic only: read line items from the PDF's tables and NEVER call "
-                        "the model (audit stays 'unknown', notes stay []). Implies --basic; needs no key.")
-    p.add_argument("--guided", action="store_true",
-                   help="Alias for --basic (walk a small / local model through the filing in tiny, "
-                        "rule-guided steps; auto-on for local runtimes like Ollama).")
-    p.add_argument("--no-guided", action="store_true",
-                   help="Alias for --pro (force the single big-prompt extractor even on a local provider).")
-    p.add_argument("--guided-notes", action="store_true",
-                   help="In Basic mode, also do a best-effort pass over the accounting notes.")
-    p.add_argument("--export", choices=["csv", "xlsx", "html"], action="append",
-                   help="Also write csv (flat line-items table), xlsx (multi-sheet Excel "
-                        "transcript), and/or html (printable statements document). Repeatable.")
-    p.add_argument("--analyze", action="store_true",
-                   help="Also compute and save <symbol>_<year>_<period>_analysis.json + _valuation.json")
-    p.add_argument("--with-analysis", action="store_true",
-                   help="Fold the derived analysis into the qscreen.app upload payload (additive)")
-    p.add_argument("--report", action="store_true",
-                   help="Also render the one-page analyst report → <symbol>_<year>_<period>_report.html (+ .md)")
-    p.add_argument("--price", type=float, default=None, help="Share price, for the report's valuation upside")
-    p.add_argument("--shares", type=float, default=None, help="Shares outstanding, for per-share valuation")
-    p.add_argument("--manifest", help="Batch mode: CSV with columns pdf,symbol,sector,year[,period]")
-    p.add_argument("--resume", action="store_true",
-                   help="Skip rows already marked done/uploaded by an earlier run "
-                        "of the same manifest (uses ~/.qstocks-filing-tool/state.db by default).")
-    p.add_argument("--jobs", type=int, default=int(os.getenv("QSCREEN_JOBS", "1")),
-                   help="Batch-mode parallelism (default 1, max 8 recommended). "
-                        "Each worker reuses INGEST_TOKEN — lower if you see 429s.")
-    p.add_argument("--state-db", default=os.getenv("QSCREEN_STATE_DB"),
-                   help="Path to the batch-state SQLite cache "
-                        "(default ~/.qstocks-filing-tool/state.db).")
-    p.add_argument("--llm-key", default=None,
-                   help="API key (else read from the provider's env var, e.g. MINIMAX_API_KEY)")
+    p.add_argument(
+        "--no-llm",
+        action="store_true",
+        help="Deterministic only: read line items from the PDF's tables and NEVER call "
+        "the model (audit stays 'unknown', notes stay []). Implies --basic; needs no key.",
+    )
+    p.add_argument(
+        "--guided",
+        action="store_true",
+        help="Alias for --basic (walk a small / local model through the filing in tiny, "
+        "rule-guided steps; auto-on for local runtimes like Ollama).",
+    )
+    p.add_argument(
+        "--no-guided",
+        action="store_true",
+        help="Alias for --pro (force the single big-prompt extractor even on a local provider).",
+    )
+    p.add_argument(
+        "--guided-notes",
+        action="store_true",
+        help="In Basic mode, also do a best-effort pass over the accounting notes.",
+    )
+    p.add_argument(
+        "--export",
+        choices=["csv", "xlsx", "html"],
+        action="append",
+        help="Also write csv (flat line-items table), xlsx (multi-sheet Excel "
+        "transcript), and/or html (printable statements document). Repeatable.",
+    )
+    p.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Also compute and save <symbol>_<year>_<period>_analysis.json + _valuation.json",
+    )
+    p.add_argument(
+        "--with-analysis",
+        action="store_true",
+        help="Fold the derived analysis into the qscreen.app upload payload (additive)",
+    )
+    p.add_argument(
+        "--report",
+        action="store_true",
+        help="Also render the one-page analyst report → <symbol>_<year>_<period>_report.html (+ .md)",
+    )
+    p.add_argument(
+        "--price", type=float, default=None, help="Share price, for the report's valuation upside"
+    )
+    p.add_argument(
+        "--shares", type=float, default=None, help="Shares outstanding, for per-share valuation"
+    )
+    p.add_argument(
+        "--manifest", help="Batch mode: CSV with columns pdf,symbol,sector,year[,period]"
+    )
+    p.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip rows already marked done/uploaded by an earlier run "
+        "of the same manifest (uses ~/.qstocks-filing-tool/state.db by default).",
+    )
+    p.add_argument(
+        "--jobs",
+        type=int,
+        default=int(os.getenv("QSCREEN_JOBS", "1")),
+        help="Batch-mode parallelism (default 1, max 8 recommended). "
+        "Each worker reuses INGEST_TOKEN — lower if you see 429s.",
+    )
+    p.add_argument(
+        "--state-db",
+        default=os.getenv("QSCREEN_STATE_DB"),
+        help="Path to the batch-state SQLite cache (default ~/.qstocks-filing-tool/state.db).",
+    )
+    p.add_argument(
+        "--llm-key",
+        default=None,
+        help="API key (else read from the provider's env var, e.g. MINIMAX_API_KEY)",
+    )
     p.add_argument("--api-url", default=os.getenv("QSCREEN_API_URL", "http://localhost:3004"))
-    p.add_argument("--upload-retries", type=int, default=int(os.getenv("QSCREEN_UPLOAD_RETRIES", "3")),
-                   help="Max retries on transient upload errors (default 3; 0 disables).")
-    p.add_argument("--upload-backoff", type=float,
-                   default=float(os.getenv("QSCREEN_UPLOAD_BACKOFF", "1.5")),
-                   help="Initial back-off seconds between upload retries (doubles each try).")
-    p.add_argument("--upload-timeout", type=int,
-                   default=int(os.getenv("QSCREEN_UPLOAD_TIMEOUT", "180")),
-                   help="Per-attempt upload timeout in seconds.")
+    p.add_argument(
+        "--upload-retries",
+        type=int,
+        default=int(os.getenv("QSCREEN_UPLOAD_RETRIES", "3")),
+        help="Max retries on transient upload errors (default 3; 0 disables).",
+    )
+    p.add_argument(
+        "--upload-backoff",
+        type=float,
+        default=float(os.getenv("QSCREEN_UPLOAD_BACKOFF", "1.5")),
+        help="Initial back-off seconds between upload retries (doubles each try).",
+    )
+    p.add_argument(
+        "--upload-timeout",
+        type=int,
+        default=int(os.getenv("QSCREEN_UPLOAD_TIMEOUT", "180")),
+        help="Per-attempt upload timeout in seconds.",
+    )
     p.add_argument("--token", default=os.getenv("INGEST_TOKEN"))
     p.add_argument("--dry-run", action="store_true", help="Extract + save, but do not upload")
-    p.add_argument("--self-test", action="store_true", help="Validate contract/normalize/merge offline and exit")
-    p.add_argument("--quiet", action="store_true",
-                   help="Suppress the friendly progress prints (only the structured "
-                        "logging output is written — useful in containers / CI).")
-    p.add_argument("--debug", action="store_true",
-                   help="Show Python tracebacks on errors (default: print a clean "
-                        "diagnostic and exit non-zero).")
-    p.set_defaults(auto_detect=True)        # default: detect from filing text
+    p.add_argument(
+        "--self-test",
+        action="store_true",
+        help="Validate contract/normalize/merge offline and exit",
+    )
+    p.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress the friendly progress prints (only the structured "
+        "logging output is written — useful in containers / CI).",
+    )
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        help="Show Python tracebacks on errors (default: print a clean "
+        "diagnostic and exit non-zero).",
+    )
+    p.set_defaults(auto_detect=True)  # default: detect from filing text
     args = p.parse_args()
 
     if args.list_providers:
@@ -3504,11 +4370,12 @@ def _run_with_debug(args) -> int:
         missing = [n for n in ("pdf", "symbol", "sector", "year") if not getattr(args, n)]
         if missing:
             sys.stderr.write(
-                f"qscreen_ingest: missing required argument(s): {', '.join(missing)}\n")
+                f"qscreen_ingest: missing required argument(s): {', '.join(missing)}\n"
+            )
             return 2
         return run_filing(args)
     except SystemExit:
-        raise                                 # argparse / upload-fail re-raise
+        raise  # argparse / upload-fail re-raise
     except KeyboardInterrupt:
         sys.stderr.write("\nqscreen_ingest: interrupted\n")
         return 130

@@ -14,6 +14,7 @@ the same year, the as-originally-reported figures win and any later restatement
 CLI:
     python3 qscreen_series.py --symbol QNBK QNBK_2022_FY_filing.json QNBK_2023_FY_filing.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,14 +60,17 @@ def _collect(filing: dict) -> tuple[dict, dict, dict]:
     return cur, labels, comps
 
 
-def _absorb(years: dict, restatements: list, year, source: str, meta: dict,
-            metrics: dict, labels: dict) -> None:
+def _absorb(
+    years: dict, restatements: list, year, source: str, meta: dict, metrics: dict, labels: dict
+) -> None:
     y = str(year)
     existing = years.get(y)
     if existing is None:
         years[y] = {
-            "fiscal_year": year, "source": source,
-            "source_file": meta.get("source_file"), "fiscal_period": meta.get("fiscal_period"),
+            "fiscal_year": year,
+            "source": source,
+            "source_file": meta.get("source_file"),
+            "fiscal_period": meta.get("fiscal_period"),
             "metrics": dict(metrics),
             "labels": {k: v for k, v in labels.items() if k in metrics},
         }
@@ -77,16 +81,20 @@ def _absorb(years: dict, restatements: list, year, source: str, meta: dict,
         for code, restated in existing["metrics"].items():
             original = metrics.get(code)
             if original is not None and restated is not None and original != restated:
-                restatements.append({"year": year, "metric": code,
-                                     "original": original, "restated": restated})
-        existing.update(source="reported", source_file=meta.get("source_file"),
-                        fiscal_period=meta.get("fiscal_period"))
+                restatements.append(
+                    {"year": year, "metric": code, "original": original, "restated": restated}
+                )
+        existing.update(
+            source="reported",
+            source_file=meta.get("source_file"),
+            fiscal_period=meta.get("fiscal_period"),
+        )
         merged = dict(existing["metrics"])
-        merged.update(metrics)               # reported values take precedence
+        merged.update(metrics)  # reported values take precedence
         existing["metrics"] = merged
         existing["labels"].update({k: v for k, v in labels.items() if k in metrics})
     else:
-        for code, val in metrics.items():    # only fill gaps
+        for code, val in metrics.items():  # only fill gaps
             existing["metrics"].setdefault(code, val)
             if code in labels:
                 existing["labels"].setdefault(code, labels[code])
@@ -102,8 +110,15 @@ def build_series(symbol: str, filings: list[dict], *, annual_only: bool = True) 
     if matched:
         fs = matched
     elif any((f.get("metadata") or {}).get("symbol") for f in filings):
-        return {"symbol": sym, "currency": None, "unit_scale": None, "years": {}, "codes": [],
-                "restatements": [], "warnings": [f"no filing matches symbol {sym}; refusing to mix companies"]}
+        return {
+            "symbol": sym,
+            "currency": None,
+            "unit_scale": None,
+            "years": {},
+            "codes": [],
+            "restatements": [],
+            "warnings": [f"no filing matches symbol {sym}; refusing to mix companies"],
+        }
     else:
         fs = list(filings)
     if annual_only:
@@ -111,8 +126,10 @@ def build_series(symbol: str, filings: list[dict], *, annual_only: bool = True) 
         if fy:
             fs = fy
         elif fs:
-            warnings.append("no annual (FY) filing found — series built from interim periods; "
-                            "treat year-over-year figures and any DCF seeding with caution")
+            warnings.append(
+                "no annual (FY) filing found — series built from interim periods; "
+                "treat year-over-year figures and any DCF seeding with caution"
+            )
     # Newest reported year first, so a reported year is seen before older filings' comparatives.
     fs = sorted(fs, key=lambda f: (f.get("metadata") or {}).get("fiscal_year") or 0, reverse=True)
 
@@ -131,7 +148,9 @@ def build_series(symbol: str, filings: list[dict], *, annual_only: bool = True) 
 
     codes = sorted({c for y in years.values() for c in y["metrics"]})
     return {
-        "symbol": sym, "currency": currency, "unit_scale": unit_scale,
+        "symbol": sym,
+        "currency": currency,
+        "unit_scale": unit_scale,
         "years": dict(sorted(years.items())),
         "codes": codes,
         "restatements": restatements,
@@ -146,7 +165,9 @@ def save_series(series: dict, path: str | None = None) -> str:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Build a per-symbol multi-year series from filing JSONs")
+    p = argparse.ArgumentParser(
+        description="Build a per-symbol multi-year series from filing JSONs"
+    )
     p.add_argument("--symbol", required=True)
     p.add_argument("filings", nargs="+", help="SYMBOL_YEAR_PERIOD_filing.json files")
     args = p.parse_args()
@@ -154,8 +175,10 @@ def main() -> int:
     series = build_series(args.symbol, filings)
     out = save_series(series)
     yrs = ", ".join(series["years"])
-    print(f"📈 {series['symbol']} series → {out}  ({len(series['years'])} years: {yrs}; "
-          f"{len(series['codes'])} metrics; {len(series['restatements'])} restatement(s))")
+    print(
+        f"📈 {series['symbol']} series → {out}  ({len(series['years'])} years: {yrs}; "
+        f"{len(series['codes'])} metrics; {len(series['restatements'])} restatement(s))"
+    )
     return 0
 
 

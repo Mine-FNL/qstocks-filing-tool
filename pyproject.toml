@@ -101,14 +101,26 @@ ignore = [
     "E501",   # line-length — handled by formatter
     "B008",   # function-call-in-default-arg — common in argparse
     "B904",   # raise-from — large surface to retrofit
+    "RUF001", # ambiguous unicode chars — engine prints 🧪 / ✅ / ⚠️ / … intentionally
     "RUF012", # mutable-class-default-attr — pydantic-style attrs we use
+    # Cosmetic rules that don't affect runtime safety; re-enable
+    # incrementally as modules reach clean state.
+    "SIM102", # collapsible-if — sometimes more readable nested
+    "SIM108", # ternary — engine prefers explicit if/else
+    "E402",   # module-import-not-at-top — common in sys.path-mutating scripts
+    "UP031",  # printf-string-formatting — legacy test fixtures use % formatting
+    "B007",   # unused-loop-control-variable — common pattern in enumerate()
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Tests allow longer lines + looser unused-import rules
-"tests/**/*.py" = ["E402", "F401", "F811"]
+# Tests allow longer lines + looser unused-import rules, and often
+# embed intentional unicode (×, …, 🧪) inside assertion strings.
+"tests/**/*.py" = ["F401", "F811", "RUF001", "B011"]  # B011: asserts-with-tuple
 # Generated / vendored data files
 "profiles/qatar/data/*.json" = ["E", "W"]
+# Bench fixtures + golden-set case files contain deliberate unicode
+"tests/golden/cases/*.txt" = ["ALL"]
+"tests/golden/*.json" = ["ALL"]
 
 [tool.ruff.format]
 quote-style = "double"

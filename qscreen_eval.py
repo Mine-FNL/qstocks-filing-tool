@@ -48,6 +48,7 @@ output as ``{stage_name: duration_ms}`` and the aggregate is also written
 to ``--out-aggregate`` (Prometheus text format) for the weekly
 ``.github/workflows/perf.yml`` to consume.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -132,8 +133,9 @@ def _split_pages(case_text: str) -> tuple[list[dict], str]:
     return pages, narrative
 
 
-def _extract_one(case: dict, case_text: str,
-                  perf_record: qscreen_perf.PerfRecord | None = None) -> dict:
+def _extract_one(
+    case: dict, case_text: str, perf_record: qscreen_perf.PerfRecord | None = None
+) -> dict:
     """Run the deterministic Basic path on the synthetic case file.
 
     Splits the combined file on ``===== PAGE N =====`` markers, feeds the
@@ -147,20 +149,28 @@ def _extract_one(case: dict, case_text: str,
     None every ``stage_timer`` call becomes a zero-overhead no-op, so the
     bench stays cheap when ``--timing`` is off.
     """
-    import tempfile, shutil
+    import shutil
+    import tempfile
+
     work = Path(tempfile.mkdtemp())
     try:
         pages, _ = _split_pages(case_text)
         # The Basic extractor expects each page to be self-window-able; with
         # 3-4 pages of synthetic content there's no need for chunking.
         args = SimpleNamespace(
-            guided=True, guided_notes=True, no_chunk=True,
-            pages_per_chunk=12, overlap=1,
-            no_llm=True,                         # deterministic path
-            symbol=case["ticker"], sector=case["sector"],
-            year=case["fiscal_year"], period=case.get("fiscal_period", "FY"),
+            guided=True,
+            guided_notes=True,
+            no_chunk=True,
+            pages_per_chunk=12,
+            overlap=1,
+            no_llm=True,  # deterministic path
+            symbol=case["ticker"],
+            sector=case["sector"],
+            year=case["fiscal_year"],
+            period=case.get("fiscal_period", "FY"),
             jurisdiction=None,
-            currency=None, framework=None,
+            currency=None,
+            framework=None,
         )
         # Wire the perf record (if any) so ``qscreen_ingest.extract_filing``
         # and its helpers accumulate timings.
@@ -196,6 +206,7 @@ def _extract_one(case: dict, case_text: str,
         # the failure as a real regression.
         try:
             import qscreen_autodetect as _ad
+
             text_blob = "\n\n".join(p.get("text", "") for p in pages)
             _ad.apply_detected_metadata(filing, text_blob)
         except Exception as ex:
@@ -208,11 +219,11 @@ def _extract_one(case: dict, case_text: str,
         if profiles is not None:
             try:
                 from profiles.qatar import pre_flags as _pf
+
                 # Time this re-run separately so the perf baseline captures
                 # the cost of the catalog on its own (the engine already
                 # times the in-extract invocation).
-                with qscreen_perf.stage_timer(log, perf_record,
-                                                "pre_flag_catalog.rerun"):
+                with qscreen_perf.stage_timer(log, perf_record, "pre_flag_catalog.rerun"):
                     _pf.merge_into_filing(filing, _pf.run_pre_flags(filing))
             except Exception as ex:
                 log.warning("pre-flag re-run failed: %s", ex)
@@ -256,8 +267,15 @@ def _compare_metadata(filing: dict, want: dict) -> list[Check]:
     for key, want_val in want.items():
         got = meta.get(key)
         passed = got == want_val
-        out.append(Check(f"metadata.{key}", want_val, got, passed,
-                         detail="" if passed else f"want {want_val!r} got {got!r}"))
+        out.append(
+            Check(
+                f"metadata.{key}",
+                want_val,
+                got,
+                passed,
+                detail="" if passed else f"want {want_val!r} got {got!r}",
+            )
+        )
     return out
 
 
@@ -265,29 +283,50 @@ def _compare_audit(filing: dict, want: dict, page_text: str) -> list[Check]:
     out = []
     audit = filing.get("audit") or {}
     if "opinion_type" in want:
-        out.append(Check("audit.opinion_type",
-                          want["opinion_type"], audit.get("opinion_type"),
-                          audit.get("opinion_type") == want["opinion_type"]))
+        out.append(
+            Check(
+                "audit.opinion_type",
+                want["opinion_type"],
+                audit.get("opinion_type"),
+                audit.get("opinion_type") == want["opinion_type"],
+            )
+        )
     if "auditor_name" in want:
-        out.append(Check("audit.auditor_name",
-                          want["auditor_name"], audit.get("auditor_name"),
-                          (audit.get("auditor_name") or "") == want["auditor_name"]))
+        out.append(
+            Check(
+                "audit.auditor_name",
+                want["auditor_name"],
+                audit.get("auditor_name"),
+                (audit.get("auditor_name") or "") == want["auditor_name"],
+            )
+        )
     if "verbatim_text_contains" in want:
         text = audit.get("verbatim_text") or ""
         for needle in want["verbatim_text_contains"]:
-            out.append(Check(f"audit.verbatim_text contains {needle!r}",
-                              needle, needle in text, needle in text))
+            out.append(
+                Check(
+                    f"audit.verbatim_text contains {needle!r}",
+                    needle,
+                    needle in text,
+                    needle in text,
+                )
+            )
     if "material_uncertainty_going_concern_present" in want:
         present = (audit.get("material_uncertainty_going_concern") or {}).get("present")
         want_b = bool(want["material_uncertainty_going_concern_present"])
-        out.append(Check("audit.mugc.present", want_b, bool(present),
-                          bool(present) == want_b))
+        out.append(Check("audit.mugc.present", want_b, bool(present), bool(present) == want_b))
     if "audit_keywords_in_text" in want:
         # Loose: at least N of the keywords present somewhere in the page
         keywords = want["audit_keywords_in_text"]
         present = sum(1 for kw in keywords if re.search(re.escape(kw), page_text, re.IGNORECASE))
-        out.append(Check("audit.keywords_in_text", len(keywords), present,
-                          present >= max(1, len(keywords) - 1)))           # allow one miss
+        out.append(
+            Check(
+                "audit.keywords_in_text",
+                len(keywords),
+                present,
+                present >= max(1, len(keywords) - 1),
+            )
+        )  # allow one miss
     return out
 
 
@@ -299,61 +338,113 @@ def _compare_statements(filing: dict, want: dict, page_text: str) -> list[Check]
     if "balance_sheet_code" in want:
         code = want["balance_sheet_code"]
         val = _find_line_value(filing, code)
-        out.append(Check(f"statements.BS_present[{code}]",
-                          "non-null", "non-null" if val is not None else "null",
-                          val is not None))
+        out.append(
+            Check(
+                f"statements.BS_present[{code}]",
+                "non-null",
+                "non-null" if val is not None else "null",
+                val is not None,
+            )
+        )
         if "balance_sheet_value" in want:
             want_v = float(want["balance_sheet_value"])
             passed = val is not None and _within(val, want_v)
-            out.append(Check(f"statements.BS[{code}].value",
-                              want_v, val, passed,
-                              detail="" if passed else f"want ~{want_v} got {val}"))
+            out.append(
+                Check(
+                    f"statements.BS[{code}].value",
+                    want_v,
+                    val,
+                    passed,
+                    detail="" if passed else f"want ~{want_v} got {val}",
+                )
+            )
     if "balance_sheet_count" in want:
-        out.append(Check("statements.balance_sheet_count",
-                          want["balance_sheet_count"], n_st,
-                          n_st >= want["balance_sheet_count"]))
+        out.append(
+            Check(
+                "statements.balance_sheet_count",
+                want["balance_sheet_count"],
+                n_st,
+                n_st >= want["balance_sheet_count"],
+            )
+        )
     if "income_statement_code" in want:
         code = want["income_statement_code"]
         val = _find_line_value(filing, code)
-        out.append(Check(f"statements.IS_present[{code}]",
-                          "non-null", "non-null" if val is not None else "null",
-                          val is not None))
+        out.append(
+            Check(
+                f"statements.IS_present[{code}]",
+                "non-null",
+                "non-null" if val is not None else "null",
+                val is not None,
+            )
+        )
         if "income_statement_value" in want:
             want_v = float(want["income_statement_value"])
             passed = val is not None and _within(val, want_v)
-            out.append(Check(f"statements.IS[{code}].value",
-                              want_v, val, passed,
-                              detail="" if passed else f"want ~{want_v} got {val}"))
+            out.append(
+                Check(
+                    f"statements.IS[{code}].value",
+                    want_v,
+                    val,
+                    passed,
+                    detail="" if passed else f"want ~{want_v} got {val}",
+                )
+            )
     if "income_statement_count" in want:
         n_is = sum(1 for st in statements if st.get("type") == "income_statement")
-        out.append(Check("statements.income_statement_count",
-                          want["income_statement_count"], n_is,
-                          n_is == want["income_statement_count"]))
+        out.append(
+            Check(
+                "statements.income_statement_count",
+                want["income_statement_count"],
+                n_is,
+                n_is == want["income_statement_count"],
+            )
+        )
     if "cash_flow_code" in want:
         code = want["cash_flow_code"]
         val = _find_line_value(filing, code)
-        out.append(Check(f"statements.CF_present[{code}]",
-                          "non-null", "non-null" if val is not None else "null",
-                          val is not None))
+        out.append(
+            Check(
+                f"statements.CF_present[{code}]",
+                "non-null",
+                "non-null" if val is not None else "null",
+                val is not None,
+            )
+        )
 
     # Loose line-volume bounds (the case gives a hint of expected density).
     total_lines = sum(len(st.get("line_items") or []) for st in statements)
     if "total_lines_min" in want:
-        out.append(Check("statements.total_lines >= min",
-                          want["total_lines_min"], total_lines,
-                          total_lines >= want["total_lines_min"]))
+        out.append(
+            Check(
+                "statements.total_lines >= min",
+                want["total_lines_min"],
+                total_lines,
+                total_lines >= want["total_lines_min"],
+            )
+        )
     if "total_lines_max" in want:
-        out.append(Check("statements.total_lines <= max",
-                          want["total_lines_max"], total_lines,
-                          total_lines <= want["total_lines_max"]))
+        out.append(
+            Check(
+                "statements.total_lines <= max",
+                want["total_lines_max"],
+                total_lines,
+                total_lines <= want["total_lines_max"],
+            )
+        )
 
     # Content-presence checks on the page text (informational; not strict).
     for code in ("BS_INVESTMENT_PROPERTY",):
-        if f"balance_sheet_has_{code}" in want and want[f"balance_sheet_has_{code}"]:
+        if want.get(f"balance_sheet_has_{code}"):
             val = _find_line_value(filing, code)
-            out.append(Check(f"statements.{code}_present",
-                              "non-null", "non-null" if val is not None else "null",
-                              val is not None))
+            out.append(
+                Check(
+                    f"statements.{code}_present",
+                    "non-null",
+                    "non-null" if val is not None else "null",
+                    val is not None,
+                )
+            )
 
     return out
 
@@ -362,22 +453,37 @@ def _compare_pre_flags(filing: dict, want: dict) -> list[Check]:
     out = []
     rules = _red_flag_rules(filing)
     for must in want.get("red_flags_must_contain", []) or []:
-        out.append(Check(f"pre_flags.contains {must}",
-                          "present", "present" if must in rules else "absent",
-                          must in rules,
-                          detail=f"actual rules: {', '.join(rules[:6])}{'...' if len(rules) > 6 else ''}"))
+        out.append(
+            Check(
+                f"pre_flags.contains {must}",
+                "present",
+                "present" if must in rules else "absent",
+                must in rules,
+                detail=f"actual rules: {', '.join(rules[:6])}{'...' if len(rules) > 6 else ''}",
+            )
+        )
     for may in want.get("red_flags_expect", []) or []:
-        out.append(Check(f"pre_flags.may contain {may}",
-                          "possible", "present" if may in rules else "absent",
-                          True,                          # informational only
-                          detail="soft expectation"))
+        out.append(
+            Check(
+                f"pre_flags.may contain {may}",
+                "possible",
+                "present" if may in rules else "absent",
+                True,  # informational only
+                detail="soft expectation",
+            )
+        )
     if "red_flags_severity_breakdown" in want:
         warns = sum(1 for x in filing.get("red_flags", []) if x.get("severity") == "warn")
-        blocks = sum(1 for x in filing.get("red_flags", []) if x.get("severity") == "block")
+        sum(1 for x in filing.get("red_flags", []) if x.get("severity") == "block")
         if "warn_min" in want["red_flags_severity_breakdown"]:
-            out.append(Check("red_flags.warn_count >= warn_min",
-                              want["red_flags_severity_breakdown"]["warn_min"], warns,
-                              warns >= want["red_flags_severity_breakdown"]["warn_min"]))
+            out.append(
+                Check(
+                    "red_flags.warn_count >= warn_min",
+                    want["red_flags_severity_breakdown"]["warn_min"],
+                    warns,
+                    warns >= want["red_flags_severity_breakdown"]["warn_min"],
+                )
+            )
     return out
 
 
@@ -388,40 +494,61 @@ def _compare_languages(filing: dict, want: dict) -> list[Check]:
     primary = next((l.get("code") for l in lang_list if l.get("primary")), None)
 
     for code in want.get("language_must_contain", []) or []:
-        out.append(Check(f"languages.contains {code}",
-                          "present", "present" if code in present_codes else "absent",
-                          code in present_codes,
-                          detail=f"actual codes: {', '.join(present_codes) or 'none'}"))
+        out.append(
+            Check(
+                f"languages.contains {code}",
+                "present",
+                "present" if code in present_codes else "absent",
+                code in present_codes,
+                detail=f"actual codes: {', '.join(present_codes) or 'none'}",
+            )
+        )
     if "language_primary" in want:
-        out.append(Check("languages.primary", want["language_primary"], primary,
-                          primary == want["language_primary"],
-                          detail=f"actual primary: {primary!r}, all codes: {present_codes}"))
+        out.append(
+            Check(
+                "languages.primary",
+                want["language_primary"],
+                primary,
+                primary == want["language_primary"],
+                detail=f"actual primary: {primary!r}, all codes: {present_codes}",
+            )
+        )
     if "language_min_ratio" in want:
         # Soft check: ratio of the primary language must be >= min_ratio.
         primary_lang = next((l for l in lang_list if l.get("primary")), None)
         ratio = primary_lang.get("ratio", 0) if primary_lang else 0
-        out.append(Check("languages.primary.ratio >= min_ratio",
-                          want["language_min_ratio"], ratio,
-                          ratio >= want["language_min_ratio"],
-                          detail=f"actual ratio: {ratio:.2%}" if primary_lang else "no primary"))
+        out.append(
+            Check(
+                "languages.primary.ratio >= min_ratio",
+                want["language_min_ratio"],
+                ratio,
+                ratio >= want["language_min_ratio"],
+                detail=f"actual ratio: {ratio:.2%}" if primary_lang else "no primary",
+            )
+        )
     return out
 
 
-def evaluate_case(case_path: Path, cases_dir: Path,
-                  with_timing: bool = False) -> CaseReport:
+def evaluate_case(case_path: Path, cases_dir: Path, with_timing: bool = False) -> CaseReport:
     case = json.loads(case_path.read_text())
     case_id = case["_case"]
     text_path = cases_dir / f"{case_id}.txt"
     if not text_path.exists():
-        return CaseReport(case=case_id, ticker=case["ticker"],
-                            fiscal_year=case["fiscal_year"],
-                            fiscal_period=case.get("fiscal_period", "FY"),
-                            error=f"combined case fixture missing: {text_path}")
+        return CaseReport(
+            case=case_id,
+            ticker=case["ticker"],
+            fiscal_year=case["fiscal_year"],
+            fiscal_period=case.get("fiscal_period", "FY"),
+            error=f"combined case fixture missing: {text_path}",
+        )
     case_text = text_path.read_text()
 
-    rep = CaseReport(case=case_id, ticker=case["ticker"],
-                     fiscal_year=case["fiscal_year"],
-                     fiscal_period=case.get("fiscal_period", "FY"))
+    rep = CaseReport(
+        case=case_id,
+        ticker=case["ticker"],
+        fiscal_year=case["fiscal_year"],
+        fiscal_period=case.get("fiscal_period", "FY"),
+    )
     perf_record = qscreen_perf.PerfRecord() if with_timing else None
     t0 = time.perf_counter()
     try:
@@ -457,19 +584,31 @@ def _compare_fingerprint(filing: dict, want: dict) -> list[Check]:
     out = []
     fp = filing.get("fingerprint") or {}
     items = fp.get("items") or []
-    out.append(Check("fingerprint.present",
-                      "dict", "dict" if isinstance(fp, dict) else type(fp).__name__,
-                      isinstance(fp, dict)))
-    out.append(Check("fingerprint.overall_fingerprint.is_str",
-                      "non-empty str",
-                      str(fp.get("overall_fingerprint") or "")[:20],
-                      isinstance(fp.get("overall_fingerprint"), str)
-                      and bool(fp.get("overall_fingerprint"))))
-    out.append(Check("fingerprint.items.len > 0",
-                      want.get("fingerprint_min_items", 1),
-                      len(items),
-                      len(items) >= want.get("fingerprint_min_items", 1),
-                      detail="audit + statements + notes should hash"))
+    out.append(
+        Check(
+            "fingerprint.present",
+            "dict",
+            "dict" if isinstance(fp, dict) else type(fp).__name__,
+            isinstance(fp, dict),
+        )
+    )
+    out.append(
+        Check(
+            "fingerprint.overall_fingerprint.is_str",
+            "non-empty str",
+            str(fp.get("overall_fingerprint") or "")[:20],
+            isinstance(fp.get("overall_fingerprint"), str) and bool(fp.get("overall_fingerprint")),
+        )
+    )
+    out.append(
+        Check(
+            "fingerprint.items.len > 0",
+            want.get("fingerprint_min_items", 1),
+            len(items),
+            len(items) >= want.get("fingerprint_min_items", 1),
+            detail="audit + statements + notes should hash",
+        )
+    )
     return out
 
 
@@ -495,17 +634,26 @@ def render_markdown(reports: list[CaseReport]) -> str:
     total_checks = sum(r.total for r in reports)
     pass_checks = sum(r.score for r in reports)
 
-    lines = ["# qstock-filing-tool — golden-set extraction report",
-             "", "## Summary", "",
-             f"- Cases: **{n_total}** (passed: {n_pass}, errored: {n_err})",
-             f"- Check-level accuracy: **{pass_checks}/{total_checks}** "
-             f"({(100 * pass_checks / total_checks):.1f}%)" if total_checks else "",
-             f"- Per-case detail:", ""]
+    lines = [
+        "# qstock-filing-tool — golden-set extraction report",
+        "",
+        "## Summary",
+        "",
+        f"- Cases: **{n_total}** (passed: {n_pass}, errored: {n_err})",
+        f"- Check-level accuracy: **{pass_checks}/{total_checks}** "
+        f"({(100 * pass_checks / total_checks):.1f}%)"
+        if total_checks
+        else "",
+        "- Per-case detail:",
+        "",
+    ]
     for r in reports:
         status = "✅" if r.passed else ("❌" if r.error else "⚠️")
-        lines.append(f"  - {status} `{r.case}` ({r.ticker} {r.fiscal_year} {r.fiscal_period})"
-                     f"  — {r.score}/{r.total} checks, {r.duration_s*1000:.0f} ms"
-                     + (f"  — error: `{r.error}`" if r.error else ""))
+        lines.append(
+            f"  - {status} `{r.case}` ({r.ticker} {r.fiscal_year} {r.fiscal_period})"
+            f"  — {r.score}/{r.total} checks, {r.duration_s * 1000:.0f} ms"
+            + (f"  — error: `{r.error}`" if r.error else "")
+        )
     lines.append("")
     lines.append("## Per-case detail")
     lines.append("")
@@ -543,17 +691,20 @@ def render_console(reports: list[CaseReport]) -> str:
         "",
         f"  Golden-set eval — {n_pass}/{n_total} cases, "
         f"{passed}/{total} check(s) pass "
-        f"({(100*passed/total):.1f}%)" if total else "  no checks",
+        f"({(100 * passed / total):.1f}%)"
+        if total
+        else "  no checks",
         "",
     ]
     for r in reports:
         if r.error:
-            out.append(f"  ❌ {r.case:>22s}  ({r.ticker:>5s} {r.fiscal_year})  "
-                       f"  ERROR: {r.error}")
+            out.append(f"  ❌ {r.case:>22s}  ({r.ticker:>5s} {r.fiscal_year})    ERROR: {r.error}")
         else:
             mark = "✅" if r.passed else "⚠️"
-            out.append(f"  {mark} {r.case:>22s}  ({r.ticker:>5s} {r.fiscal_year} {r.fiscal_period})"
-                       f"  {r.score:>2d}/{r.total:<2d}  {r.duration_s*1000:>5.0f} ms")
+            out.append(
+                f"  {mark} {r.case:>22s}  ({r.ticker:>5s} {r.fiscal_year} {r.fiscal_period})"
+                f"  {r.score:>2d}/{r.total:<2d}  {r.duration_s * 1000:>5.0f} ms"
+            )
             # Show failing checks for partial passes.
             fails = [c for c in r.checks if not c.passed]
             if fails and not r.passed:
@@ -566,26 +717,33 @@ def render_console(reports: list[CaseReport]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(
-        description="Run golden-set extraction eval against the engine.")
+    ap = argparse.ArgumentParser(description="Run golden-set extraction eval against the engine.")
     ap.add_argument("--case", help="Run only this case (substring match against case id)")
     ap.add_argument("--json", action="store_true", help="Emit JSON instead of console")
     ap.add_argument("--md", action="store_true", help="Emit Markdown report")
-    ap.add_argument("--strict", action="store_true",
-                    help="Treat 'soft expectations' as hard (so red_flags_expect "
-                         "becomes a failure when missing). Off by default.")
-    ap.add_argument("--timing", action="store_true",
-                    help="Capture per-stage engine timings via qscreen_perf. "
-                         "Sets PERF_TIMING=1 (so the engine wires the perf record) "
-                         "and LOG_LEVEL=DEBUG (so qscreen.ingest emits the per-stage "
-                         "trace). The JSON output's per-case 'stages' field is "
-                         "populated, and --out-aggregate gets a Prometheus-format "
-                         "summary when supplied.")
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="Treat 'soft expectations' as hard (so red_flags_expect "
+        "becomes a failure when missing). Off by default.",
+    )
+    ap.add_argument(
+        "--timing",
+        action="store_true",
+        help="Capture per-stage engine timings via qscreen_perf. "
+        "Sets PERF_TIMING=1 (so the engine wires the perf record) "
+        "and LOG_LEVEL=DEBUG (so qscreen.ingest emits the per-stage "
+        "trace). The JSON output's per-case 'stages' field is "
+        "populated, and --out-aggregate gets a Prometheus-format "
+        "summary when supplied.",
+    )
     ap.add_argument("--out", help="Write report to this path (default: stdout)")
-    ap.add_argument("--out-aggregate",
-                    help="When --timing is set, also write the per-stage aggregate "
-                         "(Prometheus text format) to this path. The weekly perf "
-                         "workflow consumes this against tests/golden/PERF_BASELINE.json.")
+    ap.add_argument(
+        "--out-aggregate",
+        help="When --timing is set, also write the per-stage aggregate "
+        "(Prometheus text format) to this path. The weekly perf "
+        "workflow consumes this against tests/golden/PERF_BASELINE.json.",
+    )
     args = ap.parse_args(argv)
 
     if args.timing:
@@ -633,9 +791,16 @@ def main(argv: list[str] | None = None) -> int:
                 "total": r.total,
                 "duration_ms": round(r.duration_s * 1000, 1),
                 "error": r.error,
-                "checks": [{"name": c.name, "expected": c.expected,
-                             "actual": c.actual, "passed": c.passed,
-                             "detail": c.detail} for c in r.checks],
+                "checks": [
+                    {
+                        "name": c.name,
+                        "expected": c.expected,
+                        "actual": c.actual,
+                        "passed": c.passed,
+                        "detail": c.detail,
+                    }
+                    for c in r.checks
+                ],
             }
             if r.stages is not None:
                 entry["stages"] = r.stages
@@ -643,8 +808,7 @@ def main(argv: list[str] | None = None) -> int:
         out: dict[str, Any] = {"cases": cases_out}
         if args.timing and all_records:
             agg = qscreen_perf.aggregate(all_records)
-            out["aggregate"] = {stage: {k: v for k, v in stats.items()}
-                                  for stage, stats in agg.items()}
+            out["aggregate"] = {stage: dict(stats.items()) for stage, stats in agg.items()}
         text = json.dumps(out, indent=2, ensure_ascii=False)
 
         if args.out_aggregate and all_records:

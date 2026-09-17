@@ -1,4 +1,5 @@
 """Pins qscreen_state (dedup key + sqlite-backed BatchState)."""
+
 from __future__ import annotations
 
 import os
@@ -7,12 +8,12 @@ from pathlib import Path
 import pytest
 
 from qscreen_state import (
-    BatchState,
     STATUS_DONE,
     STATUS_ERROR,
     STATUS_IN_FLIGHT,
     STATUS_PENDING,
     STATUS_UPLOADED,
+    BatchState,
     dedup_key,
 )
 
@@ -45,7 +46,7 @@ def test_dedup_key_handles_missing_values():
     a = dedup_key("", None, None, "")
     b = dedup_key("", None, None, "")
     assert a == b
-    assert len(a) == 64                              # sha256 hex
+    assert len(a) == 64  # sha256 hex
 
 
 # ── manifest lifecycle ───────────────────────────────────────────────────────
@@ -53,9 +54,9 @@ def test_dedup_key_handles_missing_values():
 
 def test_start_manifest_inserts_and_resumes(state):
     state.start_manifest("m1", row_count=10)
-    state.start_manifest("m1", row_count=12)         # idempotent
+    state.start_manifest("m1", row_count=12)  # idempotent
     s = state.manifest_summary("m1")
-    assert s["row_count"] == 12                      # latest write wins
+    assert s["row_count"] == 12  # latest write wins
     assert s["finished_at"] is None
 
 
@@ -72,8 +73,8 @@ def test_start_then_finish_records_stats(state):
 
 def test_ensure_row_is_idempotent(state):
     state.ensure_row("m1", 1, "dedup-a")
-    state.ensure_row("m1", 1, "dedup-a")             # same row again
-    state.ensure_row("m1", 1, "dedup-b")             # same row, different key — original kept
+    state.ensure_row("m1", 1, "dedup-a")  # same row again
+    state.ensure_row("m1", 1, "dedup-b")  # same row, different key — original kept
     rows = list(state.iter_rows("m1"))
     assert len(rows) == 1
     assert rows[0].dedup_key == "dedup-a"
@@ -87,8 +88,8 @@ def test_claim_row_transitions_pending_to_in_flight(state):
 
 def test_claim_row_is_atomic(state):
     state.ensure_row("m1", 1, "k")
-    state.claim_row("m1", 1)                          # worker A
-    assert state.claim_row("m1", 1) is False         # worker B can't claim
+    state.claim_row("m1", 1)  # worker A
+    assert state.claim_row("m1", 1) is False  # worker B can't claim
     assert state.get_row("m1", 1).status == STATUS_IN_FLIGHT
 
 
@@ -97,7 +98,7 @@ def test_claim_row_can_reclaim_after_error(state):
     state.claim_row("m1", 1)
     state.mark_error("m1", 1, error="boom")
     assert state.get_row("m1", 1).status == STATUS_ERROR
-    assert state.claim_row("m1", 1) is True          # retry path
+    assert state.claim_row("m1", 1) is True  # retry path
 
 
 def test_mark_done_then_uploaded_progresses_statuses(state):
@@ -112,7 +113,7 @@ def test_mark_done_then_uploaded_progresses_statuses(state):
 
 def test_reset_in_flight_reclaims_crashed_rows(state):
     state.ensure_row("m1", 1, "k")
-    state.claim_row("m1", 1)                          # worker A: claims then crashes
+    state.claim_row("m1", 1)  # worker A: claims then crashes
     n = state.reset_in_flight("m1")
     assert n == 1
     assert state.get_row("m1", 1).status == STATUS_PENDING

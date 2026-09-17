@@ -1,4 +1,5 @@
 """Pins `qscreen_gates.gate_post_extract` behaviour."""
+
 from __future__ import annotations
 
 import copy
@@ -8,41 +9,57 @@ import pytest
 import qscreen_gates as gates
 
 
-def _good_bs(total_assets: float = 1000.0, total_liab: float = 700.0,
-              total_equity: float = 300.0) -> dict:
+def _good_bs(
+    total_assets: float = 1000.0, total_liab: float = 700.0, total_equity: float = 300.0
+) -> dict:
     return {
-        "metadata": {"symbol": "ABCD", "fiscal_year": 2024,
-                       "currency": "USD", "unit_scale": 1000},
+        "metadata": {"symbol": "ABCD", "fiscal_year": 2024, "currency": "USD", "unit_scale": 1000},
         "statements": [
-            {"type": "balance_sheet",
-             "title": "Statement of Financial Position",
-             "period_label": "FY 2024",
-             "line_items": [
-                 {"account_code": c, "value": v, "comparatives": [],
-                  "depth": 0, "is_subtotal": False}
-                 for c, v in (
-                     ("BS_TOTAL_ASSETS",    total_assets),
-                     ("BS_TOTAL_LIABILITIES", total_liab),
-                     ("BS_TOTAL_EQUITY",    total_equity),
-                 )
-             ]},
+            {
+                "type": "balance_sheet",
+                "title": "Statement of Financial Position",
+                "period_label": "FY 2024",
+                "line_items": [
+                    {
+                        "account_code": c,
+                        "value": v,
+                        "comparatives": [],
+                        "depth": 0,
+                        "is_subtotal": False,
+                    }
+                    for c, v in (
+                        ("BS_TOTAL_ASSETS", total_assets),
+                        ("BS_TOTAL_LIABILITIES", total_liab),
+                        ("BS_TOTAL_EQUITY", total_equity),
+                    )
+                ],
+            },
         ],
     }
 
 
-def _good_is(rev: float = 1000.0, cogs: float = 700.0,
-              gp: float | None = 300.0) -> dict:
+def _good_is(rev: float = 1000.0, cogs: float = 700.0, gp: float | None = 300.0) -> dict:
     items = [("IS_REVENUE", rev), ("IS_COST_OF_SALES", cogs)]
     if gp is not None:
         items.append(("IS_GROSS_PROFIT", gp))
     f = _good_bs()
-    f["statements"].append({"type": "income_statement", "title": "Income Statement",
-                              "period_label": "FY 2024",
-                              "line_items": [
-                                  {"account_code": c, "value": v, "comparatives": [],
-                                   "depth": 0, "is_subtotal": False}
-                                  for c, v in items
-                              ]})
+    f["statements"].append(
+        {
+            "type": "income_statement",
+            "title": "Income Statement",
+            "period_label": "FY 2024",
+            "line_items": [
+                {
+                    "account_code": c,
+                    "value": v,
+                    "comparatives": [],
+                    "depth": 0,
+                    "is_subtotal": False,
+                }
+                for c, v in items
+            ],
+        }
+    )
     return f
 
 
@@ -111,11 +128,25 @@ def test_balance_sheet_rounding_within_absolute_tolerance_ignored():
 
 
 def test_missing_bs_legs_no_warning():
-    f = {"metadata": {}, "statements": [
-        {"type": "balance_sheet", "title": "BS", "period_label": "FY",
-         "line_items": [
-             {"account_code": "BS_TOTAL_ASSETS", "value": 1000.0,
-              "comparatives": [], "depth": 0, "is_subtotal": False}]}]}
+    f = {
+        "metadata": {},
+        "statements": [
+            {
+                "type": "balance_sheet",
+                "title": "BS",
+                "period_label": "FY",
+                "line_items": [
+                    {
+                        "account_code": "BS_TOTAL_ASSETS",
+                        "value": 1000.0,
+                        "comparatives": [],
+                        "depth": 0,
+                        "is_subtotal": False,
+                    }
+                ],
+            }
+        ],
+    }
     g = gates.gate_post_extract(f)
     assert all(x.rule != "bs_identity_a_le_q" for x in g.findings)
 
@@ -141,7 +172,7 @@ def test_gross_profit_within_tolerance():
 
 def test_bad_currency_shape_warns():
     f = _good_bs()
-    f["metadata"]["currency"] = "Qatari Riyal"        # not ISO-4217-shaped
+    f["metadata"]["currency"] = "Qatari Riyal"  # not ISO-4217-shaped
     g = gates.gate_post_extract(f)
     assert {x.rule for x in g.findings} >= {"metadata_currency_shape"}
 
@@ -155,7 +186,7 @@ def test_bad_unit_scale_warns():
 
 def test_null_currency_is_fine():
     f = _good_bs()
-    f["metadata"]["currency"] = None              # under-determined; not bad
+    f["metadata"]["currency"] = None  # under-determined; not bad
     g = gates.gate_post_extract(f)
     assert all(x.rule != "metadata_currency_shape" for x in g.findings)
 

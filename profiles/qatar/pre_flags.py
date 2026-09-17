@@ -34,12 +34,12 @@ Adding a rule
 4. Add the test fixture in tests/test_pre_flags.py with a synthetic filing
    that triggers the rule, plus a synthetic filing that doesn't.
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Optional
-
+from typing import Callable
 
 # ── result + rule shape ──────────────────────────────────────────────────────
 
@@ -49,14 +49,19 @@ class RedFlag:
     rule_id: str
     ticker: str | None
     fiscal_year: int | None
-    severity: str                  # info | warn | block
+    severity: str  # info | warn | block
     message: str
     evidence: dict = field(default_factory=dict)
 
     def to_warning(self) -> dict:
-        return {"rule": self.rule_id, "severity": self.severity,
-                "ticker": self.ticker, "fiscal_year": self.fiscal_year,
-                "message": self.message, **self.evidence}
+        return {
+            "rule": self.rule_id,
+            "severity": self.severity,
+            "ticker": self.ticker,
+            "fiscal_year": self.fiscal_year,
+            "message": self.message,
+            **self.evidence,
+        }
 
 
 @dataclass
@@ -64,10 +69,10 @@ class Rule:
     rule_id: str
     severity: str
     message: str
-    applies: Callable[["FilingSnapshot"], bool]
-    evaluate: Callable[["FilingSnapshot"], Optional[dict]]
+    applies: Callable[[FilingSnapshot], bool]
+    evaluate: Callable[[FilingSnapshot], dict | None]
     issuer_specific: bool = False
-    note: str = ""                 # short citation back to the catalog
+    note: str = ""  # short citation back to the catalog
 
 
 @dataclass
@@ -77,6 +82,7 @@ class FilingSnapshot:
     Built once per filing from the merged JSON. Pure data; no schema
     violations expected because gates run before this.
     """
+
     ticker: str | None
     sector: str | None
     fiscal_year: int | None
@@ -88,18 +94,17 @@ class FilingSnapshot:
     audit_material_uncertainty_going_concern: dict | None
     audit_key_audit_matters: list[dict]
     audit_emphasis_of_matter: list[str]
-    line_items: list[dict]         # flat: every statement's items
+    line_items: list[dict]  # flat: every statement's items
     prior_line_items: list[dict] = field(default_factory=list)
     notes: list[dict] = field(default_factory=list)
     company_name: str | None = None
-    raw: dict = field(default_factory=dict)        # the merged filing (for ad-hoc rules)
+    raw: dict = field(default_factory=dict)  # the merged filing (for ad-hoc rules)
 
 
 def build_snapshot(filing: dict) -> FilingSnapshot:
     meta = filing.get("metadata") or {}
     audit = filing.get("audit") or {}
-    items = [li for st in (filing.get("statements") or [])
-                for li in (st.get("line_items") or [])]
+    items = [li for st in (filing.get("statements") or []) for li in (st.get("line_items") or [])]
     notes = filing.get("notes") or []
     return FilingSnapshot(
         ticker=(meta.get("symbol") or "").upper() or None,
@@ -198,6 +203,7 @@ def _rule_govt_qatar_receivable() -> Rule:
 # JSON. Keep it as a no-op stub for now; wire it through the audit-text
 # scan if the notes mention "Government of Qatar".
 
+
 def _rule_kam_intangibles_concentration() -> Rule:
     """KAM text mentions "intangibles"/"goodwill" + large absolute value.
 
@@ -209,9 +215,14 @@ def _rule_kam_intangibles_concentration() -> Rule:
         severity="warn",
         message="Audit KAM flags intangibles / IP / goodwill — concentration risk.",
         applies=lambda s: bool(s.audit_key_audit_matters),
-        evaluate=lambda s: ({} if _has_kam_with_phrase(
-            s, r"\b(impairment|intangibles?|internal[ -]generated goodwill|investment property|IP)\b")
-                          else None),
+        evaluate=lambda s: (
+            {}
+            if _has_kam_with_phrase(
+                s,
+                r"\b(impairment|intangibles?|internal[ -]generated goodwill|investment property|IP)\b",
+            )
+            else None
+        ),
     )
 
 
@@ -226,8 +237,7 @@ def _rule_going_concern_two_years() -> Rule:
         rule_id="xcut_going_concern_structural_2y",
         severity="warn",
         message="Material uncertainty / going-concern flagged — check prior year for structural break.",
-        applies=lambda s: bool(
-            (s.audit_material_uncertainty_going_concern or {}).get("present")),
+        applies=lambda s: bool((s.audit_material_uncertainty_going_concern or {}).get("present")),
         evaluate=lambda s: (
             {"present": True, "next_step": "confirm prior-year also flagged"}
             if (s.audit_material_uncertainty_going_concern or {}).get("present")
@@ -241,21 +251,28 @@ def _rule_qualified_review_insurer_technical_reserves() -> Rule:
 
     Catalog: 'Insurer with qualified review + technical reserves → flag'.
     """
+
     def applies(snap):
         return snap.sector == "insurance" and snap.audit_opinion_type in ("qualified", "review")
+
     def evaluate(snap):
-        bag = " ".join([
-            (k.get("title") or "") + " " + (k.get("text") or "")
-            for k in snap.audit_key_audit_matters
-        ] + list(snap.audit_emphasis_of_matter)).lower()
+        bag = " ".join(
+            [
+                (k.get("title") or "") + " " + (k.get("text") or "")
+                for k in snap.audit_key_audit_matters
+            ]
+            + list(snap.audit_emphasis_of_matter)
+        ).lower()
         if any(p in bag for p in ("technical reserve", "ibnr", "ulae", "claims reserve")):
             return {"keywords": "technical-reserves language present in audit"}
         return None
+
     return Rule(
         rule_id="xcut_insurer_qualified_review_technical_reserves",
         severity="warn",
         message="Insurer qualified review with technical-reserves language — reserve-completeness risk.",
-        applies=applies, evaluate=evaluate,
+        applies=applies,
+        evaluate=evaluate,
     )
 
 
@@ -266,18 +283,22 @@ def _rule_qualified_basis_surfaced() -> Rule:
 
     Catalog: 'Qualified opinion = surface basis paragraphs.'
     """
-    def applies(snap): return snap.audit_opinion_type in ("qualified", "adverse", "disclaimer")
+
+    def applies(snap):
+        return snap.audit_opinion_type in ("qualified", "adverse", "disclaimer")
+
     def evaluate(snap):
         text = (snap.raw.get("audit") or {}).get("verbatim_text")
         if not text or len(text) < 200:
-            return {"audit_opinion_type": snap.audit_opinion_type,
-                    "missing_basis_paragraph": True}
+            return {"audit_opinion_type": snap.audit_opinion_type, "missing_basis_paragraph": True}
         return {"audit_opinion_type": snap.audit_opinion_type}
+
     return Rule(
         rule_id="xcut_qualified_opinion_basis_surfaced",
         severity="info",
         message="Qualified / adverse / disclaimer opinion — see audit.verbatim_text for basis paragraph.",
-        applies=applies, evaluate=evaluate,
+        applies=applies,
+        evaluate=evaluate,
     )
 
 
@@ -287,21 +308,25 @@ def _rule_aafs_reserve_dominates_ni() -> Rule:
 
     Catalog: '|AFS reserve mark| > 50% of net income → for insurers …'.
     """
-    def applies(snap): return snap.sector == "insurance"
+
+    def applies(snap):
+        return snap.sector == "insurance"
+
     def evaluate(snap):
         ni = _li_value(snap, "IS_NET_INCOME")
-        mark = _li_value(snap, "BS_AFS_RESERVE")          # canonical name
+        mark = _li_value(snap, "BS_AFS_RESERVE")  # canonical name
         if ni is None or mark is None or ni == 0:
             return None
         if abs(mark) / abs(ni) > 0.5:
-            return {"afs_reserve": mark, "net_income": ni,
-                    "ratio": abs(mark) / abs(ni)}
+            return {"afs_reserve": mark, "net_income": ni, "ratio": abs(mark) / abs(ni)}
         return None
+
     return Rule(
         rule_id="xcut_aafs_dominates_ni",
         severity="warn",
         message="AFS reserve mark dominates net income — evaluate underwriting, not net income.",
-        applies=applies, evaluate=evaluate,
+        applies=applies,
+        evaluate=evaluate,
     )
 
 
@@ -311,21 +336,25 @@ def _rule_aafs_is_large_share_of_equity() -> Rule:
     Catalog: 'AFS reserve book > 50% of book equity → NAV is essentially a
     call on the AFS book'.
     """
-    def applies(snap): return snap.sector == "insurance"
+
+    def applies(snap):
+        return snap.sector == "insurance"
+
     def evaluate(snap):
         mark = _li_value(snap, "BS_AFS_RESERVE")
         eq = _li_value(snap, "BS_TOTAL_EQUITY")
         if mark is None or eq is None or eq == 0:
             return None
         if abs(mark) / abs(eq) > 0.5:
-            return {"afs_reserve": mark, "total_equity": eq,
-                    "share": abs(mark) / abs(eq)}
+            return {"afs_reserve": mark, "total_equity": eq, "share": abs(mark) / abs(eq)}
         return None
+
     return Rule(
         rule_id="xcut_aafs_share_of_equity",
         severity="warn",
         message="AFS reserve >50% of equity — NAV ≈ call on AFS book; P/B needs context.",
-        applies=applies, evaluate=evaluate,
+        applies=applies,
+        evaluate=evaluate,
     )
 
 
@@ -336,6 +365,7 @@ def _rule_rate_swap_large_capital_intensive() -> Rule:
     Catalog: 'Interest rate swap notional > 5% of total liabilities →
     KAM-level for capital-intensive operators'.
     """
+
     def evaluate(snap):
         swap = _li_value(snap, "BS_INTEREST_RATE_SWAP_NOTIONAL")
         tl = _li_value(snap, "BS_TOTAL_LIABILITIES")
@@ -344,6 +374,7 @@ def _rule_rate_swap_large_capital_intensive() -> Rule:
         if swap / tl > 0.05:
             return {"swap": swap, "total_liabilities": tl, "share": swap / tl}
         return None
+
     return Rule(
         rule_id="xcut_rate_swap_capital_intensive_5pct_tl",
         severity="warn",
@@ -359,6 +390,7 @@ def _rule_ip_concentration_real_estate() -> Rule:
 
     Catalog: 'IP at > 40% of total assets → KAM-level for real estate'.
     """
+
     def evaluate(snap):
         ip = _li_value(snap, "BS_INVESTMENT_PROPERTY") or _li_value(snap, "BS_IP")
         ta = _li_value(snap, "BS_TOTAL_ASSETS")
@@ -368,12 +400,15 @@ def _rule_ip_concentration_real_estate() -> Rule:
         if share > 0.40:
             return {"investment_property": ip, "total_assets": ta, "share": share}
         return None
+
     return Rule(
         rule_id="xcut_ip_concentration_40pct_ta",
         severity="warn",
         message="Investment property >40% of total assets — concentration risk.",
-        applies=lambda s: s.sub_sector in (
-            "Diversified Real Estate", "Property Development", "Real Estate Holding"),
+        applies=lambda s: (
+            s.sub_sector
+            in ("Diversified Real Estate", "Property Development", "Real Estate Holding")
+        ),
         evaluate=evaluate,
     )
 
@@ -384,24 +419,27 @@ def _rule_ifrs_9_transition() -> Rule:
 
     Catalog: 'IFRS 9 transition magnitude often lives in IS, not KAM.'
     """
+
     def applies(snap):
         if not snap.audit_key_audit_matters:
             return False
-        return _has_kam_with_phrase(snap,
-            r"\bifrs\s*9\b|expected\s*credit\s*loss|ec[il]?\b|stage\s*[12]\b")
+        return _has_kam_with_phrase(
+            snap, r"\bifrs\s*9\b|expected\s*credit\s*loss|ec[il]?\b|stage\s*[12]\b"
+        )
+
     def evaluate(snap):
         for li in snap.line_items:
             label = (li.get("label_verbatim") or "").lower()
-            if ("transition" in label or "ifrs 9 adoption" in label
-                or "opening retained" in label):
-                return {"line_code": li.get("account_code"),
-                          "label": li.get("label_verbatim")}
+            if "transition" in label or "ifrs 9 adoption" in label or "opening retained" in label:
+                return {"line_code": li.get("account_code"), "label": li.get("label_verbatim")}
         return None
+
     return Rule(
         rule_id="xcut_ifrs9_transition_in_is",
         severity="info",
         message="IFRS 9 transition flag — scan IS for transition / opening-RE line items.",
-        applies=applies, evaluate=evaluate,
+        applies=applies,
+        evaluate=evaluate,
     )
 
 
@@ -412,20 +450,30 @@ def _rule_dual_income_statement_takaful() -> Rule:
 
     Catalog: 'Takaful/Islamic insurance dual-IS schema dedup pattern'.
     """
+
     def evaluate(snap):
         statements = snap.raw.get("statements") or []
         n_is = sum(1 for st in statements if st.get("type") == "income_statement")
         if n_is >= 2:
             return {"income_statement_count": n_is}
         return None
+
     return Rule(
         rule_id="xcut_dual_income_statement_takaful",
         severity="warn",
-        message=("Multiple income_statement entries — typical for Takaful issuers "
-                "(Policyholders + Shareholders). Manual dedup may be needed."),
-        applies=lambda s: s.sub_sector in (
-            "Conventional Insurance", "Takaful Insurance", "Reinsurance",
-            "Life & Medical Insurance"),
+        message=(
+            "Multiple income_statement entries — typical for Takaful issuers "
+            "(Policyholders + Shareholders). Manual dedup may be needed."
+        ),
+        applies=lambda s: (
+            s.sub_sector
+            in (
+                "Conventional Insurance",
+                "Takaful Insurance",
+                "Reinsurance",
+                "Life & Medical Insurance",
+            )
+        ),
         evaluate=evaluate,
     )
 
@@ -436,6 +484,7 @@ def _rule_first_reporting_period_length() -> Rule:
 
     Catalog: 'Non-12-month first reporting period = real signal'.
     """
+
     def evaluate(snap):
         # Crude heuristic: if period_label is not in {'Q1','Q2','Q3','Q4','FY',
         # 'H1','9M'} but looks like "from X to Y" → initiation.
@@ -446,6 +495,7 @@ def _rule_first_reporting_period_length() -> Rule:
         if any(tok in per for tok in (" FROM ", " TO ", "MONTH", "PERIOD")):
             return {"period_label": per}
         return None
+
     return Rule(
         rule_id="xcut_first_reporting_period_non_standard",
         severity="info",
@@ -467,14 +517,13 @@ def _rule_issuer_renamed() -> Rule:
         "QATR": "Launched 2018-03-21; pre-stabilisation stub filings 2018 Q1/Q2",
         "QIGD": "Renamed 3×: see note in company_name history",
     }
-    name = REASSIGNED.get("{TICKER}", "")
+    REASSIGNED.get("{TICKER}", "")
     return Rule(
         rule_id="xcut_issuer_renamed_history",
         severity="info",
         message="Issuer name history note (renamed / FYE change / launch).",
-        applies=lambda s: False,                  # dynamic; see evaluate_issuer_renamed below
-        evaluate=lambda s: ({"note": REASSIGNED[s.ticker]}
-                          if s.ticker in REASSIGNED else None),
+        applies=lambda s: False,  # dynamic; see evaluate_issuer_renamed below
+        evaluate=lambda s: {"note": REASSIGNED[s.ticker]} if s.ticker in REASSIGNED else None,
     )
 
 
@@ -491,9 +540,12 @@ def evaluate_issuer_renamed(snap: FilingSnapshot) -> RedFlag | None:
     if snap.ticker in notes:
         return RedFlag(
             rule_id="issuer_renamed_history",
-            ticker=snap.ticker, fiscal_year=snap.fiscal_year,
-            severity="info", message=notes[snap.ticker],
-            evidence={"source": "memory/qse-filings-extraction.md"})
+            ticker=snap.ticker,
+            fiscal_year=snap.fiscal_year,
+            severity="info",
+            message=notes[snap.ticker],
+            evidence={"source": "memory/qse-filings-extraction.md"},
+        )
     return None
 
 
@@ -504,17 +556,23 @@ def evaluate_issuer_renamed(snap: FilingSnapshot) -> RedFlag | None:
 _ISSUER_FACTS: dict[str, dict] = {
     "AKHI": {
         "first_year": 2005,
-        "note": ("Corpus misclassifies as islamic_bank (policyholders, wakala, "
-                  "Qard Hassan, Participants Fund, Tabarru, Retakaful). "
-                  "Pre-flag: any takaful issuer — verify sector."),
+        "note": (
+            "Corpus misclassifies as islamic_bank (policyholders, wakala, "
+            "Qard Hassan, Participants Fund, Tabarru, Retakaful). "
+            "Pre-flag: any takaful issuer — verify sector."
+        ),
         "ip_yield_year": 2016,
-        "ip_yield_note": ("ALWAYS compute rental_income_yoy / ip_book_carrying_value; "
-                          "flag if > 10% (market rent yields 5–8% benchmark)."),
+        "ip_yield_note": (
+            "ALWAYS compute rental_income_yoy / ip_book_carrying_value; "
+            "flag if > 10% (market rent yields 5–8% benchmark)."
+        ),
     },
     "DUBK": {
         "first_year": 2021,
-        "note": ("Intangibles from M&A: DUBK 2021 FY carried goodwill QR 443M as a KAM "
-                  "(3 CGUs). Pre-flag: intangibles >30% of TA → fragility."),
+        "note": (
+            "Intangibles from M&A: DUBK 2021 FY carried goodwill QR 443M as a KAM "
+            "(3 CGUs). Pre-flag: intangibles >30% of TA → fragility."
+        ),
     },
     "QIBK": {
         "first_year": 2018,
@@ -522,19 +580,25 @@ _ISSUER_FACTS: dict[str, dict] = {
     },
     "QIIK": {
         "first_year": 2018,
-        "note": ("Best-in-class cost-to-income (9.0% in 2020 FY); pre-flag: "
-                  "cost-to-income > 12% or ROE < 10%."),
+        "note": (
+            "Best-in-class cost-to-income (9.0% in 2020 FY); pre-flag: "
+            "cost-to-income > 12% or ROE < 10%."
+        ),
     },
     "ZHCD": {
         "first_year": 2004,
-        "note": ("8 of 10+ years qualified on same axis: Govt of Qatar flour subsidy + "
-                  "asset recoverability. Pre-flag: every ZHCD landing → analyst flag; "
-                  "2016+ pre-flag going concern as base case."),
+        "note": (
+            "8 of 10+ years qualified on same axis: Govt of Qatar flour subsidy + "
+            "asset recoverability. Pre-flag: every ZHCD landing → analyst flag; "
+            "2016+ pre-flag going concern as base case."
+        ),
     },
     "WDAM": {
         "first_year": 2004,
-        "note": ("5+ audit flags, 3+ qualified. Equilibrium pricing 0.55-0.65x P/B; "
-                  "clean audit recovery is structural BUY."),
+        "note": (
+            "5+ audit flags, 3+ qualified. Equilibrium pricing 0.55-0.65x P/B; "
+            "clean audit recovery is structural BUY."
+        ),
     },
     "QNCD": {
         "first_year": 2015,
@@ -542,22 +606,30 @@ _ISSUER_FACTS: dict[str, dict] = {
     },
     "QGMD": {
         "first_year": 2019,
-        "note": ("Going-concern 2019→2020→2021; 2nd consecutive = structural failure. "
-                  "STRONG_SELL with NAV 40% + liquidation 30% + EV/EBITDA 15% + RI 15%."),
+        "note": (
+            "Going-concern 2019→2020→2021; 2nd consecutive = structural failure. "
+            "STRONG_SELL with NAV 40% + liquidation 30% + EV/EBITDA 15% + RI 15%."
+        ),
     },
     "QNNS": {
         "first_year": 2010,
-        "note": ("Hybrid maritime + financial services. AFS-reserve 66% of equity. "
-                  "PwC unqualified with KAM=Impairment of property, vessels and intangibles."),
+        "note": (
+            "Hybrid maritime + financial services. AFS-reserve 66% of equity. "
+            "PwC unqualified with KAM=Impairment of property, vessels and intangibles."
+        ),
     },
     "VFQS": {
         "first_year": 2013,
-        "note": ("FYE changed Mar 31 → Dec 31 in 2013. _2013_FY and _2016_FY are 9-month transitions."),
+        "note": (
+            "FYE changed Mar 31 → Dec 31 in 2013. _2013_FY and _2016_FY are 9-month transitions."
+        ),
     },
     "QISI": {
         "first_year": 2013,
-        "note": ("Dual IS (Policyholders + Shareholders). Unit scale change 2013 Q2 (QR000→QAR). "
-                  "2016+ image-based; only Q2 has auditor review (Deloitte)."),
+        "note": (
+            "Dual IS (Policyholders + Shareholders). Unit scale change 2013 Q2 (QR000→QAR). "
+            "2016+ image-based; only Q2 has auditor review (Deloitte)."
+        ),
     },
     "DOHI": {
         "first_year": 2014,
@@ -565,33 +637,45 @@ _ISSUER_FACTS: dict[str, dict] = {
     },
     "QEWS": {
         "first_year": 2012,
-        "note": ("KAHRAMAA concession Emiri decree not obtained; concession revenue at risk. "
-                  "Pre-flag: utility with non-decreed concession + >10% revenue → high severity."),
+        "note": (
+            "KAHRAMAA concession Emiri decree not obtained; concession revenue at risk. "
+            "Pre-flag: utility with non-decreed concession + >10% revenue → high severity."
+        ),
     },
     "QFLS": {
         "first_year": 2015,
-        "note": ("Auditor change to Rödl & Partner + QR 802.5M IP reclassification in same filing."),
+        "note": (
+            "Auditor change to Rödl & Partner + QR 802.5M IP reclassification in same filing."
+        ),
     },
     "QIMD": {
         "first_year": 2014,
-        "note": ("2014 + 2015 Q3 carry going-concern note for QATAR CLAY BRICKS ASSOCIATE — "
-                  "NOT QIMD itself. going_concern_subject should distinguish 'self' | 'associate'."),
+        "note": (
+            "2014 + 2015 Q3 carry going-concern note for QATAR CLAY BRICKS ASSOCIATE — "
+            "NOT QIMD itself. going_concern_subject should distinguish 'self' | 'associate'."
+        ),
     },
     "UDCD": {
         "first_year": 2010,
-        "note": ("Real estate. IP at 47% of TA = KAM-level. Trading at 55% of book NAV + "
-                  "9.0% div yield. Bull case requires IP revaluation."),
+        "note": (
+            "Real estate. IP at 47% of TA = KAM-level. Trading at 55% of book NAV + "
+            "9.0% div yield. Bull case requires IP revaluation."
+        ),
     },
     "QGTS": {
         "first_year": 2017,
-        "note": ("LNG. KAM-flagged interest rate swap book QAR 2.478B = 10.3% of total liabilities. "
-                  "PP&E revaluation (book +30-50% below FMV) is central swing factor."),
+        "note": (
+            "LNG. KAM-flagged interest rate swap book QAR 2.478B = 10.3% of total liabilities. "
+            "PP&E revaluation (book +30-50% below FMV) is central swing factor."
+        ),
     },
     "IGRD": {
         "first_year": 2019,
-        "note": ("2019 Q2: 3 EoM including 'internally-generated goodwill QR 711M NOT in "
-                  "conformity with IAS 38' (52% of TA). IAS 38 EXPLICITLY PROHIBITS recognizing "
-                  "internally-generated goodwill — if auditor didn't qualify, that's a red flag on the auditor."),
+        "note": (
+            "2019 Q2: 3 EoM including 'internally-generated goodwill QR 711M NOT in "
+            "conformity with IAS 38' (52% of TA). IAS 38 EXPLICITLY PROHIBITS recognizing "
+            "internally-generated goodwill — if auditor didn't qualify, that's a red flag on the auditor."
+        ),
     },
     "AHCS": {
         "first_year": 2019,
@@ -599,13 +683,17 @@ _ISSUER_FACTS: dict[str, dict] = {
     },
     "MPHC": {
         "first_year": 2018,
-        "note": ("KAM on revenue recognition from JV sales to Muntajat — 96% revenue from "
-                  "single customer. Drop below 80% in future = positive diversification."),
+        "note": (
+            "KAM on revenue recognition from JV sales to Muntajat — 96% revenue from "
+            "single customer. Drop below 80% in future = positive diversification."
+        ),
     },
     "MCGS": {
         "first_year": 2008,
-        "note": ("Hospital operator — 2008 FY -97% cash to QAR 7.2M = liquidity crisis even "
-                  "with healthy NAV. Watch cash position hard."),
+        "note": (
+            "Hospital operator — 2008 FY -97% cash to QAR 7.2M = liquidity crisis even "
+            "with healthy NAV. Watch cash position hard."
+        ),
     },
     "IHGS": {
         "first_year": 2018,
@@ -666,21 +754,27 @@ def run_pre_flags(filing: dict) -> list[RedFlag]:
             evidence = rule.evaluate(snap)
             if evidence is None:
                 continue
-            out.append(RedFlag(
-                rule_id=rule.rule_id,
-                ticker=snap.ticker,
-                fiscal_year=snap.fiscal_year,
-                severity=rule.severity,
-                message=rule.message,
-                evidence=evidence | {"note": rule.note} if rule.note else evidence,
-            ))
-        except Exception as e:                          # pragma: no cover - defensive
-            out.append(RedFlag(
-                rule_id=rule.rule_id,
-                ticker=snap.ticker, fiscal_year=snap.fiscal_year,
-                severity="info",
-                message=f"pre-flag evaluation raised {type(e).__name__}",
-                evidence={"error": str(e)}))
+            out.append(
+                RedFlag(
+                    rule_id=rule.rule_id,
+                    ticker=snap.ticker,
+                    fiscal_year=snap.fiscal_year,
+                    severity=rule.severity,
+                    message=rule.message,
+                    evidence=evidence | {"note": rule.note} if rule.note else evidence,
+                )
+            )
+        except Exception as e:  # pragma: no cover - defensive
+            out.append(
+                RedFlag(
+                    rule_id=rule.rule_id,
+                    ticker=snap.ticker,
+                    fiscal_year=snap.fiscal_year,
+                    severity="info",
+                    message=f"pre-flag evaluation raised {type(e).__name__}",
+                    evidence={"error": str(e)},
+                )
+            )
 
     # Issuer-specific facts: one rule per issuer/year pair that's in the
     # corpus window. These are info-level (don't block) — they just
@@ -689,12 +783,16 @@ def run_pre_flags(filing: dict) -> list[RedFlag]:
     note = info.get("note")
     first_year = info.get("first_year", 0)
     if note and (snap.fiscal_year or 0) >= first_year:
-        out.append(RedFlag(
-            rule_id=f"issuer_fact_{snap.ticker.lower()}",
-            ticker=snap.ticker, fiscal_year=snap.fiscal_year,
-            severity="info", message=note,
-            evidence={"source": "memory/qse-filings-extraction.md"},
-        ))
+        out.append(
+            RedFlag(
+                rule_id=f"issuer_fact_{snap.ticker.lower()}",
+                ticker=snap.ticker,
+                fiscal_year=snap.fiscal_year,
+                severity="info",
+                message=note,
+                evidence={"source": "memory/qse-filings-extraction.md"},
+            )
+        )
 
     # The dynamic issuer-rename dispatch.
     r = evaluate_issuer_renamed(snap)
@@ -713,8 +811,14 @@ def merge_into_filing(filing: dict, flags: list[RedFlag]) -> None:
         rf = [rf]
     existing_ids = {(x.get("rule"), x.get("fiscal_year")) for x in rf if isinstance(x, dict)}
     for f in flags:
-        d = {"rule": f.rule_id, "severity": f.severity, "ticker": f.ticker,
-              "fiscal_year": f.fiscal_year, "message": f.message, **f.evidence}
+        d = {
+            "rule": f.rule_id,
+            "severity": f.severity,
+            "ticker": f.ticker,
+            "fiscal_year": f.fiscal_year,
+            "message": f.message,
+            **f.evidence,
+        }
         if (f.rule_id, f.fiscal_year) not in existing_ids:
             rf.append(d)
 
@@ -733,6 +837,10 @@ def merge_into_filing(filing: dict, flags: list[RedFlag]) -> None:
 
 
 __all__ = [
-    "RedFlag", "Rule", "FilingSnapshot",
-    "build_snapshot", "run_pre_flags", "merge_into_filing",
+    "FilingSnapshot",
+    "RedFlag",
+    "Rule",
+    "build_snapshot",
+    "merge_into_filing",
+    "run_pre_flags",
 ]

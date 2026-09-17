@@ -22,3 +22,7 @@ dist/
 # type checker / linter caches (kept around for IDEs; never committed)
 .mypy_cache/
 .ruff_cache/
+# Local bench artifacts (sub-agent 3 leftover)
+bench.json
+bench_agg.txt
+bench_no_timing.json

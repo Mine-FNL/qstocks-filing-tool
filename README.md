@@ -523,13 +523,22 @@ the default — matched automatically when no `--jurisdiction` is given. Two way
 
 ```python
 JURISDICTION_NAME = "United Arab Emirates"
-def build_profile(ticker):            # full profile dict, or None if unknown
+
+
+def build_profile(ticker):  # full profile dict, or None if unknown
     ...
-def profile_for_year(ticker, year):   # same shape, temporal slice
+def profile_for_year(ticker, year):  # same shape, temporal slice
     ...
-def taxonomy():        return {"Banks": ["Conventional", "Islamic"]}
-def symbol_subsector(): return {"ALDAR": "Real Estate Development"}
-def subsector_to_archetype(): return {"Real Estate Development": "industrial"}
+def taxonomy():
+    return {"Banks": ["Conventional", "Islamic"]}
+
+
+def symbol_subsector():
+    return {"ALDAR": "Real Estate Development"}
+
+
+def subsector_to_archetype():
+    return {"Real Estate Development": "industrial"}
 ```
 
 (any not-yet-known sub-sector or currency works the same way — `--sector other --currency AED`
@@ -541,9 +550,18 @@ computed at startup:
 
 ```python
 import profiles
-profiles.register("uae", "United Arab Emirates", profiles.JurisdictionLoader(
-    build_profile=..., profile_for_year=..., taxonomy=...,
-    symbol_subsector=..., subsector_to_archetype=...))
+
+profiles.register(
+    "uae",
+    "United Arab Emirates",
+    profiles.JurisdictionLoader(
+        build_profile=...,
+        profile_for_year=...,
+        taxonomy=...,
+        symbol_subsector=...,
+        subsector_to_archetype=...,
+    ),
+)
 ```
 
 Already shipped data lives under `profiles/qatar/data/<TICKER>.json`; regenerate after any

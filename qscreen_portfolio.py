@@ -14,6 +14,7 @@ CLI:
     python3 qscreen_portfolio.py QNBK_2023_FY_filing.json CBQK_2023_FY_filing.json ORDS_2023_FY_filing.json
     # → watchlist.html + watchlist.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,9 +23,9 @@ import json
 import sys
 from pathlib import Path
 
-from qscreen_series import build_series
 import qscreen_analyze as az
 import qscreen_dcf as dcf
+from qscreen_series import build_series
 
 
 def _num(x):
@@ -38,11 +39,15 @@ def _num(x):
 
 
 def _pct(x):
-    return "—" if x is None else f"{x * 100:.1f}%"   # ratio values are fractions
+    return "—" if x is None else f"{x * 100:.1f}%"  # ratio values are fractions
 
 
-def roll_up(filings_by_symbol: dict, profiles_by_symbol: dict | None = None,
-            prices: dict | None = None, shares: dict | None = None) -> dict:
+def roll_up(
+    filings_by_symbol: dict,
+    profiles_by_symbol: dict | None = None,
+    prices: dict | None = None,
+    shares: dict | None = None,
+) -> dict:
     """Roll each stock through analysis + valuation and rank the basket."""
     profiles_by_symbol = profiles_by_symbol or {}
     prices, shares = prices or {}, shares or {}
@@ -59,17 +64,24 @@ def roll_up(filings_by_symbol: dict, profiles_by_symbol: dict | None = None,
         trends = az.compute_trends(series, archetype)
         val = dcf.value(sym, filings, prof, {}, price=prices.get(sym), shares=shares.get(sym))
         v = val.get("valuation") or {}
-        rows.append({
-            "symbol": sym,
-            "name": (prof or {}).get("name_as_of") or (prof or {}).get("company_name") or sym,
-            "archetype": archetype, "year": latest, "currency": series.get("currency"),
-            "roe": az._val(ratios, latest, "roe") if latest else None,
-            "net_margin": az._val(ratios, latest, "net_margin") if latest else None,
-            "ni_growth": (trends.get("IS_NET_INCOME") or {}).get("yoy"),
-            "alerts": alerts, "warns": len(flags) - alerts,
-            "model": v.get("model"), "per_share": v.get("per_share"),
-            "equity_value": v.get("equity_value"), "upside": val.get("upside"),
-        })
+        rows.append(
+            {
+                "symbol": sym,
+                "name": (prof or {}).get("name_as_of") or (prof or {}).get("company_name") or sym,
+                "archetype": archetype,
+                "year": latest,
+                "currency": series.get("currency"),
+                "roe": az._val(ratios, latest, "roe") if latest else None,
+                "net_margin": az._val(ratios, latest, "net_margin") if latest else None,
+                "ni_growth": (trends.get("IS_NET_INCOME") or {}).get("yoy"),
+                "alerts": alerts,
+                "warns": len(flags) - alerts,
+                "model": v.get("model"),
+                "per_share": v.get("per_share"),
+                "equity_value": v.get("equity_value"),
+                "upside": val.get("upside"),
+            }
+        )
     # Healthiest first: fewest alerts, then highest ROE (None last).
     rows.sort(key=lambda r: (r["alerts"], -(r["roe"] if r["roe"] is not None else -99)))
     return {"count": len(rows), "rows": rows}
@@ -86,34 +98,58 @@ th{color:#888} .pos{color:#0a7} .neg{color:#c33} .a{color:#c33;font-weight:700} 
 
 def render_html(board: dict) -> str:
     E = html.escape
-    P = ["<h1>Watchlist — screened & ranked</h1>",
-         f"<p class='muted'>{board['count']} stocks · healthiest first (fewest red-flag alerts, then ROE) · "
-         "computed offline from filings</p>",
-         "<table><tr><th>#</th><th>Ticker</th><th>Company</th><th>Type</th><th>Yr</th>"
-         "<th>ROE</th><th>Net margin</th><th>NI YoY</th><th>Flags</th><th>DCF value</th><th>Upside</th></tr>"]
+    P = [
+        "<h1>Watchlist — screened & ranked</h1>",
+        f"<p class='muted'>{board['count']} stocks · healthiest first (fewest red-flag alerts, then ROE) · "
+        "computed offline from filings</p>",
+        "<table><tr><th>#</th><th>Ticker</th><th>Company</th><th>Type</th><th>Yr</th>"
+        "<th>ROE</th><th>Net margin</th><th>NI YoY</th><th>Flags</th><th>DCF value</th><th>Upside</th></tr>",
+    ]
     for i, r in enumerate(board["rows"], 1):
-        ccy = E(str(r.get("currency") or ""))      # filing-derived → escape
-        flag = (f"<span class='a'>🚨{r['alerts']}</span> " if r["alerts"] else "") + \
-               (f"<span class='w'>⚠️{r['warns']}</span>" if r["warns"] else "")
-        val = (f"{ccy} {_num(r['per_share'])}/sh" if r.get("per_share")
-               else (f"{ccy} {_num(r['equity_value'])}" if r.get("equity_value") else "—"))
-        up = ("—" if r["upside"] is None
-              else f"<span class='{'neg' if r['upside'] < 0 else 'pos'}'>{r['upside'] * 100:+.0f}%</span>")
+        ccy = E(str(r.get("currency") or ""))  # filing-derived → escape
+        flag = (f"<span class='a'>🚨{r['alerts']}</span> " if r["alerts"] else "") + (
+            f"<span class='w'>⚠️{r['warns']}</span>" if r["warns"] else ""
+        )
+        val = (
+            f"{ccy} {_num(r['per_share'])}/sh"
+            if r.get("per_share")
+            else (f"{ccy} {_num(r['equity_value'])}" if r.get("equity_value") else "—")
+        )
+        up = (
+            "—"
+            if r["upside"] is None
+            else f"<span class='{'neg' if r['upside'] < 0 else 'pos'}'>{r['upside'] * 100:+.0f}%</span>"
+        )
         gj = r["ni_growth"]
-        gjs = "—" if gj is None else f"<span class='{'neg' if gj < 0 else 'pos'}'>{gj * 100:+.0f}%</span>"
-        P.append(f"<tr><td>{i}</td><td>{E(str(r['symbol']))}</td><td>{E(str(r['name']))}</td>"
-                 f"<td class='muted'>{E(r['archetype'].replace('_', ' '))}</td><td>{r['year'] or '—'}</td>"
-                 f"<td>{_pct(r['roe'])}</td><td>{_pct(r['net_margin'])}</td><td>{gjs}</td>"
-                 f"<td>{flag or '—'}</td><td>{val}</td><td>{up}</td></tr>")
-    P.append("</table><p class='muted'>Generated by QScreen — figures as reported or derived from "
-             "filings, never invented.</p>")
-    return ("<!doctype html><html><head><meta charset='utf-8'><title>Watchlist</title><style>"
-            + _CSS + "</style></head><body>" + "".join(P) + "</body></html>")
+        gjs = (
+            "—"
+            if gj is None
+            else f"<span class='{'neg' if gj < 0 else 'pos'}'>{gj * 100:+.0f}%</span>"
+        )
+        P.append(
+            f"<tr><td>{i}</td><td>{E(str(r['symbol']))}</td><td>{E(str(r['name']))}</td>"
+            f"<td class='muted'>{E(r['archetype'].replace('_', ' '))}</td><td>{r['year'] or '—'}</td>"
+            f"<td>{_pct(r['roe'])}</td><td>{_pct(r['net_margin'])}</td><td>{gjs}</td>"
+            f"<td>{flag or '—'}</td><td>{val}</td><td>{up}</td></tr>"
+        )
+    P.append(
+        "</table><p class='muted'>Generated by QScreen — figures as reported or derived from "
+        "filings, never invented.</p>"
+    )
+    return (
+        "<!doctype html><html><head><meta charset='utf-8'><title>Watchlist</title><style>"
+        + _CSS
+        + "</style></head><body>"
+        + "".join(P)
+        + "</body></html>"
+    )
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Screen & rank a basket of stocks")
-    p.add_argument("filings", nargs="+", help="filing JSONs for several companies (grouped by symbol)")
+    p.add_argument(
+        "filings", nargs="+", help="filing JSONs for several companies (grouped by symbol)"
+    )
     p.add_argument("--out", default="watchlist", help="output basename (default: watchlist)")
     args = p.parse_args()
 
@@ -125,20 +161,30 @@ def main() -> int:
     profiles = {}
     try:
         import qatar
+
         for sym, fs in groups.items():
-            profiles[sym] = qatar.profile_for_year(sym, (fs[0].get("metadata") or {}).get("fiscal_year"))
+            profiles[sym] = qatar.profile_for_year(
+                sym, (fs[0].get("metadata") or {}).get("fiscal_year")
+            )
     except Exception:
         pass
     board = roll_up(groups, profiles)
-    Path(f"{args.out}.json").write_text(json.dumps(board, indent=2, ensure_ascii=False), encoding="utf-8")
+    Path(f"{args.out}.json").write_text(
+        json.dumps(board, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     Path(f"{args.out}.html").write_text(render_html(board), encoding="utf-8")
     print(f"🗂️  Screened {board['count']} stock(s) → {args.out}.html + {args.out}.json")
     print("   " + "TICKER".ljust(7) + "ROE".rjust(8) + "NI YoY".rjust(9) + "FLAGS".rjust(8))
     for r in board["rows"]:
         roe = "—" if r["roe"] is None else f"{r['roe'] * 100:.1f}%"
         g = "—" if r["ni_growth"] is None else f"{r['ni_growth'] * 100:+.0f}%"
-        print("   " + r["symbol"].ljust(7) + roe.rjust(8) + g.rjust(9)
-              + f"{r['alerts']}A/{r['warns']}W".rjust(8))
+        print(
+            "   "
+            + r["symbol"].ljust(7)
+            + roe.rjust(8)
+            + g.rjust(9)
+            + f"{r['alerts']}A/{r['warns']}W".rjust(8)
+        )
     return 0
 
 

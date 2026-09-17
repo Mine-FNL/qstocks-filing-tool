@@ -9,6 +9,7 @@ to the GitHub repo, lists install paths, shows per-case accuracy, and
 embeds a sample engine-output snippet. No external assets; ships as
 one HTML file with inline CSS. Suitable for hosting on GitHub Pages.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -49,10 +50,10 @@ def render(bench_path: str, out_path: str) -> int:
         fails = "".join(detail) if detail else "<li>all checks pass</li>"
         case_rows_html.append(
             f"<tr><td><strong>{html.escape(c['case'])}</strong></td>"
-            f"<td class=\"num\">{c['score']}/{c['total']}</td>"
+            f'<td class="num">{c["score"]}/{c["total"]}</td>'
             f"<td>{mark}</td>"
             f"<td><details><summary>{c['score']}/{c['total']} checks</summary>"
-            f"<ul style=\"margin:0.25em 0 0 0\">{fails}</ul></details></td></tr>"
+            f'<ul style="margin:0.25em 0 0 0">{fails}</ul></details></td></tr>'
         )
     case_rows = "\n".join(case_rows_html)
 
@@ -156,7 +157,7 @@ def render(bench_path: str, out_path: str) -> int:
 <div class="stat-grid">
   <div class="stat-card">
     <div class="label">Bench accuracy</div>
-    <div class="value">{ratio*100:.1f}%</div>
+    <div class="value">{ratio * 100:.1f}%</div>
   </div>
   <div class="stat-card">
     <div class="label">Checks passing</div>
@@ -198,7 +199,7 @@ def render(bench_path: str, out_path: str) -> int:
 <h2>Sample engine output</h2>
 
 <div class="panel">
-<p>The bench harness runs the engine on each case file (a synthetic <code>===== PAGE N =====</code>-delimited PDF surrogate) and compares against hand-verified expectations. Below is a snippet from the highest-scoring case (<code>{html.escape(sample['case'])}</code>, {sample['score']}/{sample['total']} checks) — the same JSON shape your installation will produce when you point the engine at a real filing.</p>
+<p>The bench harness runs the engine on each case file (a synthetic <code>===== PAGE N =====</code>-delimited PDF surrogate) and compares against hand-verified expectations. Below is a snippet from the highest-scoring case (<code>{html.escape(sample["case"])}</code>, {sample["score"]}/{sample["total"]} checks) — the same JSON shape your installation will produce when you point the engine at a real filing.</p>
 <pre>{html.escape(sample_json)}</pre>
 </div>
 

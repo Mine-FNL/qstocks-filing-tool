@@ -15,6 +15,7 @@ items are point-in-time. Given a set of filings for one company, this computes:
 When the prior-year filings needed for a true TTM aren't supplied, it falls back to
 the reported YTD and says so in `basis`/`warnings` — it never silently annualises.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -63,8 +64,15 @@ def _rows(filings: list[dict]) -> list[dict]:
         if y is None:
             continue
         p = meta.get("fiscal_period") or "FY"
-        rows.append({"year": int(y), "period": p, "months": PERIOD_MONTHS.get(p, 12),
-                     "metrics": filing_metrics(f), "source_file": meta.get("source_file")})
+        rows.append(
+            {
+                "year": int(y),
+                "period": p,
+                "months": PERIOD_MONTHS.get(p, 12),
+                "metrics": filing_metrics(f),
+                "source_file": meta.get("source_file"),
+            }
+        )
     rows.sort(key=lambda r: (r["year"], r["months"]))
     return rows
 
@@ -83,8 +91,17 @@ def _prev_ytd(rows, latest):
 
 def build_ttm(filings: list[dict]) -> dict:
     """Trailing-twelve-month flows + point-in-time stocks for one company."""
-    out = {"as_of": None, "basis": None, "ttm_months": 12, "flows": {}, "stocks": {},
-           "ratios": {}, "standalone_quarter": None, "periods": [], "warnings": []}
+    out = {
+        "as_of": None,
+        "basis": None,
+        "ttm_months": 12,
+        "flows": {},
+        "stocks": {},
+        "ratios": {},
+        "standalone_quarter": None,
+        "periods": [],
+        "warnings": [],
+    }
     rows = _rows(filings)
     if not rows:
         out["warnings"].append("no filings with a fiscal_year")
@@ -114,22 +131,34 @@ def build_ttm(filings: list[dict]) -> dict:
         else:
             out["flows"] = {c: v for c, v in mx.items() if _is_flow(c)}
             out["ttm_months"] = m
-            out["basis"] = f"{p} {y} YTD only ({m}m) — supply FY {y - 1} and {p} {y - 1} for a true TTM"
+            out["basis"] = (
+                f"{p} {y} YTD only ({m}m) — supply FY {y - 1} and {p} {y - 1} for a true TTM"
+            )
             out["warnings"].append(out["basis"])
 
     prev = _prev_ytd(rows, latest)
     if prev:
-        sq = {c: mx[c] - prev["metrics"][c] for c in mx
-              if _is_flow(c) and mx.get(c) is not None and prev["metrics"].get(c) is not None}
-        out["standalone_quarter"] = {"label": f"{p} {y} standalone ({m - prev['months']}m)", "flows": sq}
+        sq = {
+            c: mx[c] - prev["metrics"][c]
+            for c in mx
+            if _is_flow(c) and mx.get(c) is not None and prev["metrics"].get(c) is not None
+        }
+        out["standalone_quarter"] = {
+            "label": f"{p} {y} standalone ({m - prev['months']}m)",
+            "flows": sq,
+        }
     elif m == 3:
-        out["standalone_quarter"] = {"label": f"{p} {y} standalone (3m)",
-                                     "flows": {c: v for c, v in mx.items() if _is_flow(c)}}
+        out["standalone_quarter"] = {
+            "label": f"{p} {y} standalone (3m)",
+            "flows": {c: v for c, v in mx.items() if _is_flow(c)},
+        }
     return out
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="TTM / quarterly roll-ups from filing JSONs (one company)")
+    ap = argparse.ArgumentParser(
+        description="TTM / quarterly roll-ups from filing JSONs (one company)"
+    )
     ap.add_argument("filings", nargs="+", help="*_filing.json files (annual and/or interim)")
     ap.add_argument("--json", action="store_true", help="emit the full result as JSON")
     a = ap.parse_args()

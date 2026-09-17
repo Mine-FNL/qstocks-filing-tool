@@ -18,6 +18,7 @@ Note: historical ``qatar.export_json()`` callers used to write into
 defaulting to the new path; callers that pass an explicit ``directory=`` get
 the path they asked for.
 """
+
 from __future__ import annotations
 
 import importlib

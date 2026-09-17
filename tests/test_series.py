@@ -1,4 +1,5 @@
 """Tests for the per-symbol multi-year series builder."""
+
 from __future__ import annotations
 
 import qscreen_series as s
@@ -8,14 +9,26 @@ def _filing(symbol, year, period, items):
     """items: list of (code, value, [(prior_label, prior_value), ...])."""
     line_items = []
     for code, value, comps in items:
-        line_items.append({
-            "account_code": code, "label_verbatim": code, "value": value,
-            "comparatives": [{"period_label": pl, "value": pv} for pl, pv in comps],
-        })
-    return {"metadata": {"symbol": symbol, "fiscal_year": year, "fiscal_period": period,
-                         "currency": "QAR", "unit_scale": 1000},
-            "statements": [{"type": "income_statement", "verbatim_text": "x",
-                            "line_items": line_items}]}
+        line_items.append(
+            {
+                "account_code": code,
+                "label_verbatim": code,
+                "value": value,
+                "comparatives": [{"period_label": pl, "value": pv} for pl, pv in comps],
+            }
+        )
+    return {
+        "metadata": {
+            "symbol": symbol,
+            "fiscal_year": year,
+            "fiscal_period": period,
+            "currency": "QAR",
+            "unit_scale": 1000,
+        },
+        "statements": [
+            {"type": "income_statement", "verbatim_text": "x", "line_items": line_items}
+        ],
+    }
 
 
 def test_year_from_label():
@@ -36,13 +49,16 @@ def test_single_filing_yields_two_years_via_comparatives():
 
 def test_reported_beats_comparative_and_flags_restatement():
     f23 = _filing("QNBK", 2023, "FY", [("IS_NET_INCOME", 15502, [("2022", 14347)])])
-    f22 = _filing("QNBK", 2022, "FY", [("IS_NET_INCOME", 14349, [("2021", 13200)])])  # 14349 ≠ 14347
+    f22 = _filing(
+        "QNBK", 2022, "FY", [("IS_NET_INCOME", 14349, [("2021", 13200)])]
+    )  # 14349 ≠ 14347
     series = s.build_series("QNBK", [f23, f22])
     assert set(series["years"]) == {"2021", "2022", "2023"}
     assert series["years"]["2022"]["source"] == "reported"
-    assert series["years"]["2022"]["metrics"]["IS_NET_INCOME"] == 14349   # as-reported wins
+    assert series["years"]["2022"]["metrics"]["IS_NET_INCOME"] == 14349  # as-reported wins
     assert series["restatements"] == [
-        {"year": 2022, "metric": "IS_NET_INCOME", "original": 14349, "restated": 14347}]
+        {"year": 2022, "metric": "IS_NET_INCOME", "original": 14349, "restated": 14347}
+    ]
 
 
 def test_annual_only_filters_interims_when_fy_present():

@@ -34,23 +34,23 @@ Dedup key
 The server gets the same key as an ``If-None-Match`` request header so it
 can short-circuit duplicates without charging us (see upload_filing).
 """
+
 from __future__ import annotations
 
 import contextlib
 import hashlib
 import sqlite3
 import time
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator
-
 
 # Status values — fixed strings (avoids enum churn; readable from sqlite-shell).
-STATUS_PENDING   = "pending"
+STATUS_PENDING = "pending"
 STATUS_IN_FLIGHT = "in_flight"
-STATUS_DONE      = "done"
-STATUS_UPLOADED  = "uploaded"
-STATUS_ERROR     = "error"
+STATUS_DONE = "done"
+STATUS_UPLOADED = "uploaded"
+STATUS_ERROR = "error"
 
 
 def _default_state_path() -> Path:
@@ -59,6 +59,7 @@ def _default_state_path() -> Path:
     Falls back to ``./.qscreen-state.db`` in the cwd if home is unset.
     """
     import os
+
     custom = os.getenv("QSCREEN_STATE_DB")
     if custom:
         return Path(custom)
@@ -70,8 +71,9 @@ def _default_state_path() -> Path:
     return Path(".qscreen-state.db").resolve()
 
 
-def dedup_key(symbol: str, fiscal_year: int | None, fiscal_period: str | None,
-              content_sha256: str) -> str:
+def dedup_key(
+    symbol: str, fiscal_year: int | None, fiscal_period: str | None, content_sha256: str
+) -> str:
     """Stable per-filing key. Order matters (drives the dedup contract)."""
     payload = f"{(symbol or '').upper()}|{fiscal_year or ''}|{fiscal_period or ''}|{content_sha256}"
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -132,7 +134,8 @@ class BatchState:
                 );
                 CREATE INDEX IF NOT EXISTS rows_by_status
                     ON rows(manifest_id, status);
-                """)
+                """
+            )
 
     @contextlib.contextmanager
     def _tx(self) -> Iterator[sqlite3.Connection]:
@@ -149,19 +152,15 @@ class BatchState:
             yield cur
             self._conn.commit()
         except Exception:
-            try:
+            with contextlib.suppress(sqlite3.OperationalError):
                 self._conn.rollback()
-            except sqlite3.OperationalError:
-                pass
             raise
         finally:
             cur.close()
 
     def close(self) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self._conn.close()
-        except Exception:
-            pass
 
     # ── manifest lifecycle ────────────────────────────────────────────────────
 
@@ -171,25 +170,33 @@ class BatchState:
                 "INSERT OR REPLACE INTO manifests "
                 "(manifest_id, started_at, row_count, completed_count, error_count) "
                 "VALUES (?, ?, ?, 0, 0)",
-                (manifest_id, time.time(), row_count))
+                (manifest_id, time.time(), row_count),
+            )
 
     def finish_manifest(self, manifest_id: str, *, completed: int, errored: int) -> None:
         with self._tx() as c:
             c.execute(
                 "UPDATE manifests SET finished_at = ?, completed_count = ?, error_count = ? "
                 "WHERE manifest_id = ?",
-                (time.time(), completed, errored, manifest_id))
+                (time.time(), completed, errored, manifest_id),
+            )
 
     def manifest_summary(self, manifest_id: str) -> dict | None:
         row = self._conn.execute(
             "SELECT manifest_id, started_at, finished_at, row_count, "
             "completed_count, error_count FROM manifests WHERE manifest_id = ?",
-            (manifest_id,)).fetchone()
+            (manifest_id,),
+        ).fetchone()
         if not row:
             return None
-        return {"manifest_id": row[0], "started_at": row[1],
-                "finished_at": row[2], "row_count": row[3],
-                "completed": row[4], "errored": row[5]}
+        return {
+            "manifest_id": row[0],
+            "started_at": row[1],
+            "finished_at": row[2],
+            "row_count": row[3],
+            "completed": row[4],
+            "errored": row[5],
+        }
 
     # ── row lifecycle ─────────────────────────────────────────────────────────
 
@@ -204,14 +211,16 @@ class BatchState:
             row = c.execute(
                 "SELECT row_index, dedup_key, status, filing_id, last_error, "
                 "attempted_at, uploaded_at FROM rows WHERE manifest_id = ? AND row_index = ?",
-                (manifest_id, row_index)).fetchone()
+                (manifest_id, row_index),
+            ).fetchone()
             if row:
                 return self._row(*row)
             c.execute(
                 "INSERT INTO rows (manifest_id, row_index, dedup_key, status, "
                 "filing_id, last_error, attempted_at, uploaded_at) "
                 "VALUES (?, ?, ?, 'pending', NULL, NULL, NULL, NULL)",
-                (manifest_id, row_index, dedup_key_))
+                (manifest_id, row_index, dedup_key_),
+            )
         return self.get_row(manifest_id, row_index)
 
     def claim_row(self, manifest_id: str, row_index: int) -> bool:
@@ -224,7 +233,8 @@ class BatchState:
             cur = c.execute(
                 "UPDATE rows SET status = 'in_flight', attempted_at = ? "
                 "WHERE manifest_id = ? AND row_index = ? AND status IN ('pending', 'error')",
-                (time.time(), manifest_id, row_index))
+                (time.time(), manifest_id, row_index),
+            )
             return cur.rowcount > 0
 
     def mark_done(self, manifest_id: str, row_index: int, filing_id: str) -> None:
@@ -232,21 +242,24 @@ class BatchState:
             c.execute(
                 "UPDATE rows SET status = 'done', filing_id = ?, last_error = NULL "
                 "WHERE manifest_id = ? AND row_index = ?",
-                (filing_id, manifest_id, row_index))
+                (filing_id, manifest_id, row_index),
+            )
 
     def mark_uploaded(self, manifest_id: str, row_index: int, filing_id: str) -> None:
         with self._tx() as c:
             c.execute(
                 "UPDATE rows SET status = 'uploaded', uploaded_at = ?, filing_id = ?, "
                 "last_error = NULL WHERE manifest_id = ? AND row_index = ?",
-                (time.time(), filing_id, manifest_id, row_index))
+                (time.time(), filing_id, manifest_id, row_index),
+            )
 
     def mark_error(self, manifest_id: str, row_index: int, error: str) -> None:
         with self._tx() as c:
             c.execute(
                 "UPDATE rows SET status = 'error', last_error = ?, attempted_at = ? "
                 "WHERE manifest_id = ? AND row_index = ?",
-                (error[:500], time.time(), manifest_id, row_index))
+                (error[:500], time.time(), manifest_id, row_index),
+            )
 
     def reset_in_flight(self, manifest_id: str) -> int:
         """Re-claim rows stuck in ``in_flight`` (a previous run crashed).
@@ -256,9 +269,9 @@ class BatchState:
         """
         with self._tx() as c:
             cur = c.execute(
-                "UPDATE rows SET status = 'pending' "
-                "WHERE manifest_id = ? AND status = 'in_flight'",
-                (manifest_id,))
+                "UPDATE rows SET status = 'pending' WHERE manifest_id = ? AND status = 'in_flight'",
+                (manifest_id,),
+            )
             return cur.rowcount
 
     # ── read ──────────────────────────────────────────────────────────────────
@@ -267,15 +280,22 @@ class BatchState:
         row = self._conn.execute(
             "SELECT row_index, dedup_key, status, filing_id, last_error, "
             "attempted_at, uploaded_at FROM rows WHERE manifest_id = ? AND row_index = ?",
-            (manifest_id, row_index)).fetchone()
+            (manifest_id, row_index),
+        ).fetchone()
         if not row:
             return None
         return self._row(*row)
 
     def _row(self, ri, dk, st, fid, err, att, upl) -> RowState:
-        return RowState(row_index=ri, dedup_key=dk, status=st,
-                          filing_id=fid, last_error=err,
-                          attempted_at=att, uploaded_at=upl)
+        return RowState(
+            row_index=ri,
+            dedup_key=dk,
+            status=st,
+            filing_id=fid,
+            last_error=err,
+            attempted_at=att,
+            uploaded_at=upl,
+        )
 
     def pending_indices(self, manifest_id: str) -> list[int]:
         """Row indices that are still ``pending`` or in ``error`` — the
@@ -288,19 +308,26 @@ class BatchState:
             "SELECT row_index FROM rows "
             "WHERE manifest_id = ? AND status IN ('pending', 'error') "
             "ORDER BY row_index",
-            (manifest_id,)).fetchall()
+            (manifest_id,),
+        ).fetchall()
         return [r[0] for r in rows]
 
     def iter_rows(self, manifest_id: str) -> Iterable[RowState]:
         for r in self._conn.execute(
             "SELECT row_index, dedup_key, status, filing_id, last_error, "
             "attempted_at, uploaded_at FROM rows WHERE manifest_id = ? ORDER BY row_index",
-            (manifest_id,)):
+            (manifest_id,),
+        ):
             yield self._row(*r)
 
 
 __all__ = [
-    "STATUS_PENDING", "STATUS_IN_FLIGHT", "STATUS_DONE",
-    "STATUS_UPLOADED", "STATUS_ERROR",
-    "dedup_key", "RowState", "BatchState",
+    "STATUS_DONE",
+    "STATUS_ERROR",
+    "STATUS_IN_FLIGHT",
+    "STATUS_PENDING",
+    "STATUS_UPLOADED",
+    "BatchState",
+    "RowState",
+    "dedup_key",
 ]

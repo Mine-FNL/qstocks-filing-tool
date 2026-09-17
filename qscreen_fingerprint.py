@@ -33,6 +33,7 @@ resolutions still hashes the same. It does NOT trim numeric formatting —
 saved JSON carries a ``filing.fingerprint`` block. ``diff_fingerprints``
 is exposed as a CLI for inline comparison.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,7 +42,6 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
 
 
 def text_fingerprint(text: str) -> str:
@@ -95,8 +95,7 @@ def fingerprint_filing(filing: dict, *, short_label: str | None = None) -> dict:
     # artefact that varies between runs of the same PDF). Two filings
     # with the same set of verbatim blocks in any order produce the
     # same overall_fingerprint.
-    overall = text_fingerprint(
-        "|".join(sorted(item["fingerprint"] for item in items)))
+    overall = text_fingerprint("|".join(sorted(item["fingerprint"] for item in items)))
 
     if short_label is not None:
         filing_id = short_label
@@ -107,9 +106,7 @@ def fingerprint_filing(filing: dict, *, short_label: str | None = None) -> dict:
         else:
             filing_id = "<unnamed-filing>"
 
-    return {"filing_id": filing_id,
-            "overall_fingerprint": overall,
-            "items": items}
+    return {"filing_id": filing_id, "overall_fingerprint": overall, "items": items}
 
 
 def diff_fingerprints(prev: dict | None, current: dict | None) -> dict:
@@ -128,10 +125,8 @@ def diff_fingerprints(prev: dict | None, current: dict | None) -> dict:
     cur_map = {x["key"]: x["fingerprint"] for x in cur_items}
     added = sorted(k for k in cur_map if k not in prev_map)
     removed = sorted(k for k in prev_map if k not in cur_map)
-    modified = sorted(k for k in cur_map
-                       if k in prev_map and prev_map[k] != cur_map[k])
-    unchanged_n = sum(1 for k in prev_map
-                         if k in cur_map and prev_map[k] == cur_map[k])
+    modified = sorted(k for k in cur_map if k in prev_map and prev_map[k] != cur_map[k])
+    unchanged_n = sum(1 for k in prev_map if k in cur_map and prev_map[k] == cur_map[k])
     return {
         "added": added,
         "removed": removed,
@@ -139,8 +134,7 @@ def diff_fingerprints(prev: dict | None, current: dict | None) -> dict:
         "unchanged": unchanged_n,
         "prev_overall": prev_dict.get("overall_fingerprint"),
         "cur_overall": cur_dict.get("overall_fingerprint"),
-        "identical": (prev_map == cur_map and not added and not removed
-                       and not modified),
+        "identical": (prev_map == cur_map and not added and not removed and not modified),
     }
 
 
@@ -157,8 +151,7 @@ def _load_filing(path: str) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(
-        description="Compute / compare filing text fingerprints.")
+    ap = argparse.ArgumentParser(description="Compute / compare filing text fingerprints.")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p_fpr = sub.add_parser("print", help="Print the fingerprint map for one filing.")
@@ -167,8 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     p_diff = sub.add_parser("diff", help="Diff fingerprints between two filings.")
     p_diff.add_argument("prev", help="Previous filing JSON")
     p_diff.add_argument("current", help="Current filing JSON")
-    p_diff.add_argument("--json", action="store_true",
-                          help="Emit JSON instead of console")
+    p_diff.add_argument("--json", action="store_true", help="Emit JSON instead of console")
 
     ns = ap.parse_args(argv)
     if ns.cmd == "print":
@@ -189,18 +181,21 @@ def main(argv: list[str] | None = None) -> int:
                 f"added:     {len(d['added'])}\n"
                 f"removed:   {len(d['removed'])}\n"
                 f"modified:  {len(d['modified'])}\n"
-                f"unchanged: {d['unchanged']}\n")
-            for label, lst in (("+ ADDED", d["added"]),
-                                ("- REMOVED", d["removed"]),
-                                ("~ MODIFIED", d["modified"])):
+                f"unchanged: {d['unchanged']}\n"
+            )
+            for label, lst in (
+                ("+ ADDED", d["added"]),
+                ("- REMOVED", d["removed"]),
+                ("~ MODIFIED", d["modified"]),
+            ):
                 for k in lst:
                     sys.stdout.write(f"  {label:>10s}  {k}\n")
         return 0
-    ap.error("unknown subcommand")                 # pragma: no cover
-    return 2                                       # pragma: no cover
+    ap.error("unknown subcommand")  # pragma: no cover
+    return 2  # pragma: no cover
 
 
-__all__ = ["text_fingerprint", "fingerprint_filing", "diff_fingerprints"]
+__all__ = ["diff_fingerprints", "fingerprint_filing", "text_fingerprint"]
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -13,14 +13,14 @@ Used by ``qscreen_ingest.py`` (via the module-level ``log``), by the bench
 (``qscreen_eval.py --timing``) and by the ``/metrics`` endpoint
 (``qscreen_app.py``).
 """
+
 from __future__ import annotations
 
 import os
 import time
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, suppress
 from dataclasses import dataclass, field
-from typing import Any, Callable
-
+from typing import Any
 
 # ── per-stage timing record ───────────────────────────────────────────────────
 
@@ -32,6 +32,7 @@ class StageSample:
     ``metadata`` carries optional labels (mode, case, …) that can be attached
     later to Prometheus counters / gauges.
     """
+
     stage: str
     duration_ms: float
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -40,11 +41,13 @@ class StageSample:
 @dataclass
 class PerfRecord:
     """All the stage samples recorded for one filing / run."""
+
     samples: list[StageSample] = field(default_factory=list)
 
     def add(self, stage: str, duration_ms: float, **meta: Any) -> None:
-        self.samples.append(StageSample(stage=stage, duration_ms=float(duration_ms),
-                                          metadata=dict(meta)))
+        self.samples.append(
+            StageSample(stage=stage, duration_ms=float(duration_ms), metadata=dict(meta))
+        )
 
     def durations(self, stage: str) -> list[float]:
         return [s.duration_ms for s in self.samples if s.stage == stage]
@@ -65,7 +68,8 @@ class PerfRecord:
 
 class _NoopTimer(AbstractContextManager):
     """Returned by ``stage_timer`` when timing is disabled — zero overhead."""
-    def __enter__(self) -> "_NoopTimer":
+
+    def __enter__(self) -> _NoopTimer:
         return self
 
     def __exit__(self, *exc: Any) -> None:
@@ -89,9 +93,15 @@ class StageTimer(AbstractContextManager):
       * INFO  on entry:  ``stage=<name> start``   (so the operator can grep)
       * DEBUG on exit:   ``stage=<name> duration_ms=<x> ...``
     """
-    def __init__(self, logger: Any, record: PerfRecord | None,
-                 stage: str, log_on_entry: bool = True,
-                 **metadata: Any) -> None:
+
+    def __init__(
+        self,
+        logger: Any,
+        record: PerfRecord | None,
+        stage: str,
+        log_on_entry: bool = True,
+        **metadata: Any,
+    ) -> None:
         self._logger = logger
         self._record = record
         self._stage = stage
@@ -100,15 +110,13 @@ class StageTimer(AbstractContextManager):
         self.duration_ms: float = 0.0
         self._t0: float = 0.0
 
-    def __enter__(self) -> "StageTimer":
+    def __enter__(self) -> StageTimer:
         if self._record is None:
             return self
         self._t0 = time.perf_counter()
         if self._log_on_entry and self._logger is not None:
-            try:
+            with suppress(Exception):
                 self._logger.info("stage=%s start", self._stage)
-            except Exception:
-                pass
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
@@ -116,14 +124,14 @@ class StageTimer(AbstractContextManager):
             return False
         self.duration_ms = (time.perf_counter() - self._t0) * 1000.0
         if self._logger is not None:
-            try:
+            with suppress(Exception):
                 self._logger.debug(
                     "stage=%s duration_ms=%.3f metadata=%s%s",
-                    self._stage, self.duration_ms, self.metadata,
+                    self._stage,
+                    self.duration_ms,
+                    self.metadata,
                     " error" if exc_type else "",
                 )
-            except Exception:
-                pass
         # Carry forward useful metadata fields (mode, case, ...). Merging here
         # keeps the call site free of plumbing.
         merged = dict(self.metadata)
@@ -133,8 +141,9 @@ class StageTimer(AbstractContextManager):
         return False
 
 
-def stage_timer(logger: Any, record: PerfRecord | None,
-                stage: str, **metadata: Any) -> AbstractContextManager:
+def stage_timer(
+    logger: Any, record: PerfRecord | None, stage: str, **metadata: Any
+) -> AbstractContextManager:
     """Convenience factory. Returns a real ``StageTimer`` when ``record`` is
     truthy, otherwise a zero-overhead no-op context manager.
 
@@ -203,7 +212,14 @@ def aggregate(records: list[PerfRecord]) -> dict[str, dict[str, float]]:
 # identical to the request spec so a downstream collector parses them the
 # same way regardless of how this codebase evolves.
 DEFAULT_HIST_BUCKETS_MS: tuple[float, ...] = (
-    50.0, 100.0, 250.0, 500.0, 1000.0, 2500.0, 5000.0, 10000.0,
+    50.0,
+    100.0,
+    250.0,
+    500.0,
+    1000.0,
+    2500.0,
+    5000.0,
+    10000.0,
 )
 
 
@@ -221,8 +237,9 @@ def _format_value(v: float) -> str:
     return repr(v)
 
 
-def emit_metrics(records: list[PerfRecord],
-                 hist_buckets: tuple[float, ...] = DEFAULT_HIST_BUCKETS_MS) -> str:
+def emit_metrics(
+    records: list[PerfRecord], hist_buckets: tuple[float, ...] = DEFAULT_HIST_BUCKETS_MS
+) -> str:
     """Render one batch's records as Prometheus text-format output (v0.0.4).
 
     Emitted metric families:
@@ -244,9 +261,7 @@ def emit_metrics(records: list[PerfRecord],
         for sample in rec.samples:
             slot = per_stage.setdefault(
                 sample.stage,
-                {"count": 0.0, "sum": 0.0,
-                 **{f"le_{b}": 0.0 for b in hist_buckets},
-                 "le_inf": 0.0},
+                {"count": 0.0, "sum": 0.0, **{f"le_{b}": 0.0 for b in hist_buckets}, "le_inf": 0.0},
             )
             slot["count"] += 1.0
             slot["sum"] += sample.duration_ms
@@ -263,10 +278,11 @@ def emit_metrics(records: list[PerfRecord],
         slot = per_stage[stage]
         metric = "qscreen_perf_stage_duration_ms"
         label = f'{{stage="{stage}"}}'
-        lines.append(f"# HELP {metric} Per-stage wall time in milliseconds (from a single bench batch).")
+        lines.append(
+            f"# HELP {metric} Per-stage wall time in milliseconds (from a single bench batch)."
+        )
         lines.append(f"# TYPE {metric} histogram")
         # Buckets are cumulative: le="50" includes everything ≤50ms.
-        prev = 0.0
         for b in hist_buckets:
             count_le = slot[f"le_{b}"]
             bucket_label = f'{{stage="{stage}",le="{_format_value(b)}"}}'
@@ -284,9 +300,11 @@ def emit_metrics(records: list[PerfRecord],
 # ── regression detection ─────────────────────────────────────────────────────
 
 
-def check_regression(baseline: dict[str, dict[str, float]],
-                      current: dict[str, dict[str, float]],
-                      threshold: float = 0.20) -> list[str]:
+def check_regression(
+    baseline: dict[str, dict[str, float]],
+    current: dict[str, dict[str, float]],
+    threshold: float = 0.20,
+) -> list[str]:
     """Compare current per-stage aggregates against a baseline. Returns a
     list of human-readable warnings whenever ``current[stage].p95_ms`` is
     ``>= threshold`` (default 20 %) worse than the baseline's p95.
@@ -304,7 +322,9 @@ def check_regression(baseline: dict[str, dict[str, float]],
     for stage, base in baseline.items():
         cur = current.get(stage)
         if cur is None:
-            warns.append(f"perf: stage '{stage}' missing from current run (was {int(base.get('count', 0))} samples in baseline)")
+            warns.append(
+                f"perf: stage '{stage}' missing from current run (was {int(base.get('count', 0))} samples in baseline)"
+            )
             continue
         b_p95 = float(base.get("p95_ms") or 0.0)
         c_p95 = float(cur.get("p95_ms") or 0.0)
@@ -320,9 +340,11 @@ def check_regression(baseline: dict[str, dict[str, float]],
                 f"(baseline={b_p95:.1f}ms, current={c_p95:.1f}ms, threshold={int(threshold * 100)}%)"
             )
 
-    for stage in current.keys():
+    for stage in current:
         if stage not in baseline:
-            warns.append(f"perf: stage '{stage}' is new (not in baseline) — verify the new instrumentation")
+            warns.append(
+                f"perf: stage '{stage}' is new (not in baseline) — verify the new instrumentation"
+            )
     return warns
 
 
@@ -345,7 +367,7 @@ def attach_to_args(args: Any, record: PerfRecord | None) -> None:
     The attribute is ``_perf_record`` and may be ``None`` when timing is off.
     """
     try:
-        setattr(args, "_perf_record", record)
+        args._perf_record = record
     except Exception:
         # Some Namespace subclasses (or SimpleNamespace) are fully writable;
         # a frozen one is a programmer error here, so swallow.
@@ -373,10 +395,8 @@ def attach_metric_sink(args: Any, sink: Any) -> None:
     """Install a metric callback on the engine's Namespace. The sink must
     accept a single ``(name: str, **labels)`` kwarg call (see
     ``qscreen_app._Metrics`` for the canonical implementation)."""
-    try:
-        setattr(args, "_metric_sink", sink)
-    except Exception:
-        pass
+    with suppress(Exception):
+        args._metric_sink = sink
 
 
 def get_metric_sink(args: Any) -> Any:

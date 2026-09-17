@@ -30,10 +30,11 @@ These three checks are exactly what the live cron
 in the tool itself removes that ambiguity and turns "this filing was
 junk" from a Slack message into a skip in the manifest.
 """
+
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
 
 # Critical mass. Less than ``SKELETON_NULL_RATIO`` of line items have a
 # real value → the filing is a skeleton. Tuned empirically against the
@@ -56,19 +57,19 @@ _IS_SUBTOTAL_RULES: tuple[tuple[str, tuple[tuple[str, int], ...]], ...] = (
     # Sign: +1 = operand contributes positively to the subtotal, -1 = it
     # is subtracted. This way the rule works regardless of whether the
     # model wrote COGS as a positive 700 or a negative -700.
-    ("IS_GROSS_PROFIT",     (("IS_REVENUE", +1), ("IS_COST_OF_SALES", -1))),
-    ("IS_OPERATING_PROFIT", (("IS_GROSS_PROFIT", +1),
-                              ("IS_OPERATING_EXPENSES", -1))),
-    ("IS_PROFIT_BEFORE_TAX",(("IS_OPERATING_PROFIT", +1),
-                              ("IS_FINANCE_COST", -1),
-                              ("IS_OTHER_INCOME", +1))),
+    ("IS_GROSS_PROFIT", (("IS_REVENUE", +1), ("IS_COST_OF_SALES", -1))),
+    ("IS_OPERATING_PROFIT", (("IS_GROSS_PROFIT", +1), ("IS_OPERATING_EXPENSES", -1))),
+    (
+        "IS_PROFIT_BEFORE_TAX",
+        (("IS_OPERATING_PROFIT", +1), ("IS_FINANCE_COST", -1), ("IS_OTHER_INCOME", +1)),
+    ),
 )
 
 
 @dataclass
 class GateFinding:
-    rule: str                 # e.g. "skeleton_high_null_rate"
-    severity: str             # "warn" | "block_save"
+    rule: str  # e.g. "skeleton_high_null_rate"
+    severity: str  # "warn" | "block_save"
     message: str
     evidence: dict = field(default_factory=dict)
 
@@ -91,11 +92,14 @@ class GateResult:
 
     def to_warning_field(self) -> list[dict]:
         """Wire into extraction_quality.warnings — dict form (rule + sev)."""
-        return [{"rule": f.rule, "severity": f.severity, "message": f.message,
-                 **f.evidence} for f in self.findings]
+        return [
+            {"rule": f.rule, "severity": f.severity, "message": f.message, **f.evidence}
+            for f in self.findings
+        ]
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def _statement_by_code(filing: dict, code: str) -> dict | None:
     """Return the first ``line_item`` whose ``account_code`` matches, with
@@ -104,8 +108,11 @@ def _statement_by_code(filing: dict, code: str) -> dict | None:
     for st in filing.get("statements") or []:
         for li in st.get("line_items") or []:
             if li.get("account_code") == code:
-                return {**li, "_statement_type": st.get("type"),
-                        "_period_label":  st.get("period_label")}
+                return {
+                    **li,
+                    "_statement_type": st.get("type"),
+                    "_period_label": st.get("period_label"),
+                }
     return None
 
 
@@ -135,22 +142,28 @@ def _within_tolerance(a: float, b: float) -> bool:
 
 # ── individual checks ─────────────────────────────────────────────────────────
 
+
 def _check_skeleton(filing: dict) -> Iterable[GateFinding]:
-    items = [li for st in (filing.get("statements") or [])
-                  for li in (st.get("line_items") or [])]
+    items = [li for st in (filing.get("statements") or []) for li in (st.get("line_items") or [])]
     n = len(items)
     if n == 0:
         yield GateFinding(
-            rule="skeleton_empty", severity="block_save",
-            message="Filing has zero line items across all statements.")
+            rule="skeleton_empty",
+            severity="block_save",
+            message="Filing has zero line items across all statements.",
+        )
         return
     null = sum(1 for li in items if li.get("value") in (None, ""))
     if null / n >= SKELETON_NULL_RATIO:
         yield GateFinding(
-            rule="skeleton_high_null_rate", severity="block_save",
-            message=(f"{null}/{n} line items have null values "
-                     f"(>={SKELETON_NULL_RATIO:.0%}); refusing to save a skeleton."),
-            evidence={"null": null, "total": n})
+            rule="skeleton_high_null_rate",
+            severity="block_save",
+            message=(
+                f"{null}/{n} line items have null values "
+                f"(>={SKELETON_NULL_RATIO:.0%}); refusing to save a skeleton."
+            ),
+            evidence={"null": null, "total": n},
+        )
         return
 
 
@@ -169,12 +182,15 @@ def _check_balance_sheet(filing: dict) -> Iterable[GateFinding]:
     rhs = l + e
     if not _within_tolerance(a, rhs):
         yield GateFinding(
-            rule="bs_identity_a_le_q", severity="warn",
-            message=(f"Balance sheet doesn't balance: "
-                     f"TotalAssets={a:,.0f}  TotalLiab+Equity={rhs:,.0f}  "
-                     f"delta={a - rhs:+,.0f}"),
-            evidence={"total_assets": a, "total_liab": l,
-                      "total_equity": e, "rhs": rhs})
+            rule="bs_identity_a_le_q",
+            severity="warn",
+            message=(
+                f"Balance sheet doesn't balance: "
+                f"TotalAssets={a:,.0f}  TotalLiab+Equity={rhs:,.0f}  "
+                f"delta={a - rhs:+,.0f}"
+            ),
+            evidence={"total_assets": a, "total_liab": l, "total_equity": e, "rhs": rhs},
+        )
 
 
 def _check_income_subtotals(filing: dict) -> Iterable[GateFinding]:
@@ -189,7 +205,7 @@ def _check_income_subtotals(filing: dict) -> Iterable[GateFinding]:
         sub = _value(sub_item)
         if sub is None:
             continue
-        terms = []                 # (code, signed_value)
+        terms = []  # (code, signed_value)
         missing = []
         for code, sign in operands:
             v = _value(_statement_by_code(filing, code))
@@ -198,19 +214,26 @@ def _check_income_subtotals(filing: dict) -> Iterable[GateFinding]:
             else:
                 terms.append((code, sign * v))
         if missing or not terms:
-            continue                    # under-extracted; not our concern
+            continue  # under-extracted; not our concern
         rhs = sum(signed for _, signed in terms)
         if not _within_tolerance(sub, rhs):
-            rendered = " + ".join(
-                f"{'-' if signed < 0 else ''}{abs(signed):,.0f}".lstrip("-")
-                for _, signed in terms
+            " + ".join(
+                f"{'-' if signed < 0 else ''}{abs(signed):,.0f}".lstrip("-") for _, signed in terms
             )
             yield GateFinding(
-                rule=f"is_subtotal_{subtotal_code.lower()}", severity="warn",
-                message=(f"{subtotal_code}={sub:,.0f} but the operands yield "
-                         f"{rhs:,.0f}  delta={sub - rhs:+,.0f}"),
-                evidence={"subtotal": subtotal_code, "expected": rhs,
-                          "got": sub, "operands": [c for c, _ in operands]})
+                rule=f"is_subtotal_{subtotal_code.lower()}",
+                severity="warn",
+                message=(
+                    f"{subtotal_code}={sub:,.0f} but the operands yield "
+                    f"{rhs:,.0f}  delta={sub - rhs:+,.0f}"
+                ),
+                evidence={
+                    "subtotal": subtotal_code,
+                    "expected": rhs,
+                    "got": sub,
+                    "operands": [c for c, _ in operands],
+                },
+            )
 
 
 def _check_currency_unit(filing: dict) -> Iterable[GateFinding]:
@@ -220,20 +243,27 @@ def _check_currency_unit(filing: dict) -> Iterable[GateFinding]:
         return
     if not isinstance(cur, str) or not (2 <= len(cur) <= 5) or not cur.isalpha():
         yield GateFinding(
-            rule="metadata_currency_shape", severity="warn",
+            rule="metadata_currency_shape",
+            severity="warn",
             message=f"metadata.currency is not ISO-4217-shaped: {cur!r}",
-            evidence={"currency": cur})
+            evidence={"currency": cur},
+        )
 
     us = meta.get("unit_scale")
     if us is not None and us not in (1, 1000, 1_000_000):
         yield GateFinding(
-            rule="metadata_unit_scale", severity="warn",
-            message=(f"metadata.unit_scale={us!r} is not in "
-                     f"{{1, 1000, 1_000_000}}; the engine rejects anything else."),
-            evidence={"unit_scale": us})
+            rule="metadata_unit_scale",
+            severity="warn",
+            message=(
+                f"metadata.unit_scale={us!r} is not in "
+                f"{{1, 1000, 1_000_000}}; the engine rejects anything else."
+            ),
+            evidence={"unit_scale": us},
+        )
 
 
 # ── public entry points ─────────────────────────────────────────────────────
+
 
 def gate_post_extract(filing: dict) -> GateResult:
     """Run every gate and return the aggregate result.

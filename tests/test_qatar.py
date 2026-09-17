@@ -1,11 +1,11 @@
 """Tests for the Qatar (QSE) per-stock temporal knowledge base."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 import qatar
-
 
 ARCHETYPES = {"conventional_bank", "islamic_bank", "insurance", "industrial", "other"}
 
@@ -28,9 +28,9 @@ def test_load_profile_normalizes_and_handles_unknown():
 
 def test_qnb_acquisition_timeline():
     assert "EGP" not in qatar.profile_for_year("QNBK", 2012)["active_currencies"]
-    assert "EGP" in qatar.profile_for_year("QNBK", 2013)["active_currencies"]   # NSGB 2013
+    assert "EGP" in qatar.profile_for_year("QNBK", 2013)["active_currencies"]  # NSGB 2013
     assert "TRY" not in qatar.profile_for_year("QNBK", 2015)["active_currencies"]
-    assert "TRY" in qatar.profile_for_year("QNBK", 2016)["active_currencies"]   # Finansbank 2016
+    assert "TRY" in qatar.profile_for_year("QNBK", 2016)["active_currencies"]  # Finansbank 2016
 
 
 def test_name_changes_resolve_by_year():
@@ -41,8 +41,12 @@ def test_name_changes_resolve_by_year():
 
 
 def test_merger_events_in_force():
-    assert any("Masraf" in e["title"] for e in qatar.profile_for_year("KCBK", 2021)["active_events"])
-    assert any("al khaliji" in e["title"] for e in qatar.profile_for_year("MARK", 2022)["active_events"])
+    assert any(
+        "Masraf" in e["title"] for e in qatar.profile_for_year("KCBK", 2021)["active_events"]
+    )
+    assert any(
+        "al khaliji" in e["title"] for e in qatar.profile_for_year("MARK", 2022)["active_events"]
+    )
 
 
 def test_banks_inherit_regulatory_timeline():
@@ -60,7 +64,7 @@ def test_islamic_bank_framework_and_no_interest_kpis():
     qib = qatar.load_profile("QIBK")
     assert qib["archetype"] == "islamic_bank"
     assert "Islamic" in qib["framework_timeline"][0]["framework"]
-    assert "KPI_NIM" not in qib["watch_kpis"]          # no interest margin for Islamic banks
+    assert "KPI_NIM" not in qib["watch_kpis"]  # no interest margin for Islamic banks
 
 
 def test_profile_for_year_none_year_is_static_view():
@@ -82,7 +86,7 @@ def test_exported_json_matches_built_profiles():
 def test_backcompat_maps_for_app():
     assert len(qatar.SYMBOL_SUBSECTOR) == 55
     assert set(qatar.SUBSECTOR_TO_EXTRACTION.values()) <= ARCHETYPES
-    for sym, sub in qatar.SYMBOL_SUBSECTOR.items():
+    for _sym, sub in qatar.SYMBOL_SUBSECTOR.items():
         assert sub in qatar.SUBSECTOR_TO_EXTRACTION
 
 
@@ -94,6 +98,8 @@ def test_all_55_have_expected_segments():
 
 
 def test_meeza_ipo_event_and_spot_segments():
-    assert any(e["type"] == "ipo" and e["year"] == 2023 for e in qatar.load_profile("MEZA")["events"])
+    assert any(
+        e["type"] == "ipo" and e["year"] == 2023 for e in qatar.load_profile("MEZA")["events"]
+    )
     assert "Flour & feed milling" in qatar.load_profile("ZHCD")["segments_expected"]["by_business"]
-    assert qatar.load_profile("QIIK")["peers"] == ["QIBK", "MARK", "DUBK"]   # preserved by update
+    assert qatar.load_profile("QIIK")["peers"] == ["QIBK", "MARK", "DUBK"]  # preserved by update

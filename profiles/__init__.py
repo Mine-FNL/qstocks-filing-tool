@@ -52,6 +52,7 @@ full Qatar data; the contract is:
       active_events: [...],
     }
 """
+
 from __future__ import annotations
 
 import importlib
@@ -68,7 +69,7 @@ _PREFERRED_JURISDICTION = "qatar"
 
 # A registry lets an embedder (Flask app, custom CLI) add a jurisdiction
 # without dropping a sub-package on disk. Keyed by jurisdiction id (lowercase).
-_REGISTRY: dict[str, "Jurisdiction"] = {}
+_REGISTRY: dict[str, Jurisdiction] = {}
 
 
 class Jurisdiction:
@@ -78,10 +79,10 @@ class Jurisdiction:
     registered in-process via :func:`register`. Both feed the same API.
     """
 
-    def __init__(self, jurisdiction_id: str, name: str, loader: "JurisdictionLoader"):
+    def __init__(self, jurisdiction_id: str, name: str, loader: JurisdictionLoader):
         self.id = jurisdiction_id
-        self.name = name                    # human-readable: "Qatar"
-        self.loader = loader                # .build_profile / .profile_for_year / taxonomy / ...
+        self.name = name  # human-readable: "Qatar"
+        self.loader = loader  # .build_profile / .profile_for_year / taxonomy / ...
 
 
 class JurisdictionLoader:
@@ -93,12 +94,12 @@ class JurisdictionLoader:
 
     def __init__(
         self,
-        build_profile: Callable[[str], Optional[dict]],
-        profile_for_year: Callable[[str, "int | None"], Optional[dict]],
+        build_profile: Callable[[str], dict | None],
+        profile_for_year: Callable[[str, int | None], dict | None],
         taxonomy: Callable[[], dict],
         symbol_subsector: Callable[[], dict],
         subsector_to_archetype: Callable[[], dict],
-        export_json: Optional[Callable[["Path | None"], int]] = None,
+        export_json: Callable[[Path | None], int] | None = None,
     ):
         self.build_profile = build_profile
         self.profile_for_year = profile_for_year
@@ -133,7 +134,7 @@ def _load_subpackage(jurisdiction_id: str) -> Jurisdiction | None:
     )
     return Jurisdiction(
         jurisdiction_id=jurisdiction_id,
-        name=getattr(mod, "JURISDICTION_NAME"),
+        name=mod.JURISDICTION_NAME,
         loader=loader,
     )
 
@@ -168,7 +169,7 @@ def _get(jurisdiction: str | None) -> Jurisdiction | None:
     j = _load_subpackage(jid)
     if j is None:
         return None
-    _REGISTRY[jid] = j          # cache so subsequent lookups skip the import dance
+    _REGISTRY[jid] = j  # cache so subsequent lookups skip the import dance
     return j
 
 
@@ -193,8 +194,7 @@ def load_profile(ticker: str, jurisdiction: str | None = None) -> dict | None:
     return p
 
 
-def profile_for_year(ticker: str, year: int | None,
-                     jurisdiction: str | None = None) -> dict | None:
+def profile_for_year(ticker: str, year: int | None, jurisdiction: str | None = None) -> dict | None:
     j = _get(jurisdiction)
     if j is None:
         return None
@@ -220,8 +220,7 @@ def subsector_to_archetype(jurisdiction: str | None = None) -> dict:
     return j.loader._subsector_to_archetype() if j else {}
 
 
-def export_json(jurisdiction: str | None = None,
-                directory: "str | Path | None" = None) -> int:
+def export_json(jurisdiction: str | None = None, directory: str | Path | None = None) -> int:
     """Write per-ticker profile JSONs to disk (inspectable artifacts)."""
     j = _get(jurisdiction)
     if j is None or j.loader.export_json is None:
@@ -232,9 +231,15 @@ def export_json(jurisdiction: str | None = None,
 
 
 __all__ = [
-    "Jurisdiction", "JurisdictionLoader",
-    "register", "all_jurisdictions", "default_jurisdiction",
-    "load_profile", "profile_for_year",
-    "taxonomy", "symbol_subsector", "subsector_to_archetype",
+    "Jurisdiction",
+    "JurisdictionLoader",
+    "all_jurisdictions",
+    "default_jurisdiction",
     "export_json",
+    "load_profile",
+    "profile_for_year",
+    "register",
+    "subsector_to_archetype",
+    "symbol_subsector",
+    "taxonomy",
 ]

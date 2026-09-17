@@ -1,10 +1,10 @@
 """Pins `qscreen_langdetect.detect_languages` / `apply_language_metadata`."""
+
 from __future__ import annotations
 
 import pytest
 
 import qscreen_langdetect as ld
-
 
 # ── language_counts ─────────────────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ def test_empty_text_returns_zero_counts():
 
 
 def test_pure_arabic_text_counted_arabic():
-    text = "ميزان المراجعة"      # Arabic-script word "balance sheet"
+    text = "ميزان المراجعة"  # Arabic-script word "balance sheet"
     counts = ld.language_counts(text)
     assert counts["ar"] >= 5
     assert counts["latin"] == 0
@@ -37,8 +37,10 @@ def test_digits_punctuation_dont_count():
 
 
 def test_english_only_filing_is_en_primary():
-    text = ("Total assets for the year ended 31 December 2023 "
-            "Total liabilities were higher than the prior period.")
+    text = (
+        "Total assets for the year ended 31 December 2023 "
+        "Total liabilities were higher than the prior period."
+    )
     langs = ld.detect_languages(text)
     assert len(langs) == 1
     assert langs[0]["code"] == "en"
@@ -57,8 +59,10 @@ def test_arabic_only_filing_is_ar_primary():
 def test_bilingual_filing_both_languages_with_one_primary():
     # Mix Arabic + Latin in roughly equal weights. Both must surface, one
     # gets primary, the other not.
-    text = "ميزان المراجعة بآلاف الريالات القطرية " * 6 + \
-           "Total assets for the year ended 31 December 2023 " * 4
+    text = (
+        "ميزان المراجعة بآلاف الريالات القطرية " * 6
+        + "Total assets for the year ended 31 December 2023 " * 4
+    )
     langs = ld.detect_languages(text)
     codes = {l["code"] for l in langs}
     assert {"ar", "en"} <= codes
@@ -68,8 +72,9 @@ def test_bilingual_filing_both_languages_with_one_primary():
 
 def test_min_ratio_filters_one_off_citations():
     # Heavy English text with a single Arabic word — Arabic shouldn't surface.
-    text = ("Total assets for the year ended 31 December 2023. "
-            "Total liabilities were higher. ") * 20 + "ميزان"
+    text = (
+        "Total assets for the year ended 31 December 2023. Total liabilities were higher. "
+    ) * 20 + "ميزان"
     langs = ld.detect_languages(text)
     # Very few Arabic letters vs many Latin letters — Arabic ratio well under 5%.
     arabic_langs = [l for l in langs if l["code"] == "ar"]
@@ -126,7 +131,7 @@ def test_per_page_rollup_present_in_filing():
     pages = [
         {"num": 1, "text": "Total assets"},
         {"num": 2, "text": "ميزان المراجعة"},
-        {"num": 3, "text": "ميزان\nميزان\nميزان"},      # ar-dominant
+        {"num": 3, "text": "ميزان\nميزان\nميزان"},  # ar-dominant
     ]
     filing = {}
     out = ld.apply_language_metadata(filing, pages=pages)

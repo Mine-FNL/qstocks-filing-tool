@@ -4,6 +4,7 @@
 Used by .github/workflows/ci.yml's app-smoke job. Standalone so a heredoc
 embedded in YAML doesn't risk YAML parse errors.
 """
+
 import json
 import sys
 import urllib.error

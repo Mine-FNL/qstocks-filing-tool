@@ -10,6 +10,7 @@ order, depth and comparatives come straight from the filing.
     from qscreen_statements import render_statements_html, save_statements_html
     save_statements_html(filing, "QNBK_2023_FY_statements.html")
 """
+
 from __future__ import annotations
 
 import html
@@ -57,7 +58,7 @@ def _fmt(x) -> str:
 def _prior_labels(st: dict) -> list:
     out: list = []
     for li in st.get("line_items") or []:
-        for c in (li.get("comparatives") or []):
+        for c in li.get("comparatives") or []:
             pl = c.get("period_label") if isinstance(c, dict) else None
             if pl and pl not in out:
                 out.append(pl)
@@ -72,41 +73,67 @@ def _statement_section(st: dict, unit_note: str) -> str:
     if st.get("title") and st.get("title") != title:
         h.append(f"<p class='muted'>{E(st['title'])}</p>")
     h.append(f"<p class='unit'>Figures in {unit_note}</p><table>")
-    h.append("<tr><th>Line item</th><th>" + E(str(cur)) + "</th>"
-             + "".join(f"<th>{E(str(p))}</th>" for p in priors) + "</tr>")
+    h.append(
+        "<tr><th>Line item</th><th>"
+        + E(str(cur))
+        + "</th>"
+        + "".join(f"<th>{E(str(p))}</th>" for p in priors)
+        + "</tr>"
+    )
     for li in st.get("line_items") or []:
         depth = int(li.get("depth") or 0)
-        comp = {c.get("period_label"): c.get("value")
-                for c in (li.get("comparatives") or []) if isinstance(c, dict)}
+        comp = {
+            c.get("period_label"): c.get("value")
+            for c in (li.get("comparatives") or [])
+            if isinstance(c, dict)
+        }
         cells = [f"<td class='num'>{_fmt(li.get('value'))}</td>"]
         cells += [f"<td class='num'>{_fmt(comp.get(p))}</td>" for p in priors]
         cls = " class='sub'" if li.get("is_subtotal") else ""
         label = E(str(li.get("label_verbatim") or ""))
-        h.append(f"<tr{cls}><td style='padding-left:{depth * 16 + 8}px'>{label}</td>"
-                 + "".join(cells) + "</tr>")
+        h.append(
+            f"<tr{cls}><td style='padding-left:{depth * 16 + 8}px'>{label}</td>"
+            + "".join(cells)
+            + "</tr>"
+        )
     h.append("</table></section>")
     return "".join(h)
 
 
 def _segments_section(segs: list) -> str:
     mkeys = sorted({k for sg in segs for k in (sg.get("metrics") or {})})
-    h = ["<section><h2>Segments</h2><table><tr><th>Dimension</th><th>Segment</th><th>Currency</th><th>Period</th>"]
+    h = [
+        "<section><h2>Segments</h2><table><tr><th>Dimension</th><th>Segment</th><th>Currency</th><th>Period</th>"
+    ]
     h += [f"<th>{E(str(k))}</th>" for k in mkeys] + ["</tr>"]
     for sg in segs:
         m = sg.get("metrics") or {}
-        h.append("<tr><td>" + E(str(sg.get("dimension") or "")) + "</td><td>" + E(str(sg.get("name") or ""))
-                 + "</td><td>" + E(str(sg.get("currency") or "")) + "</td><td>"
-                 + E(str(sg.get("period_label") or "")) + "</td>"
-                 + "".join(f"<td class='num'>{_fmt(m.get(k))}</td>" for k in mkeys) + "</tr>")
+        h.append(
+            "<tr><td>"
+            + E(str(sg.get("dimension") or ""))
+            + "</td><td>"
+            + E(str(sg.get("name") or ""))
+            + "</td><td>"
+            + E(str(sg.get("currency") or ""))
+            + "</td><td>"
+            + E(str(sg.get("period_label") or ""))
+            + "</td>"
+            + "".join(f"<td class='num'>{_fmt(m.get(k))}</td>" for k in mkeys)
+            + "</tr>"
+        )
     return "".join(h) + "</table></section>"
 
 
 def _notes_section(notes: list) -> str:
     h = ["<section><h2>Notes</h2>"]
     for nt in notes:
-        head = ". ".join(p for p in [str(nt.get("number") or ""), E(str(nt.get("title") or ""))] if p)
+        head = ". ".join(
+            p for p in [str(nt.get("number") or ""), E(str(nt.get("title") or ""))] if p
+        )
         cat = f" <span class='cat'>{E(str(nt['category']))}</span>" if nt.get("category") else ""
-        h.append(f"<div class='note'><b>{head}</b>{cat}<p>{E(str(nt.get('verbatim_text') or ''))}</p></div>")
+        h.append(
+            f"<div class='note'><b>{head}</b>{cat}<p>{E(str(nt.get('verbatim_text') or ''))}</p></div>"
+        )
     return "".join(h) + "</section>"
 
 
@@ -116,13 +143,26 @@ def render_statements_html(filing: dict) -> str:
     name = meta.get("company_name") or meta.get("symbol") or "Financial statements"
     unit_note = _UNIT.get(meta.get("unit_scale"), "actual units")
     period = " ".join(str(p) for p in [meta.get("fiscal_year"), meta.get("fiscal_period")] if p)
-    sub = " · ".join(str(p) for p in [meta.get("symbol"), period, meta.get("currency"),
-                                      meta.get("reporting_framework"),
-                                      "consolidated" if meta.get("consolidated") else None] if p)
+    sub = " · ".join(
+        str(p)
+        for p in [
+            meta.get("symbol"),
+            period,
+            meta.get("currency"),
+            meta.get("reporting_framework"),
+            "consolidated" if meta.get("consolidated") else None,
+        ]
+        if p
+    )
     audit_line = ""
     if audit.get("auditor_name") or audit.get("opinion_type"):
-        audit_line = "Auditor: " + " — ".join(str(p) for p in [audit.get("auditor_name"),
-                                                                audit.get("opinion_type")] if p) + ". "
+        audit_line = (
+            "Auditor: "
+            + " — ".join(
+                str(p) for p in [audit.get("auditor_name"), audit.get("opinion_type")] if p
+            )
+            + ". "
+        )
     out = [
         "<!doctype html><html><head><meta charset='utf-8'>",
         f"<title>{E(str(name))} — financial statements</title><style>{_CSS}</style></head><body>",
@@ -143,5 +183,6 @@ def render_statements_html(filing: dict) -> str:
 
 def save_statements_html(filing: dict, path: str) -> str:
     from pathlib import Path
+
     Path(path).write_text(render_statements_html(filing), encoding="utf-8")
     return path

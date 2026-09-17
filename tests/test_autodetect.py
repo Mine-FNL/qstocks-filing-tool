@@ -1,10 +1,10 @@
 """Pins `qscreen_autodetect.detect_*` and `apply_detected_metadata`."""
+
 from __future__ import annotations
 
 import pytest
 
 import qscreen_autodetect as ad
-
 
 # ── detect_sector ────────────────────────────────────────────────────────────
 
@@ -82,8 +82,10 @@ def test_framework_ifrs_qcb_islamic():
 
 
 def test_framework_aaoifi():
-    text = "Prepared in accordance with AAOIFI standards issued by the Accounting and " \
-           "Auditing Organisation for Islamic Financial Institutions."
+    text = (
+        "Prepared in accordance with AAOIFI standards issued by the Accounting and "
+        "Auditing Organisation for Islamic Financial Institutions."
+    )
     assert ad.detect_framework(text) == "AAOIFI"
 
 
@@ -105,8 +107,12 @@ def test_framework_islamic_bank_override():
 
 def test_apply_does_not_overwrite_explicit_values():
     filing = {
-        "metadata": {"symbol": "ABCD", "sector": "other",
-                       "fiscal_period": "H1", "reporting_framework": "IFRS"}
+        "metadata": {
+            "symbol": "ABCD",
+            "sector": "other",
+            "fiscal_period": "H1",
+            "reporting_framework": "IFRS",
+        }
     }
     text = """sharia wakala sukuk
     for the year ended 31 December 2023
@@ -120,14 +126,14 @@ def test_apply_does_not_overwrite_explicit_values():
 
 def test_apply_fills_empty_fields():
     filing = {
-        "metadata": {"symbol": "ABCD"}      # sector/period/framework all None
+        "metadata": {"symbol": "ABCD"}  # sector/period/framework all None
     }
     text = """Takaful Islamic Insurance Company Wakala Tabarru'
     for the year ended 31 December 2023
     in accordance with IFRS as adopted by QCB (Islamic)"""
     ad.apply_detected_metadata(filing, text)
     meta = filing["metadata"]
-    assert meta["sector"] in ("insurance",)         # takaful + tabarru → insurance
+    assert meta["sector"] in ("insurance",)  # takaful + tabarru → insurance
     assert meta["fiscal_period"] == "FY"
     assert meta["reporting_framework"] == "IFRS as adopted by QCB (Islamic)"
     # Operator's symbol preserved.
@@ -135,8 +141,7 @@ def test_apply_fills_empty_fields():
 
 
 def test_apply_skipped_when_unresolvable():
-    filing = {"metadata": {"sector": None, "fiscal_period": None,
-                              "reporting_framework": None}}
+    filing = {"metadata": {"sector": None, "fiscal_period": None, "reporting_framework": None}}
     # No text, no signals — fields stay None.
     ad.apply_detected_metadata(filing, "")
     assert filing["metadata"]["sector"] is None
@@ -147,10 +152,11 @@ def test_apply_skipped_when_unresolvable():
 def test_apply_picks_up_audit_verbatim_text():
     """When the caller passes page_text=None, we should still find the
     audit's verbatim_text and use it."""
-    filing = {"metadata": {},
-              "audit": {"verbatim_text": "for the year ended 31 December 2022 "
-                                           "in accordance with IFRS"},
-              "statements": []}
+    filing = {
+        "metadata": {},
+        "audit": {"verbatim_text": "for the year ended 31 December 2022 in accordance with IFRS"},
+        "statements": [],
+    }
     ad.apply_detected_metadata(filing)
     meta = filing["metadata"]
     assert meta["fiscal_period"] == "FY"

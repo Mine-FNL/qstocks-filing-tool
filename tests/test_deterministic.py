@@ -5,6 +5,7 @@ the PDF's recovered tables in pure Python. These tests stub or forbid the LLM an
 exercise the deterministic helpers, the no-LLM end-to-end path, the Basic/Pro mode
 resolution, and the MLX / Gemma "no system role" wiring.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -15,29 +16,50 @@ import qscreen_ingest as e
 
 
 def _pargs(**over):
-    base = dict(provider=None, base_url=None, model=None, llm_key=None,
-                max_tokens=128, no_json_mode=False, retries=1, timeout=5,
-                guided=True, no_guided=False, guided_notes=False, no_llm=False,
-                mode=None, basic=False, pro=False,
-                symbol="QNBK", sector="conventional_bank", year=2024, period="FY",
-                pages_per_chunk=3, overlap=1, no_chunk=False)
+    base = {
+        "provider": None,
+        "base_url": None,
+        "model": None,
+        "llm_key": None,
+        "max_tokens": 128,
+        "no_json_mode": False,
+        "retries": 1,
+        "timeout": 5,
+        "guided": True,
+        "no_guided": False,
+        "guided_notes": False,
+        "no_llm": False,
+        "mode": None,
+        "basic": False,
+        "pro": False,
+        "symbol": "QNBK",
+        "sector": "conventional_bank",
+        "year": 2024,
+        "period": "FY",
+        "pages_per_chunk": 3,
+        "overlap": 1,
+        "no_chunk": False,
+    }
     base.update(over)
     return SimpleNamespace(**base)
 
 
 # A render_window-style string with two TABLES blocks on two pages.
-WIN = ("\n===== PAGE 2 =====\nConsolidated Statement of Financial Position\n"
-       "[TABLES on page 2]\n-- table 1 --\n"
-       "Total assets | 1,000 | 900\n"
-       "Loans and advances | 7 | 500 | 450\n"
-       "Total equity | 200 | 180\n"
-       "\n===== PAGE 3 =====\nConsolidated Income Statement\n"
-       "[TABLES on page 3]\n-- table 1 --\n"
-       "Net interest income | 50 | 45\n"
-       "Profit for the year | (30) | 25\n")
+WIN = (
+    "\n===== PAGE 2 =====\nConsolidated Statement of Financial Position\n"
+    "[TABLES on page 2]\n-- table 1 --\n"
+    "Total assets | 1,000 | 900\n"
+    "Loans and advances | 7 | 500 | 450\n"
+    "Total equity | 200 | 180\n"
+    "\n===== PAGE 3 =====\nConsolidated Income Statement\n"
+    "[TABLES on page 3]\n-- table 1 --\n"
+    "Net interest income | 50 | 45\n"
+    "Profit for the year | (30) | 25\n"
+)
 
 
 # ── parse_rendered_tables ────────────────────────────────────────────────────
+
 
 def test_parse_rendered_tables_basic():
     tabs = e.parse_rendered_tables(WIN)
@@ -57,22 +79,33 @@ def test_parse_rendered_tables_none():
 
 
 def test_parse_rendered_tables_multiple_tables_one_page():
-    text = ("[TABLES on page 1]\n-- table 1 --\nA | 1\n-- table 2 --\nB | 2 | 3\n")
+    text = "[TABLES on page 1]\n-- table 1 --\nA | 1\n-- table 2 --\nB | 2 | 3\n"
     tabs = e.parse_rendered_tables(text)
-    assert len(tabs) == 2 and tabs[0]["rows"] == [["A", "1"]] and tabs[1]["rows"] == [["B", "2", "3"]]
+    assert (
+        len(tabs) == 2 and tabs[0]["rows"] == [["A", "1"]] and tabs[1]["rows"] == [["B", "2", "3"]]
+    )
 
 
 # ── _row_to_triplet ──────────────────────────────────────────────────────────
 
+
 def test_row_triplet_current_prior():
-    assert e._row_to_triplet(["Total assets", "1,000", "900"]) == \
-        {"label": "Total assets", "current": 1000, "prior": 900, "note_ref": None}
+    assert e._row_to_triplet(["Total assets", "1,000", "900"]) == {
+        "label": "Total assets",
+        "current": 1000,
+        "prior": 900,
+        "note_ref": None,
+    }
 
 
 def test_row_triplet_note_ref_column():
     # ≥3 numerics and a small leading int → demote it to note_ref
-    assert e._row_to_triplet(["Loans and advances", "7", "1,234", "1,100"]) == \
-        {"label": "Loans and advances", "current": 1234, "prior": 1100, "note_ref": "7"}
+    assert e._row_to_triplet(["Loans and advances", "7", "1,234", "1,100"]) == {
+        "label": "Loans and advances",
+        "current": 1234,
+        "prior": 1100,
+        "note_ref": "7",
+    }
 
 
 def test_row_triplet_three_year_columns():
@@ -83,13 +116,21 @@ def test_row_triplet_three_year_columns():
 
 def test_row_triplet_two_numerics_ambiguous():
     # only two numerics → keep both as current/prior (never lose a value)
-    assert e._row_to_triplet(["X", "12", "34"]) == \
-        {"label": "X", "current": 12, "prior": 34, "note_ref": None}
+    assert e._row_to_triplet(["X", "12", "34"]) == {
+        "label": "X",
+        "current": 12,
+        "prior": 34,
+        "note_ref": None,
+    }
 
 
 def test_row_triplet_single_number():
-    assert e._row_to_triplet(["Cash", "500"]) == \
-        {"label": "Cash", "current": 500, "prior": None, "note_ref": None}
+    assert e._row_to_triplet(["Cash", "500"]) == {
+        "label": "Cash",
+        "current": 500,
+        "prior": None,
+        "note_ref": None,
+    }
 
 
 def test_row_triplet_header_row_no_numbers():
@@ -102,60 +143,90 @@ def test_row_triplet_pure_numeric_row_is_none():
 
 
 def test_row_triplet_bracketed_negative():
-    assert e._row_to_triplet(["Impairment", "(56)", "(40)"]) == \
-        {"label": "Impairment", "current": -56, "prior": -40, "note_ref": None}
+    assert e._row_to_triplet(["Impairment", "(56)", "(40)"]) == {
+        "label": "Impairment",
+        "current": -56,
+        "prior": -40,
+        "note_ref": None,
+    }
 
 
 # ── _assign_table_stype ──────────────────────────────────────────────────────
+
 
 def test_assign_stype_preceding_and_following():
     titles = [("balance_sheet", "BS", 0), ("income_statement", "IS", 500)]
     assert e._assign_table_stype(600, titles)[0] == "income_statement"
     assert e._assign_table_stype(100, titles)[0] == "balance_sheet"
-    assert e._assign_table_stype(0, [("cash_flow", "CF", 50)])[0] == "cash_flow"   # following
+    assert e._assign_table_stype(0, [("cash_flow", "CF", 50)])[0] == "cash_flow"  # following
     assert e._assign_table_stype(10, []) is None
 
 
 # ── deterministic_statements ─────────────────────────────────────────────────
+
 
 def test_deterministic_statements_from_tables():
     titles = e.detect_statement_titles(WIN)
     det = e.deterministic_statements(WIN, titles, "2023", "2024")
     assert set(det) == {"balance_sheet", "income_statement"}
     codes = {li["account_code"] for s in det.values() for li in s["line_items"]}
-    assert {"BS_TOTAL_ASSETS", "BS_TOTAL_EQUITY", "BS_LOANS",
-            "IS_NET_INTEREST", "IS_NET_INCOME"} <= codes
+    assert {
+        "BS_TOTAL_ASSETS",
+        "BS_TOTAL_EQUITY",
+        "BS_LOANS",
+        "IS_NET_INTEREST",
+        "IS_NET_INCOME",
+    } <= codes
     assert all(li["basis"] == "parsed" for s in det.values() for li in s["line_items"])
-    ta = next(li for li in det["balance_sheet"]["line_items"]
-              if li["label_verbatim"] == "Total assets")
+    ta = next(
+        li for li in det["balance_sheet"]["line_items"] if li["label_verbatim"] == "Total assets"
+    )
     assert ta["value"] == 1000 and ta["comparatives"] == [{"period_label": "2023", "value": 900}]
-    loans = next(li for li in det["balance_sheet"]["line_items"]
-                 if li["label_verbatim"] == "Loans and advances")
+    loans = next(
+        li
+        for li in det["balance_sheet"]["line_items"]
+        if li["label_verbatim"] == "Loans and advances"
+    )
     assert loans["note_ref"] == "7"
 
 
 def test_deterministic_statements_empty_without_tables():
-    assert e.deterministic_statements("no tables", e.detect_statement_titles("no tables"),
-                                      "2023", "2024") == {}
+    assert (
+        e.deterministic_statements(
+            "no tables", e.detect_statement_titles("no tables"), "2023", "2024"
+        )
+        == {}
+    )
 
 
 # ── end-to-end (no LLM) ──────────────────────────────────────────────────────
 
+
 def _table_pages():
     return [
-        {"num": 1, "text": "Independent Auditor's Report. In our opinion the financial statements "
-                           "present fairly ... this is an unqualified opinion. "
-                           "(Amounts in thousands of Qatari Riyals)"},
-        {"num": 2, "text": "Statement of Financial Position\n[TABLES on page 2]\n-- table 1 --\n"
-                           "Total assets | 1,000 | 900\nTotal equity | 200 | 180\n"},
-        {"num": 3, "text": "Income Statement\n[TABLES on page 3]\n-- table 1 --\n"
-                           "Net interest income | 50 | 45\nProfit for the year | 30 | 25\n"},
+        {
+            "num": 1,
+            "text": "Independent Auditor's Report. In our opinion the financial statements "
+            "present fairly ... this is an unqualified opinion. "
+            "(Amounts in thousands of Qatari Riyals)",
+        },
+        {
+            "num": 2,
+            "text": "Statement of Financial Position\n[TABLES on page 2]\n-- table 1 --\n"
+            "Total assets | 1,000 | 900\nTotal equity | 200 | 180\n",
+        },
+        {
+            "num": 3,
+            "text": "Income Statement\n[TABLES on page 3]\n-- table 1 --\n"
+            "Net interest income | 50 | 45\nProfit for the year | 30 | 25\n",
+        },
     ]
 
 
 def test_no_llm_end_to_end_conforming(monkeypatch):
     def boom(*a, **k):
         raise AssertionError("call_llm must not be called with --no-llm")
+
     monkeypatch.setattr(e, "call_llm", boom)
 
     out = e.extract_filing(_table_pages(), _pargs(no_llm=True, guided=True, guided_notes=True))
@@ -163,7 +234,7 @@ def test_no_llm_end_to_end_conforming(monkeypatch):
     codes = {li["account_code"] for s in out["statements"] for li in s["line_items"]}
     assert {"BS_TOTAL_ASSETS", "BS_TOTAL_EQUITY", "IS_NET_INTEREST", "IS_NET_INCOME"} <= codes
     assert out["metadata"]["unit_scale"] == 1000
-    assert out["audit"]["opinion_type"] == "unqualified"        # read deterministically from text
+    assert out["audit"]["opinion_type"] == "unqualified"  # read deterministically from text
     assert out["notes"] == []
     assert all(li["basis"] == "parsed" for s in out["statements"] for li in s["line_items"])
     assert any("parsed from tables" in w for w in out["extraction_quality"]["warnings"])
@@ -172,6 +243,7 @@ def test_no_llm_end_to_end_conforming(monkeypatch):
 def test_deterministic_first_skips_llm_when_tables_present(monkeypatch):
     def boom(*a, **k):
         raise AssertionError("LLM should not be called when a table backs the statement")
+
     monkeypatch.setattr(e, "call_llm", boom)
     out = e.extract_filing(_table_pages(), _pargs(no_llm=False, guided=True))
     assert any(s["type"] == "balance_sheet" for s in out["statements"])
@@ -185,6 +257,7 @@ def test_falls_back_to_llm_when_no_tables(monkeypatch):
     def fake(messages, args):
         calls["n"] += 1
         return '{"rows":[{"label":"Total assets","current":1,"prior":null}]}'
+
     monkeypatch.setattr(e, "call_llm", fake)
     pages = [{"num": 1, "text": "Statement of Financial Position\nTotal assets 1\n"}]
     out = e.extract_filing(pages, _pargs(no_llm=False, guided=True))
@@ -193,6 +266,7 @@ def test_falls_back_to_llm_when_no_tables(monkeypatch):
 
 
 # ── Basic / Pro mode resolution ──────────────────────────────────────────────
+
 
 def test_apply_mode_basic_and_pro():
     a = _pargs(mode="basic", guided=False, no_guided=False)
@@ -212,10 +286,11 @@ def test_apply_mode_no_llm_implies_basic():
 def test_apply_mode_auto_leaves_flags(monkeypatch):
     a = _pargs(mode="auto", guided=False, no_guided=False)
     e.apply_mode(a)
-    assert a.guided is False and a.no_guided is False         # resolve_guided decides later
+    assert a.guided is False and a.no_guided is False  # resolve_guided decides later
 
 
 # ── MLX provider + Gemma no-system-role ──────────────────────────────────────
+
 
 def test_mlx_provider_registered():
     p = e.PROVIDERS["mlx"]
@@ -232,13 +307,17 @@ def test_resolve_mlx_without_key(monkeypatch):
     cfg = e.resolve_provider(_pargs(provider="mlx"))
     assert cfg["name"] == "mlx" and cfg["key"] == "local"
     assert cfg["no_system"] is True and cfg["local"] is True
-    assert e.resolve_guided(_pargs(guided=False, no_guided=False), cfg) is True   # local → Basic
+    assert e.resolve_guided(_pargs(guided=False, no_guided=False), cfg) is True  # local → Basic
 
 
 def test_merge_system_into_user():
-    out = e._merge_system_into_user([{"role": "system", "content": "S1"},
-                                     {"role": "system", "content": "S2"},
-                                     {"role": "user", "content": "U"}])
+    out = e._merge_system_into_user(
+        [
+            {"role": "system", "content": "S1"},
+            {"role": "system", "content": "S2"},
+            {"role": "user", "content": "U"},
+        ]
+    )
     assert out == [{"role": "user", "content": "S1\n\nS2\n\nU"}]
     # no system → unchanged
     same = e._merge_system_into_user([{"role": "user", "content": "U"}])
@@ -258,13 +337,14 @@ def test_openai_request_merges_when_no_system():
 
 def test_openai_request_unchanged_without_no_system():
     msgs = [{"role": "system", "content": "S"}, {"role": "user", "content": "U"}]
-    cfg = {"base_url": "https://api.openai.com/v1", "model": "gpt", "key": "k"}   # no no_system
+    cfg = {"base_url": "https://api.openai.com/v1", "model": "gpt", "key": "k"}  # no no_system
     _url, _h, payload, _x = e._openai_request(msgs, cfg, _pargs(max_tokens=10))
-    assert payload["messages"] == msgs                       # strict no-op
+    assert payload["messages"] == msgs  # strict no-op
     assert payload["response_format"] == {"type": "json_object"}
 
 
 # ── schema enforcement ───────────────────────────────────────────────────────
+
 
 def test_ollama_schema_uses_native_format(monkeypatch):
     for k in ("OLLAMA_API_KEY", "LLM_API_KEY"):
@@ -294,7 +374,7 @@ def test_mlx_ignores_schema(monkeypatch):
     args = _pargs(max_tokens=10)
     args._schema = e._ROWS_SCHEMA
     _u, _h, payload, _x = e._openai_request([{"role": "user", "content": "x"}], cfg, args)
-    assert "format" not in payload                           # MLX gets no schema field
+    assert "format" not in payload  # MLX gets no schema field
     assert payload.get("response_format") == {"type": "json_object"}
 
 
@@ -304,13 +384,17 @@ def test_mlx_ignores_schema(monkeypatch):
 # returns nothing on the very pages that matter. _render_tables() then rebuilds a
 # grid from word x-positions and emits the same pipe format the parser consumes.
 
+
 class _FakeWordPage:
     """A pdfplumber-like page exposing extract_tables()/extract_words()/lines."""
+
     def __init__(self, words, tables=None, lines=None, width=595):
         self._words, self._tables = words, tables or []
         self.lines, self.width = lines or [], width
+
     def extract_tables(self):
         return self._tables
+
     def extract_words(self, **_kw):
         return self._words
 
@@ -350,23 +434,30 @@ def test_render_tables_prefers_ruled_when_present():
     class _Boom(_FakeWordPage):
         def extract_words(self, **_kw):
             raise AssertionError("word fallback must not run when ruled tables exist")
+
     page = _Boom(_income_words(), tables=[[["A", "1", "2"], ["B", "3", "4"]]])
     block = e._render_tables(page)
-    assert "A | 1 | 2" in block and "B | 3 | 4" in block      # came from the ruled path
+    assert "A | 1 | 2" in block and "B | 3 | 4" in block  # came from the ruled path
 
 
 def test_merge_number_fragments_repairs_split_number():
     # "22,022,946" arrives as "2" + "2,022,946" across a ~0pt gap → re-joined
-    ws = [{"text": "2", "x0": 300, "x1": 306, "top": 0},
-          {"text": "2,022,946", "x0": 307, "x1": 360, "top": 0}]
+    ws = [
+        {"text": "2", "x0": 300, "x1": 306, "top": 0},
+        {"text": "2,022,946", "x0": 307, "x1": 360, "top": 0},
+    ]
     assert e._merge_number_fragments(ws)[0]["text"] == "22,022,946"
     # a leading-comma fragment ("2" + ",607,153") is also re-joined
-    ws2 = [{"text": "2", "x0": 300, "x1": 306, "top": 0},
-           {"text": ",607,153", "x0": 307, "x1": 360, "top": 0}]
+    ws2 = [
+        {"text": "2", "x0": 300, "x1": 306, "top": 0},
+        {"text": ",607,153", "x0": 307, "x1": 360, "top": 0},
+    ]
     assert e._merge_number_fragments(ws2)[0]["text"] == "2,607,153"
     # a real inter-column gap is NOT merged
-    ws3 = [{"text": "2", "x0": 300, "x1": 306, "top": 0},
-           {"text": "2,022,946", "x0": 400, "x1": 460, "top": 0}]
+    ws3 = [
+        {"text": "2", "x0": 300, "x1": 306, "top": 0},
+        {"text": "2,022,946", "x0": 400, "x1": 460, "top": 0},
+    ]
     assert len(e._merge_number_fragments(ws3)) == 2
 
 
@@ -385,10 +476,12 @@ def test_word_fallback_handles_xspace_artifact_end_to_end():
 
 
 def test_split_label_and_numbers_shapes_a_triplet():
-    ws = [{"text": "Interest Income", "x0": 50, "x1": 150, "top": 0},
-          {"text": "25", "x0": 300, "x1": 312, "top": 0},
-          {"text": "125,012,382", "x0": 400, "x1": 470, "top": 0},
-          {"text": "125,322,712", "x0": 500, "x1": 570, "top": 0}]
+    ws = [
+        {"text": "Interest Income", "x0": 50, "x1": 150, "top": 0},
+        {"text": "25", "x0": 300, "x1": 312, "top": 0},
+        {"text": "125,012,382", "x0": 400, "x1": 470, "top": 0},
+        {"text": "125,322,712", "x0": 500, "x1": 570, "top": 0},
+    ]
     cells, n = e._split_label_and_numbers(ws)
     assert cells == ["Interest Income", "25", "125,012,382", "125,322,712"] and n == 3
 
@@ -408,20 +501,27 @@ def test_word_fallback_skips_wide_matrix():
 
 
 def test_word_fallback_skips_prose_page():
-    words = [{"text": w, "x0": 50 + i * 35, "x1": 70 + i * 35, "top": 100}
-             for i, w in enumerate("this is plain prose with no aligned columns at all".split())]
+    words = [
+        {"text": w, "x0": 50 + i * 35, "x1": 70 + i * 35, "top": 100}
+        for i, w in enumerate(
+            ["this", "is", "plain", "prose", "with", "no", "aligned", "columns", "at", "all"]
+        )
+    ]
     assert e._words_to_table_rows(words) == ""
 
 
 # ── OCR path: [OCR TABLES] blocks tag line items basis="ocr" ─────────────────
 
+
 def test_ocr_block_tags_basis_and_parses_negatives():
-    win = ("\n===== PAGE 7 =====\nConsolidated Statement of Financial Position\n"
-           "[OCR TABLES on page 7]\n-- table 1 --\n"
-           "Cash and Balances with Central Banks | 8 | 79,489,167 | 84,535,430\n"
-           "Total Assets | 1,391,346,423 | 1,297,916,820\n"
-           "Net result | (1,234) | (2,000)\n"
-           "Loans and Advances to Customers | 10 | 1,018,078,852 | 910,757,751\n")
+    win = (
+        "\n===== PAGE 7 =====\nConsolidated Statement of Financial Position\n"
+        "[OCR TABLES on page 7]\n-- table 1 --\n"
+        "Cash and Balances with Central Banks | 8 | 79,489,167 | 84,535,430\n"
+        "Total Assets | 1,391,346,423 | 1,297,916,820\n"
+        "Net result | (1,234) | (2,000)\n"
+        "Loans and Advances to Customers | 10 | 1,018,078,852 | 910,757,751\n"
+    )
     titles = e.detect_statement_titles(win)
     det = e.deterministic_statements(win, titles, "2024", "2025")
     bs = det["balance_sheet"]
@@ -433,8 +533,10 @@ def test_ocr_block_tags_basis_and_parses_negatives():
 
 
 def test_parse_rendered_tables_marks_ocr_blocks():
-    text = ("[TABLES on page 1]\n-- table 1 --\nA | 1 | 2\n"
-            "[OCR TABLES on page 7]\n-- table 1 --\nB | 3 | 4\n")
+    text = (
+        "[TABLES on page 1]\n-- table 1 --\nA | 1 | 2\n"
+        "[OCR TABLES on page 7]\n-- table 1 --\nB | 3 | 4\n"
+    )
     tabs = e.parse_rendered_tables(text)
     assert tabs[0]["page"] == 1 and tabs[0]["ocr"] is False
     assert tabs[1]["page"] == 7 and tabs[1]["ocr"] is True
@@ -442,28 +544,36 @@ def test_parse_rendered_tables_marks_ocr_blocks():
 
 # ── Title detection: notes boundary, squashed OCR headings, date rows ────────
 
+
 def test_detect_titles_ignores_post_notes_subheadings():
-    text = ("Notes to the Consolidated Financial Statements\n"
-            "Statement of Financial Position Items\nx 1 2\n"
-            "Income Statement Items\ny 3 4\n")
+    text = (
+        "Notes to the Consolidated Financial Statements\n"
+        "Statement of Financial Position Items\nx 1 2\n"
+        "Income Statement Items\ny 3 4\n"
+    )
     assert e.detect_statement_titles(text) == []
 
 
 def test_detect_titles_primary_before_notes_only():
-    text = ("Consolidated Statement of Financial Position\n2025 2024\n"
-            "Notes to the Consolidated Financial Statements\nIncome Statement Items\n")
+    text = (
+        "Consolidated Statement of Financial Position\n2025 2024\n"
+        "Notes to the Consolidated Financial Statements\nIncome Statement Items\n"
+    )
     assert [t for t, _, _ in e.detect_statement_titles(text)] == ["balance_sheet"]
 
 
 def test_detect_titles_squashed_ocr_heading():
-    assert [t for t, _, _ in e.detect_statement_titles("ConsolidatedStatementofFinancialPosition\n")] \
-        == ["balance_sheet"]
+    assert [
+        t for t, _, _ in e.detect_statement_titles("ConsolidatedStatementofFinancialPosition\n")
+    ] == ["balance_sheet"]
 
 
 def test_date_header_row_dropped():
-    win = ("Consolidated Income Statement\n[TABLES on page 1]\n-- table 1 --\n"
-           "For the Year Ended | 31 | 2025\n"
-           "Interest Income | 100 | 90\n")
+    win = (
+        "Consolidated Income Statement\n[TABLES on page 1]\n-- table 1 --\n"
+        "For the Year Ended | 31 | 2025\n"
+        "Interest Income | 100 | 90\n"
+    )
     titles = e.detect_statement_titles(win)
     det = e.deterministic_statements(win, titles, "2024", "2025")
     labels = [li["label_verbatim"] for li in det["income_statement"]["line_items"]]

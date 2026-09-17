@@ -16,6 +16,7 @@ multi-sheet .xlsx an analyst can drop straight into a model:
 Numbers are written as numeric cells (so Excel can sum/link); the qscreen.app
 JSON contract is untouched — this is a parallel, human-facing output.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,14 +54,16 @@ def _num(x):
 
 
 def _unit_note(scale):
-    return {1: "actual (×1)", 1000: "thousands (×1,000)",
-            1000000: "millions (×1,000,000)"}.get(scale, f"×{scale}" if scale else "actual")
+    return {1: "actual (×1)", 1000: "thousands (×1,000)", 1000000: "millions (×1,000,000)"}.get(
+        scale, f"×{scale}" if scale else "actual"
+    )
 
 
 def _import_openpyxl():
     try:
         import openpyxl
         from openpyxl.styles import Font
+
         return openpyxl, Font
     except Exception:
         raise SystemExit("xlsx workbook needs openpyxl:  pip install openpyxl")
@@ -71,7 +74,7 @@ def _safe_sheet_name(name, used: set) -> str:
     base, i = name, 2
     while name in used:
         suffix = f" ({i})"
-        name = (base[:31 - len(suffix)] + suffix)
+        name = base[: 31 - len(suffix)] + suffix
         i += 1
     used.add(name)
     return name
@@ -80,7 +83,7 @@ def _safe_sheet_name(name, used: set) -> str:
 def _prior_period_labels(st: dict) -> list:
     priors: list = []
     for li in st.get("line_items") or []:
-        for c in (li.get("comparatives") or []):
+        for c in li.get("comparatives") or []:
             pl = c.get("period_label") if isinstance(c, dict) else None
             if pl and pl not in priors:
                 priors.append(pl)
@@ -93,6 +96,7 @@ def _ordered_codes(codes: list) -> list:
             if c.startswith(p):
                 return (i, c)
         return (len(_PREFIX_ORDER), c)
+
     return sorted(codes, key=key)
 
 
@@ -107,14 +111,20 @@ def _summary_sheet(ws, filing, Font):
     ws["A1"].font = Font(bold=True, size=14)
     ws.append([])
     for k, v in [
-        ("Company", meta.get("company_name")), ("Symbol", meta.get("symbol")),
-        ("Sector", meta.get("sector")), ("Fiscal year", meta.get("fiscal_year")),
-        ("Period", meta.get("fiscal_period")), ("Period end", meta.get("period_end")),
-        ("Currency", meta.get("currency")), ("Figures in", _unit_note(meta.get("unit_scale"))),
+        ("Company", meta.get("company_name")),
+        ("Symbol", meta.get("symbol")),
+        ("Sector", meta.get("sector")),
+        ("Fiscal year", meta.get("fiscal_year")),
+        ("Period", meta.get("fiscal_period")),
+        ("Period end", meta.get("period_end")),
+        ("Currency", meta.get("currency")),
+        ("Figures in", _unit_note(meta.get("unit_scale"))),
         ("Reporting framework", meta.get("reporting_framework")),
         ("Consolidated", meta.get("consolidated")),
-        ("Auditor", audit.get("auditor_name")), ("Audit opinion", audit.get("opinion_type")),
-        ("Source file", meta.get("source_file")), ("Extracted at", meta.get("extracted_at")),
+        ("Auditor", audit.get("auditor_name")),
+        ("Audit opinion", audit.get("opinion_type")),
+        ("Source file", meta.get("source_file")),
+        ("Extracted at", meta.get("extracted_at")),
     ]:
         ws.append([k, v])
         ws.cell(ws.max_row, 1).font = Font(bold=True)
@@ -124,16 +134,25 @@ def _summary_sheet(ws, filing, Font):
 
 def _statement_sheet(ws, st, Font):
     priors = _prior_period_labels(st)
-    header = ["Label", "Code", "Note", st.get("period_label") or "Current"] + priors
+    header = ["Label", "Code", "Note", st.get("period_label") or "Current", *priors]
     ws.append(header)
     _bold_row(ws, 1, len(header), Font)
     for li in st.get("line_items") or []:
         depth = int(li.get("depth") or 0)
-        comp = {c.get("period_label"): _num(c.get("value"))
-                for c in (li.get("comparatives") or []) if isinstance(c, dict)}
-        ws.append(["   " * depth + str(li.get("label_verbatim") or ""),
-                   li.get("account_code"), li.get("note_ref"), _num(li.get("value"))]
-                  + [comp.get(p) for p in priors])
+        comp = {
+            c.get("period_label"): _num(c.get("value"))
+            for c in (li.get("comparatives") or [])
+            if isinstance(c, dict)
+        }
+        ws.append(
+            [
+                "   " * depth + str(li.get("label_verbatim") or ""),
+                li.get("account_code"),
+                li.get("note_ref"),
+                _num(li.get("value")),
+            ]
+            + [comp.get(p) for p in priors]
+        )
         if li.get("is_subtotal"):
             _bold_row(ws, ws.max_row, len(header), Font)
     ws.column_dimensions["A"].width = 46
@@ -141,7 +160,7 @@ def _statement_sheet(ws, st, Font):
 
 def _multiyear_sheet(ws, series, Font):
     years = sorted(series.get("years") or {})
-    ws.append(["Metric", "Code"] + years)
+    ws.append(["Metric", "Code", *years])
     _bold_row(ws, 1, 2 + len(years), Font)
 
     def label_for(code):
@@ -150,21 +169,26 @@ def _multiyear_sheet(ws, series, Font):
             if lbl:
                 return lbl
         return code
+
     for code in _ordered_codes(series.get("codes") or []):
-        ws.append([label_for(code), code]
-                  + [_num((series["years"][y].get("metrics") or {}).get(code)) for y in years])
+        ws.append(
+            [label_for(code), code]
+            + [_num((series["years"][y].get("metrics") or {}).get(code)) for y in years]
+        )
     ws.column_dimensions["A"].width = 42
 
 
 def _segments_sheet(ws, segs, Font):
     mkeys = sorted({k for sg in segs for k in (sg.get("metrics") or {})})
-    header = ["Dimension", "Segment", "Currency", "Period"] + mkeys
+    header = ["Dimension", "Segment", "Currency", "Period", *mkeys]
     ws.append(header)
     _bold_row(ws, 1, len(header), Font)
     for sg in segs:
         m = sg.get("metrics") or {}
-        ws.append([sg.get("dimension"), sg.get("name"), sg.get("currency"), sg.get("period_label")]
-                  + [_num(m.get(k)) for k in mkeys])
+        ws.append(
+            [sg.get("dimension"), sg.get("name"), sg.get("currency"), sg.get("period_label")]
+            + [_num(m.get(k)) for k in mkeys]
+        )
     ws.column_dimensions["B"].width = 26
 
 
@@ -189,16 +213,22 @@ def build_workbook(filing: dict, filings: list[dict] | None = None):
     _summary_sheet(ws, filing, Font)
 
     for st in filing.get("statements") or []:
-        title = _STATEMENT_SHEET.get(st.get("type")) or (st.get("title") or st.get("type") or "Statement")
+        title = _STATEMENT_SHEET.get(st.get("type")) or (
+            st.get("title") or st.get("type") or "Statement"
+        )
         _statement_sheet(wb.create_sheet(_safe_sheet_name(title, used)), st, Font)
 
     sym = (filing.get("metadata") or {}).get("symbol") or "SERIES"
     series = build_series(sym, filings or [filing])
     if series.get("years"):
-        _multiyear_sheet(wb.create_sheet(_safe_sheet_name("Financials (multi-year)", used)), series, Font)
+        _multiyear_sheet(
+            wb.create_sheet(_safe_sheet_name("Financials (multi-year)", used)), series, Font
+        )
 
     if filing.get("segments"):
-        _segments_sheet(wb.create_sheet(_safe_sheet_name("Segments", used)), filing["segments"], Font)
+        _segments_sheet(
+            wb.create_sheet(_safe_sheet_name("Segments", used)), filing["segments"], Font
+        )
     if filing.get("notes"):
         _notes_sheet(wb.create_sheet(_safe_sheet_name("Notes", used)), filing["notes"], Font)
     return wb
@@ -218,20 +248,28 @@ def workbook_bytes(filing: dict, filings: list[dict] | None = None) -> bytes:
 def main() -> int:
     p = argparse.ArgumentParser(
         description="Build an Excel financial-transcript workbook from one or more filings "
-                    "(same company; extra years extend the multi-year grid).")
+        "(same company; extra years extend the multi-year grid)."
+    )
     p.add_argument("filings", nargs="+", help="SYMBOL_YEAR_PERIOD_filing.json files")
-    p.add_argument("--symbol", help="ticker for the output filename (else taken from the latest filing)")
+    p.add_argument(
+        "--symbol", help="ticker for the output filename (else taken from the latest filing)"
+    )
     p.add_argument("--out", help="output .xlsx path (default: <SYMBOL>_transcript.xlsx)")
     args = p.parse_args()
 
     filings = [json.loads(Path(fp).read_text(encoding="utf-8")) for fp in args.filings]
     filings.sort(key=lambda f: (f.get("metadata") or {}).get("fiscal_year") or 0)
-    primary = filings[-1]                                   # latest year supplies the statement sheets
+    primary = filings[-1]  # latest year supplies the statement sheets
     sym = (args.symbol or (primary.get("metadata") or {}).get("symbol") or "filing").upper()
     out = args.out or f"{sym}_transcript.xlsx"
     save_workbook(primary, out, filings)
-    years = sorted({(f.get("metadata") or {}).get("fiscal_year") for f in filings
-                    if (f.get("metadata") or {}).get("fiscal_year")})
+    years = sorted(
+        {
+            (f.get("metadata") or {}).get("fiscal_year")
+            for f in filings
+            if (f.get("metadata") or {}).get("fiscal_year")
+        }
+    )
     print(f"📑 Excel transcript ({len(filings)} filing(s), reported years {years}) → {out}")
     return 0
 

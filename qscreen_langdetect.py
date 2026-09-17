@@ -28,27 +28,27 @@ Why Unicode-range not "lingua-py" or similar library?
     (French filings exist but are vanishingly rare) — supporting
     them is out of scope here.
 """
+
 from __future__ import annotations
 
 import logging
-from typing import Iterable
-
+from collections.abc import Iterable
 
 log = logging.getLogger("qstock.langdetect")
 
 
 # Tuning knobs — exposed as constants so tests can pin them.
 ARABIC_RANGES = (
-    (0x0600, 0x06FF),                    # Arabic block
-    (0x0750, 0x077F),                    # Arabic Supplement
-    (0x08A0, 0x08FF),                    # Arabic Extended-A
-    (0xFB50, 0xFDFF),                    # Arabic Presentation Forms-A
-    (0xFE70, 0xFEFF),                    # Arabic Presentation Forms-B
+    (0x0600, 0x06FF),  # Arabic block
+    (0x0750, 0x077F),  # Arabic Supplement
+    (0x08A0, 0x08FF),  # Arabic Extended-A
+    (0xFB50, 0xFDFF),  # Arabic Presentation Forms-A
+    (0xFE70, 0xFEFF),  # Arabic Presentation Forms-B
 )
 LATIN_RANGES = (
-    (0x0041, 0x005A),                    # A-Z
-    (0x0061, 0x007A),                    # a-z
-    (0x00C0, 0x024F),                    # Latin Extended-A + B
+    (0x0041, 0x005A),  # A-Z
+    (0x0061, 0x007A),  # a-z
+    (0x00C0, 0x024F),  # Latin Extended-A + B
 )
 
 # Minimum ratio for a language to be reported. Real bilingual filings see
@@ -134,13 +134,17 @@ def detect_languages_per_page(pages: Iterable[dict]) -> dict:
         totals["ar"] += cnt["ar"]
         totals["latin"] += cnt["latin"]
 
-    return {"per_page": per_page,
-            "languages": detect_languages("\n\n".join(
-                (p or {}).get("text", "") for p in (pages or [])))}
+    return {
+        "per_page": per_page,
+        "languages": detect_languages(
+            "\n\n".join((p or {}).get("text", "") for p in (pages or []))
+        ),
+    }
 
 
-def apply_language_metadata(filing: dict, pages: list[dict] | None = None,
-                            text: str | None = None) -> dict:
+def apply_language_metadata(
+    filing: dict, pages: list[dict] | None = None, text: str | None = None
+) -> dict:
     """Set ``metadata.languages[]`` on a filing from its pages (or raw text).
 
     The metadata is non-destructive — only mutates ``metadata.languages`` and
@@ -173,15 +177,20 @@ def apply_language_metadata(filing: dict, pages: list[dict] | None = None,
     # Always present a non-empty per-page roll-up so analysts can see it.
     if result["per_page"]:
         filing["page_languages"] = {
-            p["page"]: p["languages"] for p in result["per_page"]
-            if p["languages"]                # only include pages with detected text
+            p["page"]: p["languages"]
+            for p in result["per_page"]
+            if p["languages"]  # only include pages with detected text
         }
-    log.info("langdetect: %d language(s) detected across %d page(s)",
-             len(lang_list), len(pages or []))
+    log.info(
+        "langdetect: %d language(s) detected across %d page(s)", len(lang_list), len(pages or [])
+    )
     return filing
 
 
 __all__ = [
-    "language_counts", "detect_languages", "detect_languages_per_page",
-    "apply_language_metadata", "MIN_RATIO",
+    "MIN_RATIO",
+    "apply_language_metadata",
+    "detect_languages",
+    "detect_languages_per_page",
+    "language_counts",
 ]

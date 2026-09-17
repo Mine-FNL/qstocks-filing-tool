@@ -13,6 +13,7 @@ taxonomy (sub-sector, archetype, framework, watch-KPIs) plus hand-authored
 temporal enrichment (name changes, acquisitions, regulatory regimes,
 expected segments).
 """
+
 from __future__ import annotations
 
 import json
@@ -20,8 +21,12 @@ from pathlib import Path
 
 from . import _seed
 from ._seed import (
-    QSE_TAXONOMY, SYMBOL_SUBSECTOR, SUBSECTOR_TO_ARCHETYPE,
-    WATCH_KPIS, COMPANY_NAMES, ENRICH,
+    COMPANY_NAMES,
+    ENRICH,
+    QSE_TAXONOMY,
+    SUBSECTOR_TO_ARCHETYPE,
+    SYMBOL_SUBSECTOR,
+    WATCH_KPIS,
 )
 
 # Human-readable jurisdiction label — used by the system prompt and the app UI.
@@ -44,7 +49,7 @@ def _default_peers(ticker: str, sub_sector: str) -> list[str]:
     return same[:4]
 
 
-def build_profile(ticker: str) -> "dict | None":
+def build_profile(ticker: str) -> dict | None:
     """Construct the full static profile for one ticker from seed + enrichment.
     Returns None when ``ticker`` isn't a known QSE listing (e.g. typo or a
     stock that isn't on the Qatar exchange)."""
@@ -58,8 +63,7 @@ def build_profile(ticker: str) -> "dict | None":
     bank_events = []
     if archetype in ("conventional_bank", "islamic_bank"):
         bank_events = [dict(_seed._BASEL_III), dict(_seed._IFRS9)]
-    events = sorted(bank_events + list(enrich.get("events", [])),
-                    key=lambda e: (e.get("year") or 0))
+    events = sorted(bank_events + list(enrich.get("events", [])), key=lambda e: e.get("year") or 0)
     return {
         "ticker": ticker,
         "jurisdiction": JURISDICTION_NAME,
@@ -70,8 +74,10 @@ def build_profile(ticker: str) -> "dict | None":
         "fiscal_year_end": enrich.get("fiscal_year_end", "12-31"),
         "reporting_currency": enrich.get("reporting_currency", "QAR"),
         "framework_timeline": enrich.get("framework_timeline") or _default_framework(archetype),
-        "watch_kpis": enrich.get("watch_kpis") or list(WATCH_KPIS.get(archetype, WATCH_KPIS["other"])),
-        "segments_expected": enrich.get("segments_expected") or {"by_geography": [], "by_business": []},
+        "watch_kpis": enrich.get("watch_kpis")
+        or list(WATCH_KPIS.get(archetype, WATCH_KPIS["other"])),
+        "segments_expected": enrich.get("segments_expected")
+        or {"by_geography": [], "by_business": []},
         "subsidiaries": enrich.get("subsidiaries", []),
         "events": events,
         "peers": enrich.get("peers") or _default_peers(ticker, sub),
@@ -103,12 +109,17 @@ def profile_for_year(ticker: str, year: int | None) -> dict | None:
     if p is None:
         return None
     if year is None:
-        return dict(p, as_of_year=None, name_as_of=p["company_name"],
-                    framework_as_of=p["framework_timeline"][0]["framework"],
-                    active_subsidiaries=list(p["subsidiaries"]),
-                    active_currencies=sorted({s["currency"] for s in p["subsidiaries"]
-                                              if s.get("currency")}),
-                    active_events=list(p["events"]))
+        return dict(
+            p,
+            as_of_year=None,
+            name_as_of=p["company_name"],
+            framework_as_of=p["framework_timeline"][0]["framework"],
+            active_subsidiaries=list(p["subsidiaries"]),
+            active_currencies=sorted(
+                {s["currency"] for s in p["subsidiaries"] if s.get("currency")}
+            ),
+            active_events=list(p["events"]),
+        )
 
     name = p["company_name"]
     for n in p["names"]:
@@ -117,16 +128,21 @@ def profile_for_year(ticker: str, year: int | None) -> dict | None:
             name = n["name"]
 
     framework = p["framework_timeline"][0]["framework"]
-    for fr in sorted(p["framework_timeline"], key=lambda x: (x.get("from") or 0)):
+    for fr in sorted(p["framework_timeline"], key=lambda x: x.get("from") or 0):
         if fr.get("from") is None or year >= fr["from"]:
             framework = fr["framework"]
 
-    active_subs = [s for s in p["subsidiaries"]
-                   if (s.get("from") is None or year >= s["from"])
-                   and (s.get("to") is None or year <= s["to"])]
+    active_subs = [
+        s
+        for s in p["subsidiaries"]
+        if (s.get("from") is None or year >= s["from"]) and (s.get("to") is None or year <= s["to"])
+    ]
     active_events = [e for e in p["events"] if (e.get("year") is None or year >= e["year"])]
     return dict(
-        p, as_of_year=year, name_as_of=name, framework_as_of=framework,
+        p,
+        as_of_year=year,
+        name_as_of=name,
+        framework_as_of=framework,
         active_subsidiaries=active_subs,
         active_currencies=sorted({s["currency"] for s in active_subs if s.get("currency")}),
         active_events=active_events,
@@ -145,22 +161,34 @@ def subsector_to_archetype() -> dict:
     return SUBSECTOR_TO_ARCHETYPE
 
 
-def export_json(directory: "str | Path | None" = None) -> int:
+def export_json(directory: str | Path | None = None) -> int:
     """Write profiles/qatar/data/<TICKER>.json for all 55 (inspectable artifacts)."""
     out = Path(directory) if directory else _DATA_DIR
     out.mkdir(parents=True, exist_ok=True)
     for ticker, profile in _PROFILES.items():
         (out / f"{ticker}.json").write_text(
-            json.dumps(profile, indent=2, ensure_ascii=False), encoding="utf-8")
+            json.dumps(profile, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
     return len(_PROFILES)
 
 
 # Re-export the seed + taxonomy under their original names so existing call
 # sites (qscreen_app, qscreen_analyze, tests, runbook) keep working unchanged.
 __all__ = [
+    "COMPANY_NAMES",
+    "ENRICH",
     "JURISDICTION_NAME",
-    "QSE_TAXONOMY", "SYMBOL_SUBSECTOR", "SUBSECTOR_TO_ARCHETYPE",
-    "SUBSECTOR_TO_EXTRACTION", "WATCH_KPIS", "COMPANY_NAMES", "ENRICH",
-    "all_tickers", "build_profile", "load_profile", "profile_for_year",
-    "taxonomy", "symbol_subsector", "subsector_to_archetype", "export_json",
+    "QSE_TAXONOMY",
+    "SUBSECTOR_TO_ARCHETYPE",
+    "SUBSECTOR_TO_EXTRACTION",
+    "SYMBOL_SUBSECTOR",
+    "WATCH_KPIS",
+    "all_tickers",
+    "build_profile",
+    "export_json",
+    "load_profile",
+    "profile_for_year",
+    "subsector_to_archetype",
+    "symbol_subsector",
+    "taxonomy",
 ]

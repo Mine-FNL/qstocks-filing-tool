@@ -34,6 +34,7 @@ import tempfile
 import traceback
 from types import SimpleNamespace
 from pathlib import Path
+from typing import Any
 
 # Reuse the exact, tested engine — do NOT reimplement any of it here.
 import qscreen_ingest as engine
@@ -44,6 +45,7 @@ import qscreen_portfolio
 import qscreen_workbook
 import qscreen_statements
 import qscreen_periods
+import qscreen_perf
 
 try:
     from flask import Flask, request, Response, send_file
@@ -658,6 +660,148 @@ def healthz():
             "profiles_loaded": len(profiles.all_jurisdictions())}
 
 
+# ── /metrics (Prometheus text-format exposition, no external deps) ─────────────
+#
+# Tiny in-house registry. The engine never imports this module — it just calls
+# the sink we attach on the args namespace (see ``qscreen_perf.attach_metric_sink``).
+# The Flask app installs its sink at extract-time; counters / histograms accumulate
+# in process memory and are rendered on demand by ``/_Metrics.render``.
+
+_HIST_BUCKETS_MS = (50.0, 100.0, 250.0, 500.0, 1000.0, 2500.0, 5000.0, 10000.0)
+
+
+class _Metrics:
+    """In-process Prometheus-shaped counter + histogram registry.
+
+    Thread-safe-enough for the Flask dev server (single-threaded by default);
+    no locks because the GIL makes dict[key] = ... atomic for non-resize hits
+    on the CPython runtime, and an exact count under a metrics scrape is not
+    worth blocking the request handler.
+    """
+    def __init__(self) -> None:
+        self._counters: dict[tuple[str, frozenset], float] = {}
+        self._hist: dict[tuple[str, frozenset], dict[str, float]] = {}
+
+    # Public sink API (matches qscreen_perf.get_metric_sink expectations).
+    def __call__(self, name: str, **labels: Any) -> None:
+        # Convention: ``_value`` is the histogram observation magnitude.
+        if "_value" in labels:
+            value = float(labels.pop("_value"))
+            self._observe(name, value, labels)
+        else:
+            self._counter_inc(name, labels)
+
+    # Internals.
+    def _label_key(self, labels: dict[str, Any]) -> frozenset:
+        return frozenset((k, str(v)) for k, v in labels.items())
+
+    def _counter_inc(self, name: str, labels: dict[str, Any]) -> None:
+        key = (name, self._label_key(labels))
+        self._counters[key] = self._counters.get(key, 0.0) + 1.0
+
+    def _observe(self, name: str, value: float, labels: dict[str, Any]) -> None:
+        key = (name, self._label_key(labels))
+        slot = self._hist.setdefault(key, {
+            "count": 0.0, "sum": 0.0,
+            **{f"le_{b}": 0.0 for b in _HIST_BUCKETS_MS},
+            "le_inf": 0.0,
+        })
+        slot["count"] += 1.0
+        slot["sum"] += value
+        placed = False
+        for b in _HIST_BUCKETS_MS:
+            if value <= b:
+                slot[f"le_{b}"] += 1.0
+                placed = True
+        if not placed:
+            slot["le_inf"] += 1.0
+
+    # Rendering.
+    @staticmethod
+    def _format_value(v: float) -> str:
+        if v != v:                # NaN
+            return "NaN"
+        if v == float("inf"):
+            return "+Inf"
+        if v == float("-inf"):
+            return "-Inf"
+        if v == int(v) and abs(v) < 1e15:
+            return str(int(v))
+        return repr(v)
+
+    @staticmethod
+    def _format_labels(label_pairs: frozenset) -> str:
+        if not label_pairs:
+            return ""
+        items = sorted(label_pairs)
+        body = ",".join(f'{k}="{v}"' for k, v in items)
+        return "{" + body + "}"
+
+    def render(self) -> str:
+        lines: list[str] = []
+
+        # Counters: emit HELP/TYPE once per metric NAME, then one line per
+        # label set.
+        counters_by_name: dict[str, list[tuple[frozenset, float]]] = {}
+        for (name, label_set), value in self._counters.items():
+            counters_by_name.setdefault(name, []).append((label_set, value))
+        for name, entries in sorted(counters_by_name.items()):
+            lines.append(f"# HELP {name} {name} (in-process counter).")
+            lines.append(f"# TYPE {name} counter")
+            for label_set, value in sorted(entries):
+                label = self._format_labels(label_set)
+                lines.append(f"{name}{label} {self._format_value(value)}")
+
+        # Histograms: same shape but emit buckets in the standard order.
+        hist_by_name: dict[str, list[tuple[frozenset, dict[str, float]]]] = {}
+        for (name, label_set), slot in self._hist.items():
+            hist_by_name.setdefault(name, []).append((label_set, slot))
+        for name, entries in sorted(hist_by_name.items()):
+            lines.append(f"# HELP {name} {name} (in-process histogram, milliseconds).")
+            lines.append(f"# TYPE {name} histogram")
+            for label_set, slot in sorted(entries):
+                # Each entry produces its own bucket lines keyed by base label
+                # set + le="...".
+                base_pairs = list(label_set)
+                # Count + sum series share the base label set.
+                count_label = self._format_labels(frozenset(base_pairs))
+                sum_label = count_label
+                # Bucket labels include an extra le="<edge>" key.
+                for b in _HIST_BUCKETS_MS:
+                    extra = (("le", self._format_value(b)),)
+                    bucket_label = self._format_labels(
+                        frozenset(base_pairs + list(extra)))
+                    lines.append(
+                        f"{name}_bucket{bucket_label} "
+                        f"{self._format_value(slot[f'le_{b}'])}")
+                inf_extra = (("le", "+Inf"),)
+                inf_label = self._format_labels(
+                    frozenset(base_pairs + list(inf_extra)))
+                lines.append(
+                    f"{name}_bucket{inf_label} "
+                    f"{self._format_value(slot['count'])}")
+                lines.append(
+                    f"{name}_count{count_label} "
+                    f"{self._format_value(slot['count'])}")
+                lines.append(
+                    f"{name}_sum{sum_label} "
+                    f"{self._format_value(slot['sum'])}")
+        return ("\n".join(lines) + "\n") if lines else ""
+
+
+METRICS = _Metrics()
+
+
+@app.route("/metrics")
+def metrics():
+    """Prometheus text-format exposition (v0.0.4). Counters, gauges, and
+    histograms are accumulated in-process via the metric sink that the
+    extract / upload routes install on the engine's args namespace."""
+    body = METRICS.render()
+    # Standard Prometheus content type — ``text/plain`` with a version param.
+    return Response(body, mimetype="text/plain; version=0.0.4; charset=utf-8")
+
+
 @app.route("/")
 def index():
     upload_enabled = bool(os.getenv("INGEST_TOKEN"))
@@ -734,6 +878,12 @@ def extract():
             mode=mode, basic=False, pro=False, no_llm=no_llm,
             guided=False, no_guided=False, guided_notes=want_notes,
         )
+        # Wire the in-process metric sink so ``run_filing`` bumps
+        # ``qscreen_filings_processed_total`` / ``qscreen_extraction_duration_ms``,
+        # ``_apply_pre_flags`` bumps ``qscreen_pre_flags_warn_total``, and the
+        # gate block emits ``qscreen_gates_block_total``. The /metrics route
+        # renders the registry.
+        qscreen_perf.attach_metric_sink(args, METRICS)
         engine.apply_mode(args)               # --mode/--no-llm → guided flags
         # Fully-offline (--no-llm) needs no provider at all; otherwise resolve it.
         try:

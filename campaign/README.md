@@ -7,6 +7,8 @@ Ready-to-paste launch materials. All images are CC0-equivalent (generated for th
 | `assets/hero-16x9.jpg`          | Reddit / dev.to cover. HN submission body image. README header. |
 | `assets/architecture-16x9.jpg` | Reddit `r/MachineLearning` / LinkedIn long-post "this is how it works" reply. docs/SHOW_HN.md illustration. |
 | `assets/demo-flow-16x9.jpg`     | HN body image, X thread image #1. The before→after picture. |
+| `assets/stats-card-16x9.jpg`   | The numbers card. X thread lead-tweet image. LinkedIn cover alt. |
+| `assets/demo-promo-6s.mp4`      | Short promo loop (6 s, 768p, native audio). Embed in SHOW_HN, X, LinkedIn. |
 
 ## Channels (ranked by expected reach)
 

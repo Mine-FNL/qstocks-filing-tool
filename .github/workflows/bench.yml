@@ -37,6 +37,7 @@ on:
       - "profiles/**"
       - "tests/golden/**"
       - "pyproject.toml"
+      - ".github/workflows/bench.yml"
   workflow_dispatch:
   schedule:
     # Mondays 06:00 UTC — first thing in the work-week.

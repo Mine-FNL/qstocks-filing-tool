@@ -34,7 +34,9 @@ Qstocks targets the *final-mile* problem: everyone gets text out of a PDF; very 
 # install — three options, pick one
 # (1) direct from the public GitHub Releases CDN (no PyPI needed, no token, no signup)
 pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/download/v1.6.0/qscreen_filing_tool-1.6.0-py3-none-any.whl
-# (2) from a clone (full source + dev extras)
+# (2) proper PEP 503 simple index hosted on GitHub Pages (PyPI-equivalent for one package)
+pip install --extra-index-url https://mine-fnl.github.io/qstocks-filing-tool/simple/ qscreen-filing-tool
+# (3) from a clone (full source + dev extras)
 git clone https://github.com/Mine-FNL/qstocks-filing-tool
 cd qstocks-filing-tool && pip install -e ".[dev]"
 # browser
@@ -43,7 +45,7 @@ qscreen-app          # → localhost:8765  (drag PDF, click Extract)
 qscreen-ingest report.pdf --symbol AKHI --year 2022
 ```
 
-> The Release-CDN install (option 1) is fully verified end-to-end on every tag push via `.github/workflows/publish.yml`; CI builds the wheel and uploads it as a release asset. PyPI publishing is queued behind a one-time maintainer UI click on `pypi.org/manage/account/publishing/` (Trusted Publishers / OIDC); the Release-CDN path gives you the same package today.
+> Both option 1 and option 2 install the same wheel that `.github/workflows/publish.yml` would push to PyPI on the day the maintainer registers the Trusted Publisher. Today they're the public install paths; PyPI is queued behind that one-time UI click on `pypi.org/manage/account/publishing/`.
 
 > **First run?** Follow **[RUNBOOK.md](RUNBOOK.md)** — install → key → one command → every output.
 

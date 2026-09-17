@@ -106,23 +106,26 @@ jobs:
       - name: Publish step summary
         if: always()
         run: |
-          {
-            echo "## Golden-set bench"
-            echo
-            echo "| Case | Score |"
-            echo "| --- | --- |"
-            python -c "
+          python - <<'PYEOF' > bench-summary.md
           import json
           d = json.load(open('bench.json'))
-          for c in d['cases']:
-              mark = '\u2705' if c['score'] == c['total'] else '\u26a0\ufe0f'
-              print(f\"| {mark} \`{c['case']}\` | {c['score']}/{c['total']} |")
-          "
-            echo
-            total_score=$(python -c "import json; d=json.load(open('bench.json')); print(sum(c['score'] for c in d['cases']))")
-            total_checks=$(python -c "import json; d=json.load(open('bench.json')); print(sum(c['total'] for c in d['cases']))")
-            echo "**Aggregate: $total_score / $total_checks checks pass.**"
-          } >> "$GITHUB_STEP_SUMMARY"
+          cases = d['cases']
+          total_score = sum(c['score'] for c in cases)
+          total_checks = sum(c['total'] for c in cases)
+          ratio = total_score / total_checks if total_checks else 0
+          print('## Golden-set bench')
+          print()
+          print('| Case | Score |')
+          print('| --- | --- |')
+          for c in cases:
+              mark = 'OK' if c['score'] == c['total'] else 'WARN'
+              print(f"| {mark} `{c['case']}` | {c['score']}/{c['total']} |")
+          print()
+          print(f"**Aggregate: {total_score} / {total_checks} checks pass ({ratio*100:.1f}%).**")
+          print()
+          print(f"Baseline gate: **must be >= 80.6%** (currently {ratio*100:.1f}%).")
+          PYEOF
+          cat bench-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build PR comment body
         if: github.event_name == 'pull_request' && always()

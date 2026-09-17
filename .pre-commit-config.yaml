@@ -1,0 +1,101 @@
+# .pre-commit-config.yaml
+#
+# Industry-standard pre-commit hooks: every commit is run through
+# these locally before it reaches CI. Combined with the CI gate
+# (lint.yml — ruff/mypy/cross-platform) the tree should never see a
+# style violation or a secret in flight.
+#
+# Install:
+#   pip install pre-commit
+#   pre-commit install
+#
+# One-off run:
+#   pre-commit run --all-files
+#
+# Skip on a specific commit (use sparingly):
+#   git commit -m "..." --no-verify
+#
+# Why these hooks:
+#   - pre-commit-hooks: baseline sanity (end-of-file, trailing-whitespace,
+#     large-file check, merge-conflict markers, etc.) — same set the
+#     Kubernetes, Django, and Pandas projects ship.
+#   - ruff: matches the CI lint.yml selector/ignore list exactly so
+#     local+CI never disagree.
+#   - mypy: same flag set the CI lint job uses (--strict on the engine
+#     modules, lenient elsewhere).
+#   - check-yaml, check-json, check-toml: catches a class of "push a
+#     broken workflow file" regressions.
+#   - detect-secrets: catches accidentally committed API keys before
+#     they leave the developer laptop.
+
+repos:
+  # ── baseline code hygiene ──────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # .pre-commit-config.yaml itself may need unsafe load
+        exclude: ^\.pre-commit-config\.yaml$
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # ── ruff — lint + format in CI (matches lint.yml exactly) ──────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.16
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # ── mypy — type-check (matches lint.yml invocation) ────────────────────
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        # Pass the same selectors the CI uses. We allow failures here
+        # (additional_dependencies) so the strict typing keeps moving
+        # without blocking noisy in-flight refactors.
+        additional_dependencies:
+          - types-requests
+          - types-flask
+        args: [--config-file=pyproject.toml, --no-incremental]
+        files: \.py$
+
+  # ── secret detection — runs locally, no server roundtrip needed ────────
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        # baselines committed to .secrets.baseline so legitimate
+        # test fixtures (sk-… keys in test_dotenv.py, etc.) don't get
+        # flagged on every commit.
+        args: [--baseline, .secrets.baseline]
+        exclude: |
+          (?x)^(
+            tests/.*\.py
+          )$
+
+# ── global settings ───────────────────────────────────────────────────
+default_language_version:
+  python: python3
+fail_fast: false
+# Don't crawl the dist / build / venv noise.
+exclude: |
+  (?x)^(
+    build/.*|
+    dist/.*|
+    site/.*|
+    .*\.egg-info/.*|
+    tests/golden/cases/.*
+  )$

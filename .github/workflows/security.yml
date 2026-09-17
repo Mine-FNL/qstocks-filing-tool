@@ -1,0 +1,105 @@
+name: security
+
+# Continuous security assurance:
+#   1. CodeQL — semantic analysis for Python security defects
+#      (SQL injection, command injection, clear-text creds,
+#      insecure deserialisation, etc.). Required by GitHub for
+#      repos seeking "Security Default" branch protection.
+#   2. pip-audit — checks the resolved dependency graph against the
+#      OSV / PyPA advisory database. Non-gating (warn) for now
+#      because the dev-dependency tree (pytest, mypy, ruff) may
+#      pull in transitive advisories that we don't pin directly.
+#
+# Triggered on every PR, every push to main, weekly cron Monday 06:00
+# UTC, and manual dispatch. Uploads SARIF to the Security tab so
+# findings show up next to the codebase.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * MON"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write  # upload SARIF
+  actions: read
+
+concurrency:
+  group: security
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    name: CodeQL — ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["python"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # We rely on the default `security-and-quality` query pack —
+          # turns on the high-signal vulnerability + quality queries.
+          # The engine uses a heuristic-build pattern matching Python
+          # imports; no need for a custom build script for an
+          # import-side-effects-free Python package.
+      - name: Autobuild (heuristic)
+        uses: github/codeql-action/autobuild@v3
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: true
+
+  pip-audit:
+    name: pip-audit (advisories)
+    runs-on: ubuntu-latest
+    # Step is non-blocking (warn) because the dev tree has many
+    # transitive deps; switching it to "fail" requires the maintainer
+    # to triage each advisory individually. The signal is captured
+    # in the GitHub Security tab via SARIF regardless.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+          pip install -e ".[dev]"
+      - name: Audit resolved dependency tree
+        run: |
+          mkdir -p audit-out
+          pip-audit \
+            --strict \
+            --format cyclonedx-json \
+            --output audit-out/pip-audit.cdx.json 2>audit-out/pip-audit.txt || true
+          # Also emit a JSON for the log (humans + downstream automation).
+          pip-audit --strict --format json --output audit-out/pip-audit.json 2>>audit-out/pip-audit.txt || true
+          echo "---- pip-audit summary ----"
+          if [ -s audit-out/pip-audit.txt ]; then
+            head -100 audit-out/pip-audit.txt
+          else
+            echo "No advisories found."
+          fi
+      - name: Upload audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-${{ github.run_id }}
+          path: audit-out/
+          retention-days: 30

@@ -1,0 +1,70 @@
+name: slsa-provenance
+
+# SLSA Build L3 provenance for released wheels + sdists.
+#
+# Triggered after release.yml publishes a tag (which already passed
+# the bench regression gate, built the sdist+wheel, signed them with
+# Sigstore, and uploaded to GitHub Releases). We download the assets
+# from the release, hand them to slsa-github-generator, which issues
+# an in-toto SLSA Provenance v1 attestation and attaches it to the
+# GitHub repo as a sigstore-artifact-attestation.
+#
+# Verification (consumer side):
+#   gh attestation verify dist/qscreen_filing_tool-1.6.1-py3-none-any.whl \
+#     --owner Mine-FNL --repo qstocks-filing-tool
+#
+# Standards references:
+#   - SLSA Build L3: https://slsa.dev/spec/v1.1/build-providing
+#   - in-toto SLSA Provenance v1: https://github.com/in-toto/attestation/tree/main/provenance
+#   - GitHub artifact attestations: https://docs.github.com/en/code-security/conveying-information-about-your-software/establishing-provenance-for-your-artifacts
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write       # for the SLSA OIDC subject claim
+  attestations: write   # to publish the attestation
+
+jobs:
+  slsa:
+    name: Generate SLSA provenance attestation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mkdir -p dist
+          # Pull wheel + sdist we just uploaded from the release.
+          gh release download "$TAG" \
+            --pattern "*.whl" \
+            --pattern "*.tar.gz" \
+            --dir dist
+          ls -lh dist/
+      - name: Generate SLSA provenance v1
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_python_slsa3.yml@v2.0.0
+        with:
+          python-version: "3.11"
+      # Note: the slsa-generator-action creates the attestation under
+      # `dist/<artifact>.intoto.jsonl` and publishes it to GH automatically
+      # via `attestations: write`. We re-attach the .intoto.jsonl files to
+      # the release for offline consumers as a belt-and-braces backup.
+      - name: Re-upload attestations to the release
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # Only re-upload if there are .intoto.jsonl files present.
+          shopt -s nullglob
+          ATTESTS=( dist/*.intoto.jsonl )
+          if (( ${#ATTESTS[@]} > 0 )); then
+            gh release upload "$TAG" "${ATTESTS[@]}" --clobber
+            echo "Re-uploaded ${#ATTESTS[@]} attestation(s)"
+          else
+            echo "No .intoto.jsonl attestations found (generator may have skipped)"
+          fi

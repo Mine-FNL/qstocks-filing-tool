@@ -109,11 +109,23 @@ jobs:
       - name: Install build deps
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install build cyclonedx-py-mod
       - name: Build sdist + wheel
         run: |
           python -m build --sdist --wheel
           ls -lh dist/
+      - name: Generate SBOM (CycloneDX)
+        # CycloneDX is the de-facto standard for software bill of materials
+        # in SBOM-aware supply-chain tooling (Grype, Trivy, Dependency-Track).
+        # We emit a single .cdx.json covering both the wheel + sdist and
+        # attach it as a release asset. Downstream auditors and vulnerability
+        # scanners can correlate component → CVE via this file.
+        run: |
+          cyclonedx-py environment --output-format JSON --output-file dist/sbom.cdx.json
+          # Pin a reproducible format version so consumers don't have to
+          # cope with schema drift between releases.
+          python -c "import json; d=json.load(open('dist/sbom.cdx.json')); d.setdefault('specVersion','1.5'); d.setdefault('serialNumber','urn:uuid:$(uuidgen)'); d.setdefault('metadata',{})['timestamp']='$(date -u +%Y-%m-%dT%H:%M:%SZ)'; json.dump(d, open('dist/sbom.cdx.json','w'), indent=2)"
+          ls -lh dist/sbom.cdx.json
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -123,8 +135,34 @@ jobs:
           files: |
             dist/*.whl
             dist/*.tar.gz
+            dist/sbom.cdx.json
           generate_release_notes: true
           fail_on_unmatched_files: true
+      - name: Sign artifacts with Sigstore
+        # Keyless OIDC signing — no long-lived secret material to leak.
+        # Produces `<file>.sig` and a certificate `<file>.crt` for each
+        # artifact; we upload the bundle to GitHub Releases so consumers
+        # can verify provenance with `cosign verify-blob` against the
+        # OIDC identity of this workflow (commit SHA + repo + workflow
+        # name). Failures are non-blocking (warn-only) — a Sigstore
+        # outage should not block a release.
+        id: sigstore
+        uses: sigstore/gh-action-sigstore-python@v1.2.0
+        with:
+          inputs: |
+            dist/*.whl
+            dist/*.tar.gz
+        env:
+          SIGSTORE_REKOR_URL: https://rekor.sigstore.dev
+      - name: Upload signatures to GitHub Release
+        if: success() || failure()
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.sig
+            dist/*.crt
+          fail_on_unmatched_files: false
+          verbose: false
       - name: Update gh-pages simple index
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

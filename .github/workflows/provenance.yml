@@ -96,7 +96,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download SBOM
+      - name: Download SBOM (best-effort)
+        # Older releases (e.g. v1.6.1, v1.6.0) predate the SBOM step and
+        # therefore have no sbom.cdx.json asset attached. Don't fail the
+        # whole provenance run on this — the wheel + sdist jobs attest the
+        # code-level SLSA receipt either way.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
@@ -104,9 +109,10 @@ jobs:
           mkdir -p dist
           gh release download "$TAG" \
             --pattern "sbom.cdx.json" \
-            --dir dist
+            --dir dist || echo "WARN: no sbom.cdx.json on this release (older release)"
           ls -lh dist/
       - name: Attest build provenance
+        if: hashFiles('dist/sbom.cdx.json') != ''
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: 'dist/sbom.cdx.json'

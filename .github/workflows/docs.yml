@@ -73,17 +73,16 @@ jobs:
         # default doesn't accept the workflow's GITHUB_TOKEN input on this
         # repo. The simpler push-via-git pattern works as long as the
         # workflow has `contents: write` (set in `permissions:` above) and
-        # `actions/checkout@v4`'s default GITHUB_TOKEN has push rights on
-        # the gh-pages branch (which is the case for non-protected branches
-        # in this repo).
+        # the default GITHUB_TOKEN has push rights on the gh-pages branch.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Add a nojekyll file so GitHub Pages serves the site as-is
           touch site/.nojekyll
-          # Force-push the freshly-built site as the entire gh-pages branch
-          # (orphan — drops the release.yml-managed simple/ + demo.html
-          # subpaths, which release.yml re-publishes on the next v* tag).
-          git add -A
+          # site/ is gitignored at the repo root (mkdocs output); force-add
+          # it here so the gh-pages branch carries the freshly-built site.
+          # The orphan push drops release.yml-managed simple/ + demo.html
+          # subpaths; release.yml re-publishes them on the next v* tag.
+          git add -f site/ .nojekyll
           git commit -m "docs: rebuild mkdocs site (commit ${GITHUB_SHA})"
           git push origin HEAD:gh-pages --force

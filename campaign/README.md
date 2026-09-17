@@ -8,7 +8,10 @@ Ready-to-paste launch materials. All images are CC0-equivalent (generated for th
 | `assets/architecture-16x9.jpg` | Reddit `r/MachineLearning` / LinkedIn long-post "this is how it works" reply. docs/SHOW_HN.md illustration. |
 | `assets/demo-flow-16x9.jpg`     | HN body image, X thread image #1. The before→after picture. |
 | `assets/stats-card-16x9.jpg`   | The numbers card. X thread lead-tweet image. LinkedIn cover alt. |
-| `assets/demo-promo-6s.mp4`      | Short promo loop (6 s, 768p, native audio). Embed in SHOW_HN, X, LinkedIn. |
+| `assets/demo-promo-6s.mp4`      | Short promo loop (6 s, 768p, **native audio**). Embed in SHOW_HN, X, LinkedIn. |
+| `assets/why-video-1-pain-vs-fix.mp4`            | 6 s, 768p — silent. **The WHY.** Today's vendor extractor (left) vs the deterministic one-shot CLI (right). The pain-point opener for any channel. |
+| `assets/why-video-2-gate-blocks-silent-failure.mp4` | 6 s, 768p — silent. **The magic sauce.** Math-identity gate catches a 2.2 % assets-vs-L+E delta in real time, stamps a "GATE BLOCKED" seal, surfaces the offending line-item. |
+| `assets/why-video-3-fingerprint-magic.mp4`      | 6 s, 768p — silent. **The proof.** Stable SHA-256 fingerprint across re-ingests, signed via Sigstore, repeatable from any engine commit. |
 
 ## Channels (ranked by expected reach)
 

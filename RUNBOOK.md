@@ -108,3 +108,47 @@ If a real run surfaces something the offline tests don't cover (a provider quirk
 unusual statement layout, a number that lands wrong), capture the command + the printed
 problems and the relevant PDF page — that's exactly the signal needed to tune the
 extraction prompt.
+
+---
+
+## Appendix: PyPI Trusted Publisher setup (one-time, maintainer only)
+
+The repo ships a `publish.yml` workflow that publishes to PyPI with
+**no API token** — it uses [PyPI Trusted Publishers][tp] (PEP 740 / OIDC).
+The maintainer does this once on PyPI's side; from then on every
+`v*` tag push is a no-secret publish.
+
+[tp]: https://docs.pypi.org/trusted-publishers/
+
+### Steps
+
+1. Go to **<https://pypi.org/manage/account/publishing/>** while signed
+   in as the project's owner.
+2. Under **"Pending publishers"**, click **"Add a new pending publisher"**
+   and fill in:
+   - **PyPI Project Name**: `qscreen-filing-tool`
+   - **Owner**: `Mine-FNL`
+   - **Repository name**: `qstocks-filing-tool`
+   - **Workflow filename**: `publish.yml`
+   - **Environment name**: *(leave blank — uses default)*
+3. Click **Add**. PyPI shows a confirmation; the publisher is now
+   "pending" until the first successful publish.
+4. From the repo, push a `v*` tag (or run **Actions → publish →
+   Run workflow**) to fire the publish. The workflow uses GitHub's OIDC
+   identity; PyPI matches it against the pending publisher and
+   promotes it to "real" on the first successful publish.
+
+That's it. There is no token to mint, rotate, or burn. Subsequent
+releases re-use the same workflow.
+
+### Failure modes
+
+- *"project not found on PyPI"* — PyPI requires the project name to be
+  reserved. The first publish *is* the one that reserves it. PyPI's
+  pending publisher must therefore be registered before the first
+  workflow run; if you see this error, register it (steps above) and
+  re-run the workflow.
+- *"OIDC: no matching pending publisher"* — the owner / repo /
+  workflow filename tuple doesn't match. Re-check the values on
+  <https://pypi.org/manage/account/publishing/> match this repo's path
+  and `.github/workflows/publish.yml` exactly.

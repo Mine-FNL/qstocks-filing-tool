@@ -58,7 +58,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-__version__ = "1.2.0"
+__version__ = "1.6.0"
 
 
 # ── .env loader (no python-dotenv dependency) ────────────────────────────────

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qscreen-filing-tool"
-description = "Jurisdiction-agnostic PDF → lossless filing JSON (browser app + CLI). Originally QSE, now pluggable."
+description = "Jurisdiction-agnostic PDF → lossless filing JSON (browser app + CLI). Pluggable profiles, math-identity gates, idempotent batch, and stable text fingerprints. Originally QSE, now pluggable."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
@@ -48,9 +48,14 @@ py-modules = [
     "qscreen_ingest", "qscreen_app", "qscreen_series", "qscreen_analyze",
     "qscreen_dcf", "qscreen_report", "qscreen_portfolio", "qscreen_workbook",
     "qscreen_statements", "qscreen_charts", "qscreen_periods",
-    # New modules shipped in 1.2.0
+    # Modules shipped in 1.2.0
     "qscreen_gates",            # skeleton + math-identity gates
     "qscreen_state",            # resumable batch state (sqlite)
+    # Modules shipped in 1.3.0 – 1.6.0
+    "qscreen_eval",             # 1.3.0 — golden-set evaluation harness
+    "qscreen_autodetect",       # 1.4.0 — auto-detect sector/period/framework
+    "qscreen_langdetect",       # 1.5.0 — bilingual Arabic/English classifier
+    "qscreen_fingerprint",      # 1.6.0 — stable text fingerprints + diff
 ]
 # Two packages: profiles/ (jurisdiction-aware, ships Qatar data + pre_flag
 # catalog), qatar/ (back-compat shim re-exporting profiles.qatar).

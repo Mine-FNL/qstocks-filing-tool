@@ -1,7 +1,28 @@
 # QScreen Filing Tool
 
-Turn a PDF financial report into a lossless, auditable filing JSON — ready to upload.
-Two modes: **local browser app** (drag-and-drop) or **one-command CLI**.
+[![CI](https://github.com/Mine-FNL/qstocks-filing-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/Mine-FNL/qstocks-filing-tool/actions/workflows/ci.yml)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue)](https://github.com/Mine-FNL/qstocks-filing-tool/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+**Turn a PDF financial report into a lossless, auditable filing JSON — ready for ingest.**
+
+A jurisdiction-agnostic engine that takes any exchange's annual / interim report
+(IFRS, AAOIFI, or anything in between) and emits a single stable, fingerprintable
+JSON object: every number, the audit opinion, segments, note text, and provenance.
+Pluggable profiles (Qatar ships out of the box; AE / SA / KW are one directory drop away).
+
+Two modes: **local browser app** (drag-and-drop, ~3 min to first JSON) or
+**one-command CLI** (scriptable, idempotent batches with SQLite-backed resume).
+
+```bash
+# install
+git clone https://github.com/Mine-FNL/qstocks-filing-tool
+cd qstocks-filing-tool && pip install -e .
+# browser
+qscreen-app          # → localhost:8765  (drag PDF, click Extract)
+# CLI
+qscreen-ingest report.pdf --symbol AKHI --year 2022
+```
 
 > **First run?** Follow **[RUNBOOK.md](RUNBOOK.md)** — install → key → one command → every output.
 

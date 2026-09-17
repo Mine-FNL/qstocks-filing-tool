@@ -83,6 +83,6 @@ jobs:
           # it here so the gh-pages branch carries the freshly-built site.
           # The orphan push drops release.yml-managed simple/ + demo.html
           # subpaths; release.yml re-publishes them on the next v* tag.
-          git add -f site/ .nojekyll
+          git add -f site/
           git commit -m "docs: rebuild mkdocs site (commit ${GITHUB_SHA})"
           git push origin HEAD:gh-pages --force

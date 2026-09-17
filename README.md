@@ -31,14 +31,19 @@ Qstocks targets the *final-mile* problem: everyone gets text out of a PDF; very 
 
 
 ```bash
-# install
+# install — three options, pick one
+# (1) direct from the public GitHub Releases CDN (no PyPI needed, no token, no signup)
+pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/download/v1.6.0/qscreen_filing_tool-1.6.0-py3-none-any.whl
+# (2) from a clone (full source + dev extras)
 git clone https://github.com/Mine-FNL/qstocks-filing-tool
-cd qstocks-filing-tool && pip install -e .
+cd qstocks-filing-tool && pip install -e ".[dev]"
 # browser
 qscreen-app          # → localhost:8765  (drag PDF, click Extract)
 # CLI
 qscreen-ingest report.pdf --symbol AKHI --year 2022
 ```
+
+> The Release-CDN install (option 1) is fully verified end-to-end on every tag push via `.github/workflows/publish.yml`; CI builds the wheel and uploads it as a release asset. PyPI publishing is queued behind a one-time maintainer UI click on `pypi.org/manage/account/publishing/` (Trusted Publishers / OIDC); the Release-CDN path gives you the same package today.
 
 > **First run?** Follow **[RUNBOOK.md](RUNBOOK.md)** — install → key → one command → every output.
 

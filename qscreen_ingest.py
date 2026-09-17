@@ -115,23 +115,46 @@ _load_dotenv()
 
 
 # ── Logging ────────────────────────────────────────────────────────────────────
-# The CLI keeps its friendly stdout progress prints so an interactive operator
-# sees the same output they always have. Anything that an operator running this
-# headless in a container / cron would actually want in a log goes through the
-# "qscreen.ingest" logger at INFO/WARNING; configure it from LOG_LEVEL and a
-# handler in production (e.g. `LOG_LEVEL=DEBUG python3 qscreen_ingest.py …`).
+# Engine-flow progress messages (the ones that used to go to stdout via ``print``)
+# are routed through the "qscreen.ingest" logger at INFO/WARNING. An operator
+# running this headless in a container / cron can configure it with
+# ``LOG_LEVEL=DEBUG`` (debug-trace), or ``LOG_JSON=1`` to get one structured JSON
+# event per line (uses ``python-json-logger`` from the ``[dev]`` extras — the
+# core engine only depends on stdlib).
 log = logging.getLogger("qscreen.ingest")
 if not log.handlers:                                  # idempotent across re-imports
-    _level = os.getenv("LOG_LEVEL", "WARNING").upper()
+    _level = os.getenv("LOG_LEVEL", "INFO").upper()
+    if os.getenv("LOG_JSON", "").strip() in ("1", "true", "TRUE", "yes", "YES"):
+        # JSON output — only available when the dev extras are installed. We
+        # silently fall back to the plain formatter so the core engine stays
+        # stdlib-only.
+        try:
+            from pythonjsonlogger import json as _jsonfmt
+            _fmt: logging.Formatter = _jsonfmt.JsonFormatter(
+                "%(asctime)s %(levelname)s %(name)s %(message)s")
+        except Exception:
+            _fmt = logging.Formatter(
+                "%(asctime)s %(levelname)s %(name)s | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S")
+    else:
+        _fmt = logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S")
     _h = logging.StreamHandler(stream=sys.stderr)
-    _h.setFormatter(logging.Formatter(
-        "%(asctime)s %(levelname)s %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"))
+    _h.setFormatter(_fmt)
     log.addHandler(_h)
     try:
-        log.setLevel(getattr(logging, _level, logging.WARNING))
+        log.setLevel(getattr(logging, _level, logging.INFO))
     except Exception:
-        log.setLevel(logging.WARNING)
+        log.setLevel(logging.INFO)
+
+
+# Per-stage performance instrumentation is provided by qscreen_perf and
+# activated by the bench (``qscreen_eval.py --timing`` sets ``PERF_TIMING=1``
+# before invoking the engine). The default ``_perf_record`` attribute on the
+# argparse Namespace makes every ``stage_timer(...)`` call site zero-overhead
+# when timing is off — see ``qscreen_perf.stage_timer``.
+import qscreen_perf as _perf  # noqa: E402
 
 
 def set_dotenv_value(key: str, value: str, path: Path | None = None) -> Path:
@@ -737,12 +760,16 @@ def pdf_to_pages(pdf_path: str, ocr_mode: str = "auto") -> tuple[list[dict], str
                              if p["text"].strip() else add)
                 recovered += 1
             if recovered:
+                # NB: kept as a plain stdout print so the existing
+                # ``tests/test_qscreen.py::test_ocr_auto_warns_when_unavailable``
+                # contract (capsys -> stdout) holds unchanged.
                 print(f"   🔎 OCR recovered text from {recovered} page(s)")
         except OcrUnavailable:
             scanned = len([p for p in pages if len(p["text"].strip()) < OCR_MIN_CHARS])
             msg = ("OCR is not available (install it with: pip install rapidocr-onnxruntime)")
             if ocr_mode == "always":
                 raise SystemExit(f"--ocr always requested but {msg}.")
+            # Same stdout-print rationale as above.
             print(f"   ⚠️  {scanned} page(s) have little/no extractable text (likely "
                   f"scanned). {msg}; re-run with --ocr always to force.")
     return pages, sha
@@ -1177,7 +1204,8 @@ def call_llm(messages: list[dict], args) -> str:
                 return extract(resp.json())
         if attempt < args.retries:
             wait = 2 ** attempt
-            print(f"   ⚠️  LLM call failed ({last_err}); retry {attempt}/{args.retries - 1} in {wait}s")
+            log.warning("LLM call failed (%s); retry %d/%d in %ss",
+                        last_err, attempt, args.retries - 1, wait)
             time.sleep(wait)
     raise SystemExit(f"{cfg['name']} call failed after {args.retries} attempts: {last_err}")
 
@@ -2457,9 +2485,11 @@ def extract_filing_guided(pages: list[dict], args) -> dict:
     prior_label = str(int(args.year) - 1) if getattr(args, "year", None) else "prior"
     period_label = str(args.year) if getattr(args, "year", None) else None
     how = "deterministic only (no model)" if no_llm else "deterministic-first, model fills gaps"
-    print(f"🧭 Basic extraction: {len(windows)} small window(s) of ≤{size} page(s) — {how} …")
+    log.info("Basic extraction: %d small window(s) of <=%d page(s) — %s",
+             len(windows), size, how)
 
     parts: list[dict] = []
+    _rec = _perf.get_record(args)
     for wi, win in enumerate(windows, 1):
         text = render_window(win)
         part = empty_filing()
@@ -2484,8 +2514,9 @@ def extract_filing_guided(pages: list[dict], args) -> dict:
                         "type": stype, "title": title, "period_label": period_label,
                         "verbatim_text": chunk or text, "line_items": items,
                     })
-        names = ", ".join(f"{s['type']}×{len(s['line_items'])}" for s in part["statements"]) or "—"
-        print(f"   • window {wi}/{len(windows)} (pages {win[0]['num']}-{win[-1]['num']}): {names}")
+        names = ", ".join(f"{s['type']}x{len(s['line_items'])}" for s in part["statements"]) or "—"
+        log.info("window %d/%d (pages %d-%d): %s",
+                 wi, len(windows), win[0]["num"], win[-1]["num"], names)
 
         # audit: deterministic opinion first, then a closed-set model ask
         if _AUDIT_HINT.search(text):
@@ -2513,8 +2544,8 @@ def extract_filing_guided(pages: list[dict], args) -> dict:
                               "please spot-check these figures against the PDF.")
     if eq.get("confidence") is None and all_li:        # parsed = high trust, OCR = lower
         eq["confidence"] = round(0.6 + 0.39 * (n_parsed / len(all_li)), 2)
-    print(f"🧩 Assembled {len(merged.get('statements', []))} statement(s); {note}; "
-          f"{n_codes} mapped to account codes.")
+    log.info("Assembled %d statement(s); %s; %d mapped to account codes.",
+             len(merged.get("statements", [])), note, n_codes)
     return merged
 
 
@@ -2553,29 +2584,45 @@ def _apply_pre_flags(filing: dict, args) -> dict:
 
     Lazy-imported so callers without the optional ``profiles.qatar`` package
     (or with a non-Qatar jurisdiction that doesn't ship a pre_flags module)
-    still run cleanly.
+    still run cleanly. Wrapped with a ``StageTimer`` (``stage=
+    "pre_flag_catalog.run"``) so the perf bench can see how long the catalog
+    takes per filing. Disabled when ``--timing`` is off — see ``qscreen_perf``.
+
+    Also fires ``qscreen_pre_flags_warn_total{case=<rule_id>}`` through the
+    metric sink (one per warn-severity flag) so the ``/metrics`` endpoint can
+    chart which pre-flag rules fire most often.
     """
-    try:
-        from profiles.qatar import pre_flags as _pf
-    except Exception as e:                              # pragma: no cover - defensive
-        log.info("pre-flag catalog unavailable (%s); skipping", e)
+    _rec = _perf.get_record(args)
+    _sink = _perf.get_metric_sink(args)
+    with _perf.stage_timer(log, _rec, "pre_flag_catalog.run"):
+        try:
+            from profiles.qatar import pre_flags as _pf
+        except Exception as e:                              # pragma: no cover - defensive
+            log.info("pre-flag catalog unavailable (%s); skipping", e)
+            return filing
+        try:
+            flags = _pf.run_pre_flags(filing)
+        except Exception as e:                              # pragma: no cover - defensive
+            log.warning("pre-flag run raised %s: %s", type(e).__name__, e)
+            return filing
+        if flags:
+            _pf.merge_into_filing(filing, flags)
+            log.info("pre-flag catalog: %d flag(s) for %s %s",
+                     len(flags), (filing.get("metadata") or {}).get("symbol"),
+                     (filing.get("metadata") or {}).get("fiscal_year"))
+            if not getattr(args, "quiet", False):
+                n_warn = sum(1 for f in flags if f.severity == "warn")
+                n_block = sum(1 for f in flags if f.severity == "block")
+                n_info = sum(1 for f in flags if f.severity == "info")
+                log.info("pre-flag catalog: %d warn / %d block / %d info",
+                         n_warn, n_block, n_info)
+            # Fire one metric per warn-severity flag. The "case" label is the
+            # rule_id so the operator can group by it in Prometheus.
+            for f in flags:
+                if f.severity == "warn":
+                    _sink(name = "qscreen_pre_flags_warn_total",
+                          case = getattr(f, "rule_id", "unknown"))
         return filing
-    try:
-        flags = _pf.run_pre_flags(filing)
-    except Exception as e:                              # pragma: no cover - defensive
-        log.warning("pre-flag run raised %s: %s", type(e).__name__, e)
-        return filing
-    if flags:
-        _pf.merge_into_filing(filing, flags)
-        log.info("pre-flag catalog: %d flag(s) for %s %s",
-                 len(flags), (filing.get("metadata") or {}).get("symbol"),
-                 (filing.get("metadata") or {}).get("fiscal_year"))
-        if not getattr(args, "quiet", False):
-            n_warn = sum(1 for f in flags if f.severity == "warn")
-            n_block = sum(1 for f in flags if f.severity == "block")
-            n_info = sum(1 for f in flags if f.severity == "info")
-            print(f"   🚩 pre-flag catalog: {n_warn} warn / {n_block} block / {n_info} info")
-    return filing
 
 
 def _apply_language_detection(filing: dict, pages: list[dict]) -> dict:
@@ -2596,44 +2643,55 @@ def _apply_language_detection(filing: dict, pages: list[dict]) -> dict:
 def _apply_fingerprint(filing: dict, args) -> dict:
     """Stamp ``filing.fingerprint`` (per-statement verbatim hashes +
     a stable overall digest). Always re-run. Used by change-detection
-    between runs of the cron llm-ingest-monitor."""
-    try:
-        import qscreen_fingerprint as _fp
-    except Exception:                                # pragma: no cover
+    between runs of the cron llm-ingest-monitor. Wrapped with a
+    ``StageTimer`` (``stage="fingerprint.fingerprint_filing"``) for the
+    perf bench; no-op when ``--timing`` is off."""
+    _rec = _perf.get_record(args)
+    with _perf.stage_timer(log, _rec, "fingerprint.fingerprint_filing"):
+        try:
+            import qscreen_fingerprint as _fp
+        except Exception:                                # pragma: no cover
+            return filing
+        try:
+            filing["fingerprint"] = _fp.fingerprint_filing(filing)
+        except Exception as ex:
+            log.warning("fingerprint skipped: %s", ex)
         return filing
-    try:
-        filing["fingerprint"] = _fp.fingerprint_filing(filing)
-    except Exception as ex:
-        log.warning("fingerprint skipped: %s", ex)
-    return filing
 
 
 def extract_filing(pages: list[dict], args) -> dict:
+    """Top-level extractor dispatch. Each window is timed separately when
+    ``--timing`` is on (see ``qscreen_perf``)."""
+    _rec = _perf.get_record(args)
     if getattr(args, "guided", False):
-        out = extract_filing_guided(pages, args)
-        _apply_language_detection(out, pages)
-        _apply_fingerprint(out, args)
-        return _apply_pre_flags(out, args)
+        with _perf.stage_timer(log, _rec, "extract", windowed=False):
+            out = extract_filing_guided(pages, args)
+            _apply_language_detection(out, pages)
+            _apply_fingerprint(out, args)
+            return _apply_pre_flags(out, args)
     if args.no_chunk or len(pages) <= args.pages_per_chunk:
-        print("🤖 Extracting (single pass) …")
-        out = normalize_filing(parse_llm_json(call_llm(build_messages(render_window(pages), args, windowed=False), args)))
-        _apply_language_detection(out, pages)
-        _apply_fingerprint(out, args)
-        return _apply_pre_flags(out, args)
+        log.info("Extracting (single pass) …")
+        with _perf.stage_timer(log, _rec, "extract", windowed=False):
+            out = normalize_filing(parse_llm_json(call_llm(build_messages(render_window(pages), args, windowed=False), args)))
+            _apply_language_detection(out, pages)
+            _apply_fingerprint(out, args)
+            return _apply_pre_flags(out, args)
     windows = page_windows(pages, args.pages_per_chunk, args.overlap)
-    print(f"🤖 Extracting in {len(windows)} windows of ~{args.pages_per_chunk} pages (overlap {args.overlap}) …")
+    log.info("Extracting in %d windows of ~%d pages (overlap %d) …",
+             len(windows), args.pages_per_chunk, args.overlap)
     parts = []
     for wi, win in enumerate(windows, 1):
         hint = f"pages {win[0]['num']}-{win[-1]['num']}"
-        print(f"   • window {wi}/{len(windows)} ({hint})")
-        raw = call_llm(build_messages(render_window(win), args, windowed=True, page_hint=hint), args)
-        try:
-            parts.append(normalize_filing(parse_llm_json(raw)))
-        except (ValueError, json.JSONDecodeError) as e:
-            print(f"     ⚠️  window {wi} returned unparseable JSON ({e}); skipping")
+        log.info("window %d/%d (%s)", wi, len(windows), hint)
+        with _perf.stage_timer(log, _rec, "extract", windowed=True, window_index=wi):
+            raw = call_llm(build_messages(render_window(win), args, windowed=True, page_hint=hint), args)
+            try:
+                parts.append(normalize_filing(parse_llm_json(raw)))
+            except (ValueError, json.JSONDecodeError) as e:
+                log.warning("window %d returned unparseable JSON (%s); skipping", wi, e)
     if not parts:
         raise SystemExit("all windows failed to parse — nothing extracted")
-    print(f"🧩 Merging {len(parts)} partial extracts …")
+    log.info("Merging %d partial extracts …", len(parts))
     out = merge_filings(parts)
     _apply_language_detection(out, pages)
     _apply_fingerprint(out, args)
@@ -2800,7 +2858,7 @@ def _write_error_sidecar(filing: dict, args, headline, findings) -> str:
 def save_json(filing: dict, args) -> str:
     out = f"{args.symbol.upper()}_{args.year}_{args.period}_filing.json"
     Path(out).write_text(json.dumps(filing, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"💾 Saved qscreen-uploadable file → {out}")
+    log.info("Saved qscreen-uploadable file -> %s", out)
     return out
 
 
@@ -2816,17 +2874,17 @@ def write_outputs(filing: dict, args) -> tuple[list[str], dict | None]:
     for fmt in (getattr(args, "export", None) or []):
         if fmt == "csv":
             out = f"{base}_filing.csv"
-            print(f"📑 Exported {export_csv(filing, out)} line item(s) → {out}")
+            log.info("Exported %d line item(s) -> %s", export_csv(filing, out), out)
         elif fmt == "xlsx":
             out = f"{base}_filing.xlsx"           # the multi-sheet workbook transcript
             import qscreen_workbook
             qscreen_workbook.save_workbook(filing, out)
-            print(f"📑 Exported Excel transcript → {out}")
+            log.info("Exported Excel transcript -> %s", out)
         else:                                    # html → printable statements document
             out = f"{base}_statements.html"
             import qscreen_statements
             qscreen_statements.save_statements_html(filing, out)
-            print(f"📄 Exported statements document → {out}")
+            log.info("Exported statements document -> %s", out)
         written.append(out)
 
     # Optionally also persist the derived analysis/valuation locally.
@@ -2835,17 +2893,19 @@ def write_outputs(filing: dict, args) -> tuple[list[str], dict | None]:
         try:
             artifacts = build_analysis_artifacts(filing, args)
         except Exception as e:
-            print(f"   ⚠️  analysis step failed (extraction is unaffected): {e}")
+            log.warning("analysis step failed (extraction is unaffected): %s", e)
     if getattr(args, "analyze", False) and artifacts:
         if artifacts.get("analysis"):
             p = f"{base}_analysis.json"
             Path(p).write_text(json.dumps(artifacts["analysis"], indent=2, ensure_ascii=False), encoding="utf-8")
-            print(f"🧮 Saved analysis → {p} ({len(artifacts['analysis'].get('red_flags', []))} red flag(s))")
+            log.info("Saved analysis -> %s (%d red flag(s))",
+                     p, len(artifacts["analysis"].get("red_flags", [])))
             written.append(p)
         if (artifacts.get("valuation") or {}).get("valuation"):
             p = f"{base}_valuation.json"
             Path(p).write_text(json.dumps(artifacts["valuation"], indent=2, ensure_ascii=False), encoding="utf-8")
-            print(f"💰 Saved valuation → {p} ({artifacts['valuation']['valuation']['model']})")
+            log.info("Saved valuation -> %s (%s)",
+                     p, artifacts["valuation"]["valuation"]["model"])
             written.append(p)
 
     # Optionally also render the one-page analyst report (HTML + Markdown).
@@ -2859,16 +2919,51 @@ def write_outputs(filing: dict, args) -> tuple[list[str], dict | None]:
                 p = f"{base}_report.{ext}"
                 Path(p).write_text(content, encoding="utf-8")
                 written.append(p)
-            print(f"📰 Analyst report → {base}_report.html (+ .md)")
+            log.info("Analyst report -> %s (+ .md)", f"{base}_report.html")
         except Exception as e:
-            print(f"   ⚠️  report step failed (extraction is unaffected): {e}")
+            log.warning("report step failed (extraction is unaffected): %s", e)
 
     return written, artifacts
 
 
 def run_filing(args) -> int:
     """Extract one PDF → save (+ optional export) → optionally upload. Returns
-    an exit code: 0 ok, 2 saved-but-non-conforming (not uploaded)."""
+    an exit code: 0 ok, 2 saved-but-non-conforming (not uploaded).
+
+    Wrapped in a ``StageTimer`` (``stage="run_filing"``) so the perf bench
+    can compare end-to-end wall times across releases. Also bumps the
+    ``qscreen_filings_processed_total{mode=...}`` counter and the
+    ``qscreen_extraction_duration_ms{mode=...}`` histogram observation
+    through the metric sink installed on ``args._metric_sink``.
+    """
+    _rec = _perf.get_record(args)
+    _sink = _perf.get_metric_sink(args)
+    _mode = ("basic" if (getattr(args, "no_llm", False) or
+                          getattr(args, "guided", False))
+              else "pro")
+    _t0 = time.perf_counter()
+    with _perf.stage_timer(log, _rec, "run_filing", mode=_mode):
+        try:
+            return _run_filing_body(args, _rec, _sink, _mode, _t0)
+        except SystemExit:
+            _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
+            _sink(name="qscreen_filings_processed_total",
+                  mode=_mode, status="error")
+            _sink(name="qscreen_extraction_duration_ms",
+                  mode=_mode, _value=_elapsed_ms)
+            raise
+        except Exception:
+            _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
+            _sink(name="qscreen_filings_processed_total",
+                  mode=_mode, status="error")
+            _sink(name="qscreen_extraction_duration_ms",
+                  mode=_mode, _value=_elapsed_ms)
+            raise
+
+
+def _run_filing_body(args, _rec, _sink, _mode, _t0) -> int:
+    """The actual run_filing body, separated so the perf counter always fires
+    (whether the run succeeds, fails the gate, or raises)."""
     apply_mode(args)                    # --basic/--pro/--mode/--no-llm → guided flags
     no_llm = bool(getattr(args, "no_llm", False))
     try:
@@ -2880,8 +2975,8 @@ def run_filing(args) -> int:
         elif not explicit:
             # Auto default: no key configured → read the numbers offline instead of
             # failing. Set a provider key (or pass --no-llm) to change this.
-            print("ℹ️  No API key found — reading the numbers offline (deterministic). "
-                  "Add a provider key to .env to also capture the audit opinion & notes.")
+            log.info("No API key found — reading the numbers offline (deterministic). "
+                     "Add a provider key to .env to also capture the audit opinion & notes.")
             cfg = deterministic_cfg()
             no_llm = True
             args.no_llm = True
@@ -2900,18 +2995,20 @@ def run_filing(args) -> int:
         log.info("profile loaded: %s jurisdiction=%s archetype=%s events_in_force=%d",
                  args._profile.get("ticker"), jurisdiction, arch, n_ev)
         if not getattr(args, "quiet", False):
-            print(f"📚 Profile: {args._profile.get('name_as_of')} [{arch}] — "
-                  f"jurisdiction={jurisdiction}, {n_ev} regime/event(s) in force by {args.year}")
-    mode = ("basic — deterministic, no model" if no_llm
-            else "basic (deterministic-first)" if args.guided else "pro (single big prompt)")
-    print(f"📄 Reading {Path(args.pdf).name} …  (provider: {cfg['name']}, model: {cfg['model']}, "
-          f"mode: {mode})")
+            log.info("Profile: %s [%s] — jurisdiction=%s, %d regime/event(s) in force by %s",
+                     args._profile.get("name_as_of"), arch, jurisdiction, n_ev, args.year)
+    mode_str = ("basic — deterministic, no model" if no_llm
+                else "basic (deterministic-first)" if args.guided else "pro (single big prompt)")
+    log.info("Reading %s … (provider: %s, model: %s, mode: %s)",
+             Path(args.pdf).name, cfg["name"], cfg["model"], mode_str)
     if not args.guided and cfg.get("local"):
-        print("   ⚠️  Pro mode leans on the model heavily — for best results use a strong model "
-              "(GPT-4.5+/Claude Sonnet 4+/MiniMax-M2), or switch to Basic (--basic) for this small one.")
-    pages, sha = pdf_to_pages(args.pdf, args.ocr)
+        log.warning("Pro mode leans on the model heavily — for best results use a strong model "
+                    "(GPT-4.5+/Claude Sonnet 4+/MiniMax-M2), or switch to Basic (--basic) for this small one.")
+    with _perf.stage_timer(log, _rec, "pdf_to_pages"):
+        pages, sha = pdf_to_pages(args.pdf, args.ocr)
     total_chars = sum(len(pg["text"]) for pg in pages)
-    print(f"   {len(pages)} pages, {total_chars:,} chars (text + recovered tables), sha256={sha[:12]}…")
+    log.info("%d pages, %d chars (text + recovered tables), sha256=%s…",
+             len(pages), total_chars, sha[:12])
 
     filing = extract_filing(pages, args)
     meta_overlay = {
@@ -2944,11 +3041,11 @@ def run_filing(args) -> int:
         try:
             import qscreen_autodetect as _ad
             text_blob = "\n\n".join(
-                p.get("text", "") for p in _pages if isinstance(p, dict))
+                p.get("text", "") for p in pages if isinstance(p, dict))
             _ad.apply_detected_metadata(filing, text_blob,
                                          profile=getattr(args, "_profile", None))
             # Mirror detected values into the operator-visible args too so
-            # the print line + save_json see them.
+            # the log line + save_json see them.
             for k in ("sector", "fiscal_period", "reporting_framework"):
                 v = filing.get("metadata", {}).get(k)
                 if v and not getattr(args, k, None):
@@ -2961,61 +3058,94 @@ def run_filing(args) -> int:
     # ``If-None-Match`` header to the ingest endpoint so re-runs are cheap.
     args._dedup_key = _dedup_key_from_filing(filing)
 
-    print(f"📊 Extracted: {len(filing.get('statements', []))} statements, "
-          f"{len(filing.get('notes', []))} notes, audit={filing.get('audit', {}).get('opinion_type')}")
+    log.info("Extracted: %d statements, %d notes, audit=%s",
+             len(filing.get("statements", [])),
+             len(filing.get("notes", [])),
+             filing.get("audit", {}).get("opinion_type"))
 
     problems = validate_filing(filing)
     if problems:
-        print(f"⚠️  {len(problems)} contract problem(s):")
+        log.warning("%d contract problem(s):", len(problems))
         for pr in problems[:25]:
-            print(f"   - {pr}")
-        print("   (saved for inspection; NOT uploading a non-conforming extract)")
+            log.warning("  - %s", pr)
+        log.warning("(saved for inspection; NOT uploading a non-conforming extract)")
 
     # Post-extraction gates: skeleton detection + math identities + currency/unit
     # sanity. A "block_save" finding writes a `*_filing.error.json` sidecar and
     # skips both the regular save and the upload — these filings historically
     # ate analyst time on qscreen.app because the schema was conformant but the
-    # numbers were wrong.
-    gate = qscreen_gates.gate_post_extract(filing)
-    qscreen_gates.merge_warnings(filing, gate)
+    # numbers were wrong. The whole gate block is wrapped in a ``StageTimer``
+    # (``stage="gates.run"``) so the bench can see it.
+    with _perf.stage_timer(log, _rec, "gates.run"):
+        gate = qscreen_gates.gate_post_extract(filing)
+        qscreen_gates.merge_warnings(filing, gate)
     error_sidecar: str | None = None
     if gate.blocked:
         # Pick the first block_save finding as the headline reason.
         headline = next(f for f in gate.findings if f.severity == "block_save")
         error_sidecar = _write_error_sidecar(filing, args, headline, gate.findings)
         log.warning("gate blocked save: %s", headline.message)
-        print(f"🛑 Gate FAIL: {headline.message}")
-        print(f"   sidecar → {error_sidecar}")
+        log.warning("Gate FAIL: %s", headline.message)
+        log.warning("sidecar -> %s", error_sidecar)
+        _sink(name="qscreen_gates_block_total",
+              reason=getattr(headline, "rule_id", "unknown"))
+        _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
+        _sink(name="qscreen_filings_processed_total",
+              mode=_mode, status="blocked")
+        _sink(name="qscreen_extraction_duration_ms",
+              mode=_mode, _value=_elapsed_ms)
         return 6                                       # distinct from validate's 2
 
     save_json(filing, args)
     _written, artifacts = write_outputs(filing, args)
 
     if gate.findings:
-        print(f"ℹ️  {len(gate.findings)} non-blocking gate note(s) (saved with warnings):")
+        log.info("%d non-blocking gate note(s) (saved with warnings):",
+                 len(gate.findings))
         for x in gate.findings:
-            print(f"   - {x.message}")
+            log.info("  - %s", x.message)
 
     if problems:
-        print("❌ Not uploading — fix extraction problems above first.")
+        log.warning("Not uploading — fix extraction problems above first.")
+        _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
+        _sink(name="qscreen_filings_processed_total",
+              mode=_mode, status="non_conforming")
+        _sink(name="qscreen_extraction_duration_ms",
+              mode=_mode, _value=_elapsed_ms)
         return 2
     if args.dry_run:
-        print("📤 --dry-run — saved only, not uploaded.")
+        log.info("--dry-run — saved only, not uploaded.")
+        _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
+        _sink(name="qscreen_filings_processed_total",
+              mode=_mode, status="dry_run")
+        _sink(name="qscreen_extraction_duration_ms",
+              mode=_mode, _value=_elapsed_ms)
         return 0
     if not args.token:
-        print("📤 No INGEST_TOKEN set — saved only. Set INGEST_TOKEN to upload to qscreen.app.")
+        log.info("No INGEST_TOKEN set — saved only. Set INGEST_TOKEN to upload to qscreen.app.")
+        _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
+        _sink(name="qscreen_filings_processed_total",
+              mode=_mode, status="no_token")
+        _sink(name="qscreen_extraction_duration_ms",
+              mode=_mode, _value=_elapsed_ms)
         return 0
 
     fold = (artifacts or {}).get("analysis") if getattr(args, "with_analysis", False) else None
-    print("📤 Uploading to qscreen.app …" + (" (with analysis)" if fold else ""))
+    log.info("Uploading to qscreen.app …%s", " (with analysis)" if fold else "")
     dedup_k = getattr(args, "_dedup_key", None)
-    result = upload_filing(filing, args, fold, dedup_key=dedup_k)
-    print(f"   ✅ {result}")
+    with _perf.stage_timer(log, _rec, "upload_to_api"):
+        result = upload_filing(filing, args, fold, dedup_key=dedup_k)
+    log.info("%s", result)
     # If we got here the upload returned (2xx or 412 = duplicate). Mark it.
     state = getattr(args, "_state", None)
     row_index = getattr(args, "_row_index", None)
     if state is not None and row_index is not None and args.token:
         state.mark_uploaded("manifest_id", row_index, filing_id=str(Path(args.pdf).with_suffix("").name))
+    _elapsed_ms = (time.perf_counter() - _t0) * 1000.0
+    _sink(name="qscreen_filings_processed_total",
+          mode=_mode, status="uploaded")
+    _sink(name="qscreen_extraction_duration_ms",
+          mode=_mode, _value=_elapsed_ms)
     return 0
 
 
@@ -3072,14 +3202,15 @@ def run_batch(args) -> int:
     rows = read_manifest(args.manifest)
     n = len(rows)
     manifest_id = f"{Path(args.manifest).stem}-{hashlib.sha256(args.manifest.encode()).hexdigest()[:8]}"
-    print(f"📚 Batch: {n} filing(s) from {args.manifest} (manifest_id={manifest_id})")
+    log.info("Batch: %d filing(s) from %s (manifest_id=%s)",
+             n, args.manifest, manifest_id)
 
     if state is not None:
         state.start_manifest(manifest_id, n)
         # Re-claim rows that crashed mid-flight in an earlier run.
         n_rescued = state.reset_in_flight(manifest_id)
         if n_rescued:
-            print(f"   ♻️  re-claimed {n_rescued} row(s) left in_flight by an earlier run")
+            log.info("re-claimed %d row(s) left in_flight by an earlier run", n_rescued)
         # Insert-or-load every row's record up-front. dedup_key is computed
         # from the manifest fields *now*; it'll be replaced by the SHA-derived
         # one once ``run_filing`` produces the filing, so the dedup here is
@@ -3095,14 +3226,14 @@ def run_batch(args) -> int:
         pass
     if state is not None and resume:
         pending = state.pending_indices(manifest_id)
-        print(f"   ⟳ resume: {len(pending)} of {n} row(s) still pending/error")
+        log.info("resume: %d of %d row(s) still pending/error", len(pending), n)
         # Build a fast index → row lookup
         todo_indices = pending
     else:
         todo_indices = list(range(1, n + 1))
 
     if not todo_indices:
-        print("   ✅ nothing to do (resume found nothing pending)")
+        log.info("nothing to do (resume found nothing pending)")
         return 0
 
     jobs = max(1, int(getattr(args, "jobs", 1) or 1))
@@ -3132,19 +3263,25 @@ def run_batch(args) -> int:
         completed = s.get("completed", 0)
         errored = s.get("errored", 0)
         state.finish_manifest(manifest_id, completed=completed, errored=errored)
-        print(f"\n🏁 Batch finished: ok={len(rows)-errored}  error={errored}  worst_exit={worst}")
+        log.info("Batch finished: ok=%d  error=%d  worst_exit=%d",
+                 len(rows) - errored, errored, worst)
     else:
-        print(f"\n🏁 Batch finished: worst_exit={worst}")
+        log.info("Batch finished: worst_exit=%d", worst)
     return worst
 
 
 def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
-    """Serial inner: build the per-row args namespace and call ``run_filing``."""
+    """Serial inner: build the per-row args namespace and call ``run_filing``.
+
+    Each row's wall time is captured in a ``StageTimer`` (``stage=
+    "run_batch.row"``) so the perf bench can compare per-row timing across
+    releases. The row index + symbol/year/period flow through as labels.
+    """
     period = (row.get("period") or "FY").upper()
-    print(f"\n══ [{i}] {row['symbol']} {row['year']} {period} ══")
+    log.info("[%d] %s %s %s", i, row["symbol"], row["year"], period)
     sector = _normalize_sector(row["sector"])
     if sector not in SECTORS:
-        print(f"   ⚠️  unknown sector {row['sector']!r}; using 'other'")
+        log.warning("unknown sector %r; using 'other'", row["sector"])
         sector = "other"
     ra = copy.copy(args)
     ra.pdf, ra.symbol, ra.sector, ra.year, ra.period = (
@@ -3153,10 +3290,16 @@ def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
     ra._row_index = i
     if state is not None and not state.claim_row(manifest_id, i):
         # Already done in a prior run; skip.
-        print(f"   ⏭ row {i}: already completed (use --no-resume to force)")
+        log.info("row %d: already completed (use --no-resume to force)", i)
         return 0
     try:
-        code = run_filing(ra)
+        _rec = _perf.get_record(args)
+        with _perf.stage_timer(log, _rec, "run_batch.row",
+                                row_index=i,
+                                symbol=row.get("symbol"),
+                                year=int(row["year"]),
+                                period=period):
+            code = run_filing(ra)
         if state is not None:
             # State semantics:
             #   exit 0  → uploaded successfully → mark_done + mark_uploaded
@@ -3178,12 +3321,12 @@ def _run_batch_row(i: int, row: dict, args, manifest_id: str, state) -> int:
                 state.mark_error(manifest_id, i, error=f"exit {code}")
         return code
     except SystemExit as e:
-        print(f"   ❌ {e}")
+        log.error("%s", e)
         if state is not None:
             state.mark_error(manifest_id, i, error=str(e))
         return 1
     except Exception as e:                                # one bad filing must not abort the batch
-        print(f"   ❌ {type(e).__name__}: {e}")
+        log.error("%s: %s", type(e).__name__, e)
         if state is not None:
             state.mark_error(manifest_id, i, error=f"{type(e).__name__}: {e}")
         return 1
@@ -3218,12 +3361,13 @@ def _run_batch_row_worker(i: int, row: dict, args, manifest_id: str,
                 state.mark_error(manifest_id, i, error=f"exit {code}")
         return code
     except (SystemExit, Exception) as e:
+        log.error("%s: %s", type(e).__name__, e)
         if state is not None:
             state.mark_error(manifest_id, i, error=f"{type(e).__name__}: {e}")
         return 1
         results.append((row["symbol"], row["year"], period, code))
         worst = max(worst, code)
-    print("\n── batch summary ──")
+    log.info("── batch summary ──")
     for sym, yr, per, code in results:
         mark = "✅" if code == 0 else ("⚠️ " if code == 2 else "❌")
         print(f"   {mark} {sym} {yr} {per} (exit {code})")

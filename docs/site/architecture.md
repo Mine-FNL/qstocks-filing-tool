@@ -7,6 +7,12 @@ and stable text fingerprints make the output reproducible.
 
 ---
 
+## At a glance
+
+![Architecture at a glance — 5-stage pipeline from PDF to lossless JSON, with SBOM / Sigstore / SLSA attestation artifacts emitted at release time](../../campaign/assets/architecture-16x9.jpg)
+
+---
+
 ## Data flow
 
 ```mermaid

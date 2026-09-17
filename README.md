@@ -4,6 +4,10 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue)](https://github.com/Mine-FNL/qstocks-filing-tool/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<p align="center">
+  <a href="https://mine-fnl.github.io/qstocks-filing-tool/"><img src="campaign/assets/hero-16x9.jpg" alt="qscreen-filing-tool — PDF input → qscreen extraction engine → lossless JSON, with SBOM / Sigstore / SLSA attestations" width="100%"></a>
+</p>
+
 **Turn a PDF financial report into a lossless, auditable filing JSON — ready for ingest.**
 
 A jurisdiction-agnostic engine that takes any exchange's annual / interim report
@@ -27,6 +31,8 @@ Two modes: **local browser app** (drag-and-drop, ~3 min to first JSON) or
 Qstocks targets the *final-mile* problem: everyone gets text out of a PDF; very few tools give you a **diff-able, audit-traceable, jurisdiction-aware** JSON record you can hand to a quant, an LLM, or a regulatory pipeline.
 
 > Long-form pitch for HN/Show, r/quant, IR Society, etc.: **[docs/SHOW_HN.md](docs/SHOW_HN.md)**. Every claim there is a verifiable CLI output, not marketing.
+
+> Ready-to-paste campaign kit (Show HN, r/ML, r/quant, X thread, LinkedIn): **[campaign/](campaign/)** — 4 generated cover images + channel-by-channel copy.
 
 > Live bench report (no install required): **[mine-fnl.github.io/qstocks-filing-tool/demo.html](https://mine-fnl.github.io/qstocks-filing-tool/demo.html)**. Auto-generated from `qscreen_eval.py --json` via `docs/build_demo.py`; refreshed on every release tag.
 

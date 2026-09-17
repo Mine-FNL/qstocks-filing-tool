@@ -2,7 +2,7 @@
 # Layers are ordered by frequency of change: deps → source → runtime config.
 # The browser app image stays slim: no build tools, just the wheel + a tiny
 # setup to read .env from a bind mount.
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

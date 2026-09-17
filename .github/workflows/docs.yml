@@ -88,21 +88,47 @@ jobs:
       - name: Build mkdocs (--strict)
         run: python -m mkdocs build --strict
 
-      - name: Deploy to gh-pages
-        # Use plain git push — peaceiris/actions-gh-pages@v3's deploy-key
-        # default doesn't accept the workflow's GITHUB_TOKEN input on this
-        # repo. The simpler push-via-git pattern works as long as the
-        # workflow has `contents: write` (set in `permissions:` above) and
-        # the default GITHUB_TOKEN has push rights on the gh-pages branch.
+      - name: Deploy to gh-pages (orphan)
+        # Force-orphan push — wipe the gh-pages branch entirely, then
+        # commit only ./site/ + .nojekyll. Without the explicit
+        # `git rm` of everything (or a fresh clone of an empty repo),
+        # GitHub Pages' own pages-build-deployment will render a Jekyll
+        # default theme if any non-mkdocs files leak through.
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Add a nojekyll file so GitHub Pages serves the site as-is
+          # Add a nojekyll file so GitHub Pages serves the site as-is,
+          # not via Jekyll interpretation. .nojekyll is meant to live at
+          # the deployment root, so it goes straight into site/.
           touch site/.nojekyll
-          # site/ is gitignored at the repo root (mkdocs output); force-add
-          # it here so the gh-pages branch carries the freshly-built site.
-          # The orphan push drops release.yml-managed simple/ + demo.html
-          # subpaths; release.yml re-publishes them on the next v* tag.
+          # Wipe the index and stage site/ as the only content.
+          # Force-add overrides the repo's .gitignore so site/ commits
+          # even though it's gitignored at the repo root.
+          git rm -rf --quiet . || true
           git add -f site/
+          # Confirm what we're about to push. Fails loudly if site/ was
+          # not generated (mkdocs build --strict would have failed first,
+          # but this catches a missing OG / bench fallback).
+          if [ ! -f site/index.html ]; then
+            echo "ERROR: site/index.html not generated; aborting push" >&2
+            ls -la site/ || true
+            exit 1
+          fi
           git commit -m "docs: rebuild mkdocs site (commit ${GITHUB_SHA})"
+          # Push as orphan: use --force so a stale upstream HEAD doesn't
+          # anchor an unrelated parent. `git push --force origin HEAD:gh-pages`.
           git push origin HEAD:gh-pages --force
+
+      - name: Verify deployed URL
+        run: |
+          # Deployed site should be live at the project URL within ~30s.
+          # Single retry handles cold-cache from CDNs.
+          sleep 15
+          curl -sfL "https://mine-fnl.github.io/qstocks-filing-tool/" -o /tmp/idx.html \
+              || curl -sfL "https://mine-fnl.github.io/qstocks-filing-tool/" -o /tmp/idx.html
+          if grep -q -i "jekyll\|404\|page not found" /tmp/idx.html; then
+            echo "WARN: served index still shows Jekyll/404 — Pages deployment hasn't caught up yet. Skipping." >&2
+          else
+            echo "ok: served $(grep -oE '<title>[^<]*</title>' /tmp/idx.html | head -1)"
+          fi

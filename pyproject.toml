@@ -102,6 +102,8 @@ ignore = [
     "B008",   # function-call-in-default-arg — common in argparse
     "B904",   # raise-from — large surface to retrofit
     "RUF001", # ambiguous unicode chars — engine prints 🧪 / ✅ / ⚠️ / … intentionally
+    "RUF002", # ambiguous × in docstrings — math notation (growth × discount) reads better as ×
+    "RUF003", # ambiguous −/– in docstrings + comments — math notation reads better as −
     "RUF012", # mutable-class-default-attr — pydantic-style attrs we use
     # Cosmetic rules that don't affect runtime safety; re-enable
     # incrementally as modules reach clean state.

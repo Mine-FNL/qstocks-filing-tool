@@ -23,7 +23,7 @@ The cross-cutting rules (govt-receivable, intangibles, ROE<Ke, etc.) are
 issuer-agnostic and evaluate against any filing. The issuer-specific rules
 encode deep knowledge that a vanilla LLM has never seen (ZHCD 8 of 10+ years
 qualified, AKHI corpus misclassifies as islamic_bank, QIGD entity changed
-3× via renames, UDCD IP at 47 % of TA, etc.).
+3x via renames, UDCD IP at 47 % of TA, etc.).
 
 Adding a rule
 -------------
@@ -515,7 +515,6 @@ def _rule_issuer_renamed() -> Rule:
         "VFQS": "FYE change Mar→Dec in 2013; 2013 & 2016 FY filings are 9-month transitions",
         "QETF": "Passive index ETF; NAV per unit is the fair value",
         "QATR": "Launched 2018-03-21; pre-stabilisation stub filings 2018 Q1/Q2",
-        "QIGD": "Renamed 3×: see note in company_name history",
     }
     REASSIGNED.get("{TICKER}", "")
     return Rule(
@@ -706,10 +705,6 @@ _ISSUER_FACTS: dict[str, dict] = {
     "SIIS": {
         "first_year": 2010,
         "note": ("KPMG Note 38 court verdict EoM; +QAR 208M related-party receivable (8.2x YoY)."),
-    },
-    "AHCS": {
-        "first_year": 2019,
-        "note": ("2019 FY + 2020 FY both have KAM on IP valuation."),
     },
     "QETF": {
         "first_year": 2015,

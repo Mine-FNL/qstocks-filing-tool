@@ -56,10 +56,9 @@ full Qatar data; the contract is:
 from __future__ import annotations
 
 import importlib
-import json
 import pkgutil
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 # The tool was originally authored for QSE. We default to "qatar" when its
 # sub-package is present and there is no other jurisdiction registered, so

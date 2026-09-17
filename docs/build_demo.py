@@ -20,7 +20,8 @@ from datetime import datetime, timezone
 
 
 def render(bench_path: str, out_path: str) -> int:
-    d = json.load(open(bench_path))
+    with open(bench_path) as f:
+        d = json.load(f)
     cases = d["cases"]
     total_score = sum(c["score"] for c in cases)
     total_checks = sum(c["total"] for c in cases)

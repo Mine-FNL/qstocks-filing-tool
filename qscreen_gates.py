@@ -175,11 +175,11 @@ def _check_balance_sheet(filing: dict) -> Iterable[GateFinding]:
     numbers here, not absent ones.
     """
     a = _value(_statement_by_code(filing, "BS_TOTAL_ASSETS"))
-    l = _value(_statement_by_code(filing, "BS_TOTAL_LIABILITIES"))
-    e = _value(_statement_by_code(filing, "BS_TOTAL_EQUITY"))
-    if a is None or l is None or e is None:
+    liabilities = _value(_statement_by_code(filing, "BS_TOTAL_LIABILITIES"))
+    equity = _value(_statement_by_code(filing, "BS_TOTAL_EQUITY"))
+    if a is None or liabilities is None or equity is None:
         return
-    rhs = l + e
+    rhs = liabilities + equity
     if not _within_tolerance(a, rhs):
         yield GateFinding(
             rule="bs_identity_a_le_q",
@@ -189,7 +189,7 @@ def _check_balance_sheet(filing: dict) -> Iterable[GateFinding]:
                 f"TotalAssets={a:,.0f}  TotalLiab+Equity={rhs:,.0f}  "
                 f"delta={a - rhs:+,.0f}"
             ),
-            evidence={"total_assets": a, "total_liab": l, "total_equity": e, "rhs": rhs},
+            evidence={"total_assets": a, "total_liab": liabilities, "total_equity": equity, "rhs": rhs},
         )
 
 

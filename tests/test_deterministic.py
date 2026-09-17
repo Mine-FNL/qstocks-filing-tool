@@ -578,7 +578,7 @@ def test_date_header_row_dropped():
     det = e.deterministic_statements(win, titles, "2024", "2025")
     labels = [li["label_verbatim"] for li in det["income_statement"]["line_items"]]
     assert "Interest Income" in labels
-    assert not any(l.lower().startswith("for the year") for l in labels)
+    assert not any(label.lower().startswith("for the year") for label in labels)
 
 
 def test_map_label_to_code_space_insensitive_for_ocr():

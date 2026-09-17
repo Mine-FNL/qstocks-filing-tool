@@ -4,6 +4,7 @@ self-diagnostic shown by --list-providers."""
 from __future__ import annotations
 
 import os
+import sys
 
 import pytest
 
@@ -143,6 +144,10 @@ def restore_environ():
     os.environ.update(saved)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX file-mode bits (0o600) are not portable to Windows; chmod is a no-op there.",
+)
 def test_set_dotenv_value_creates_and_roundtrips(tmp_path, restore_environ):
     env = tmp_path / ".env"
     e.set_dotenv_value("MINIMAX_API_KEY", "sk-new-123", path=env)

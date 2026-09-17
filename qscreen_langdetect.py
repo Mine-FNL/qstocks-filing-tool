@@ -168,7 +168,7 @@ def apply_language_metadata(
     if lang_list:
         meta["languages"] = lang_list
         # Backwards-compat with the single-string field: pin the primary.
-        primary = next((l["code"] for l in lang_list if l.get("primary")), None)
+        primary = next((lang["code"] for lang in lang_list if lang.get("primary")), None)
         if primary and not meta.get("language"):
             meta["language"] = primary
     else:

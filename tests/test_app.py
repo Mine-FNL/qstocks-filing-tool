@@ -795,10 +795,10 @@ def test_page_inline_javascript_parses(client):
     whole script — leaving the Settings provider dropdown empty and making Extract
     fall back to a native GET reload instead of POSTing. Validate with `node --check`.
     """
-    import os
     import shutil
     import subprocess
     import tempfile
+    from pathlib import Path
 
     node = shutil.which("node")
     if not node:
@@ -807,11 +807,13 @@ def test_page_inline_javascript_parses(client):
     scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
     assert scripts, "no inline <script> found on the page"
     biggest = max(scripts, key=len)
-    tmp = tempfile.NamedTemporaryFile("w", suffix=".js", delete=False)
+    # Use a temp DIRECTORY + plain Path.write_text so the file isn't held open
+    # by Python on Windows (cp1252 + file-locking otherwise break this).
+    tmp_dir = tempfile.mkdtemp(prefix="qscreen-js-")
     try:
-        tmp.write(biggest)
-        tmp.close()
-        res = subprocess.run([node, "--check", tmp.name], capture_output=True, text=True)
+        js_path = Path(tmp_dir) / "page.js"
+        js_path.write_text(biggest, encoding="utf-8")
+        res = subprocess.run([node, "--check", str(js_path)], capture_output=True, text=True)
         assert res.returncode == 0, f"page inline JS has a syntax error:\n{res.stderr}"
     finally:
-        os.unlink(tmp.name)
+        shutil.rmtree(tmp_dir, ignore_errors=True)

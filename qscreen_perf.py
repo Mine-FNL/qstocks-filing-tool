@@ -366,12 +366,12 @@ def attach_to_args(args: Any, record: PerfRecord | None) -> None:
 
     The attribute is ``_perf_record`` and may be ``None`` when timing is off.
     """
-    try:
+    import contextlib
+
+    # Some Namespace subclasses (or SimpleNamespace) are fully writable;
+    # a frozen one is a programmer error here, so swallow.
+    with contextlib.suppress(AttributeError):
         args._perf_record = record
-    except Exception:
-        # Some Namespace subclasses (or SimpleNamespace) are fully writable;
-        # a frozen one is a programmer error here, so swallow.
-        pass
 
 
 def get_record(args: Any) -> PerfRecord | None:

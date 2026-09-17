@@ -49,7 +49,7 @@ import qscreen_statements
 import qscreen_workbook
 
 try:
-    from flask import Flask, Response, request, send_file
+    from flask import Flask, Response, request
 except ImportError:
     sys.exit("Flask not installed. Run:  pip install flask pdfplumber requests")
 

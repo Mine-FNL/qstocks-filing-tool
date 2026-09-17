@@ -490,8 +490,8 @@ def _compare_pre_flags(filing: dict, want: dict) -> list[Check]:
 def _compare_languages(filing: dict, want: dict) -> list[Check]:
     out = []
     lang_list = (filing.get("metadata") or {}).get("languages") or []
-    present_codes = [l.get("code") for l in lang_list]
-    primary = next((l.get("code") for l in lang_list if l.get("primary")), None)
+    present_codes = [lang.get("code") for lang in lang_list]
+    primary = next((lang.get("code") for lang in lang_list if lang.get("primary")), None)
 
     for code in want.get("language_must_contain", []) or []:
         out.append(
@@ -515,7 +515,7 @@ def _compare_languages(filing: dict, want: dict) -> list[Check]:
         )
     if "language_min_ratio" in want:
         # Soft check: ratio of the primary language must be >= min_ratio.
-        primary_lang = next((l for l in lang_list if l.get("primary")), None)
+        primary_lang = next((lang for lang in lang_list if lang.get("primary")), None)
         ratio = primary_lang.get("ratio", 0) if primary_lang else 0
         out.append(
             Check(
@@ -674,8 +674,8 @@ def render_markdown(reports: list[CaseReport]) -> str:
         lines.append("| --- | --- | --- | --- |")
         for c in r.checks:
             mark = "✅" if c.passed else "❌"
-            exp_s = c.expected if not isinstance(c.expected, str) else c.expected
-            act_s = c.actual if not isinstance(c.actual, str) else c.actual
+            exp_s = str(c.expected)
+            act_s = str(c.actual)
             detail = f" — {c.detail}" if c.detail else ""
             lines.append(f"| `{c.name}` | {exp_s!r} | {act_s!r} | {mark}{detail} |")
         lines.append("")

@@ -64,9 +64,9 @@ def test_bilingual_filing_both_languages_with_one_primary():
         + "Total assets for the year ended 31 December 2023 " * 4
     )
     langs = ld.detect_languages(text)
-    codes = {l["code"] for l in langs}
+    codes = {lang["code"] for lang in langs}
     assert {"ar", "en"} <= codes
-    primaries = [l for l in langs if l["primary"]]
+    primaries = [lang for lang in langs if lang["primary"]]
     assert len(primaries) == 1
 
 
@@ -77,7 +77,7 @@ def test_min_ratio_filters_one_off_citations():
     ) * 20 + "ميزان"
     langs = ld.detect_languages(text)
     # Very few Arabic letters vs many Latin letters — Arabic ratio well under 5%.
-    arabic_langs = [l for l in langs if l["code"] == "ar"]
+    arabic_langs = [lang for lang in langs if lang["code"] == "ar"]
     assert arabic_langs == []
 
 
@@ -108,7 +108,7 @@ def test_apply_overwrites_existing_languages_field():
     filing = {"metadata": {"languages": [{"code": "fr", "ratio": 1.0, "primary": True}]}}
     pages = [{"num": 1, "text": "Total assets for the year ended 31 December"}]
     out = ld.apply_language_metadata(filing, pages=pages)
-    assert all(l["code"] != "fr" for l in out["metadata"]["languages"])
+    assert all(lang["code"] != "fr" for lang in out["metadata"]["languages"])
 
 
 def test_apply_preserves_user_set_language():

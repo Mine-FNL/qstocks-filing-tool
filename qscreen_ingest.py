@@ -201,10 +201,9 @@ def set_dotenv_value(key: str, value: str, path: Path | None = None) -> Path:
 
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    try:
-        os.chmod(tmp, 0o600)  # secrets live here → keep it private
-    except OSError:
-        pass  # best-effort (no-op on e.g. Windows)
+    # Secrets live here → keep file private. Best-effort: no-op on e.g. Windows.
+    with contextlib.suppress(OSError):
+        os.chmod(tmp, 0o600)
     os.replace(tmp, path)  # atomic swap
     with contextlib.suppress(OSError):
         os.chmod(path, 0o600)
@@ -4133,13 +4132,6 @@ def _run_batch_row_worker(
         if state is not None:
             state.mark_error(manifest_id, i, error=f"{type(e).__name__}: {e}")
         return 1
-        results.append((row["symbol"], row["year"], period, code))
-        worst = max(worst, code)
-    log.info("── batch summary ──")
-    for sym, yr, per, code in results:
-        mark = "✅" if code == 0 else ("⚠️ " if code == 2 else "❌")
-        print(f"   {mark} {sym} {yr} {per} (exit {code})")
-    return worst
 
 
 def main() -> int:
@@ -4147,10 +4139,10 @@ def main() -> int:
     # on Windows consoles that default to cp1252. No-op on POSIX where the
     # streams are already UTF-8. Python 3.7+.
     for _stream in (sys.stdout, sys.stderr):
-        try:
+        # `reconfigure` is a Python 3.7+ text-stream method; ignore on streams
+        # that don't expose it (e.g. captured pytest streams, redirected).
+        with contextlib.suppress(AttributeError, ValueError):
             _stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-        except (AttributeError, ValueError):
-            pass
 
     p = argparse.ArgumentParser(
         description="Jurisdiction-agnostic PDF → lossless filing JSON ingestor. "

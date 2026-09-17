@@ -253,9 +253,10 @@ def main():
     # to gh-pages has matching metadata + thumbnail.
     try:
         from build_og import render as render_og
+
         render_og(args.og)
         print(f"wrote {args.og}")
-    except ImportError as exc:                                          # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         print(f"WARN: skipping OG image ({exc})")
 
 

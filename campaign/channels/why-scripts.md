@@ -20,6 +20,35 @@ to the long-form posts.
   existing brand asset instead of synthesizing from text alone.
   Result: dramatically better motion coherence and a brand
   composition that opens and closes on the same image family.
+- v5 added **burned-in captions** to all three videos
+  (`*-captioned.mp4`). The captions are hand-timed from the
+  narration audio and rendered as transparent PNG strips via
+  Pillow (no libass needed — this ffmpeg build doesn't ship with
+  `subtitles` or `drawtext`), then composited with ffmpeg `overlay`
+  at the bottom of the frame. Two caption chunks per video, white
+  text + black outline, Verdana Bold 64px. The captioned track is
+  the right pick for any feed where autoplay is silent (X timeline,
+  LinkedIn feed, Reddit embed, GitHub social preview); the
+  non-captioned track is for places audio is expected (HN first
+  comment, docs site, show-floor kiosk).
+
+## How v5 was made
+
+```sh
+# 1. Hand-write timed .srt files (one per video) at
+#    campaign/assets/why-{1-pain,2-gate,3-proof}.srt
+# 2. Render transparent PNG strips per caption chunk
+python3 campaign/assets/render_captions.py
+# 3. Overlay onto the v4 MP4 with ffmpeg `overlay` + `enable=between(t,…)`
+#    (see scripts/burn_captions.sh in the same directory)
+ffmpeg -i why-N-explainer.mp4 \
+  -i why-N-cap-1.png -i why-N-cap-2.png \
+  -filter_complex "[1:v]format=rgba[c1]; [2:v]format=rgba[c2]; \
+    [0:v][c1]overlay=enable='between(t,T1,T2)':x=(W-w)/2:y=H-h-60[v1]; \
+    [v1][c2]overlay=enable='between(t,T2,T3)':x=(W-w)/2:y=H-h-60[v]" \
+  -map "[v]" -map 0:a? -c:v libx264 -pix_fmt yuv420p -preset medium -crf 22 -c:a copy \
+  why-N-explainer-captioned.mp4
+```
 
 ## Audio mix design
 

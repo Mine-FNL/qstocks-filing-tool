@@ -8,6 +8,16 @@
   <a href="https://mine-fnl.github.io/qstocks-filing-tool/"><img src="https://raw.githubusercontent.com/Mine-FNL/qstocks-filing-tool/main/campaign/assets/hero-16x9.jpg" alt="qscreen-filing-tool — PDF input → qscreen extraction engine → lossless JSON, with SBOM / Sigstore / SLSA attestations" width="100%"></a>
 </p>
 
+<p align="center">
+  <video src="https://raw.githubusercontent.com/Mine-FNL/qstocks-filing-tool/main/campaign/assets/why-1-explainer-captioned.mp4"
+         poster="https://raw.githubusercontent.com/Mine-FNL/qstocks-filing-tool/main/campaign/assets/hero-16x9.jpg"
+         controls width="100%" preload="metadata"></video>
+</p>
+
+<p align="center">
+  <sub>6-second WHY #1 — voice-over + background score + burned-in captions. <b>Click play</b> (or unmute your feed).</sub>
+</p>
+
 **Turn a PDF financial report into a lossless, auditable filing JSON — ready for ingest.**
 
 A jurisdiction-agnostic engine that takes any exchange's annual / interim report

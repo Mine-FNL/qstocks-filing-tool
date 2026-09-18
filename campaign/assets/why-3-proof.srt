@@ -1,0 +1,7 @@
+1
+00:00:00,400 --> 00:00:02,400
+Re-ingest the same PDF on any commit,
+
+2
+00:00:02,400 --> 00:00:04,841
+same SHA-256 fingerprint — always.

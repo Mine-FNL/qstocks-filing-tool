@@ -44,6 +44,8 @@ Qstocks targets the *final-mile* problem: everyone gets text out of a PDF; very 
 
 > Ready-to-paste campaign kit (Show HN, r/ML, r/quant, X thread, LinkedIn): **[campaign/](campaign/)** — 4 generated cover images + channel-by-channel copy.
 
+> **Whitepaper:** **[`whitepaper/whitepaper.pdf`](whitepaper/whitepaper.pdf)** — *Lossless Filing JSON: A Deterministic-First Architecture for Financial PDF Extraction with Built-In Consistency Gates.* ~6,000 words, 9 sections + 3 appendices. Source: [`whitepaper/whitepaper.md`](whitepaper/whitepaper.md). Citations, threat model, and bench methodology included.
+
 > Live bench report (no install required): **[mine-fnl.github.io/qstocks-filing-tool/demo.html](https://mine-fnl.github.io/qstocks-filing-tool/demo.html)**. Auto-generated from `qscreen_eval.py --json` via `docs/build_demo.py`; refreshed on every release tag.
 
 

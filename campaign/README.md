@@ -43,10 +43,52 @@ show-floor kiosk).
 | 2 | r/MachineLearning (`Show` flavor)    | `architecture-16x9.jpg` | `channels/reddit-ml.md` |
 | 4 | r/quant                              | `architecture-16x9.jpg` | `channels/reddit-quant.md` |
 | 5–10 | Product Hunt                        | 5 gallery images | `channels/product-hunt.md` |
-| 7 | X thread (15 tweets)                 | `hero-16x9.jpg` (card) + `*-captioned.mp4` (tweets 2/7/9) | `channels/x-thread.md` |
+| 7 | X thread #1 (15 tweets, launch)      | `hero-16x9.jpg` (card) + `*-captioned.mp4` (tweets 2/7/9) | `channels/x-thread.md` |
 | 7 | dev.to long-form                     | `architecture-16x9.jpg` | `channels/dev-to.md` |
+| 12 | X thread #2 (architecture deep-dive) | `architecture-16x9.jpg` | `channels/x-thread-architecture.md` |
+| 14 | X thread #3 (bench story)            | `stats-card-16x9.jpg` | `channels/x-thread-bench.md` |
 | 14 | LinkedIn long-post                   | `architecture-16x9.jpg` | `channels/linkedin.md` |
+| 18 | Medium (Better Programming)          | `architecture-16x9.jpg` | `channels/article-medium-specs.md` |
+| 21 | X thread #4 (SHA-256 fingerprints)   | none (text-only) | `channels/x-thread-fingerprint.md` |
+| 24 | Hacker Noon (supply-chain checklist) | `architecture-16x9.jpg` | `channels/article-hacker-noon.md` |
+| 28 | X thread #5 (supply-chain hardening) | none (code-block heavy) | `channels/x-thread-supply-chain.md` |
+| 30 | X thread #6 (pluggable profiles)     | `architecture-16x9.jpg` | `channels/x-thread-profiles.md` |
+| any | InfoQ / The New Stack (cold pitch)   | n/a (email) | `channels/article-infoq-pitch.md` |
 | any | OSS grant / corp sponsorship        | n/a (cold email) | `channels/oss-outreach.md` |
+
+## Whitepaper
+
+The canonical long-form artifact is `whitepaper/whitepaper.md` (~6,000
+words, 9 sections + 3 appendices). The PDF render is
+`whitepaper/whitepaper.pdf` (~10 pages, typeset in Charter / Helvetica
+Neue + JetBrains Mono via pandoc + Chrome headless). Build with
+`bash whitepaper/build.sh`.
+
+Distribution: PDF + HTML ship with the GitHub release; HTML will host on
+the docs site (TBD — add `mkdocs serve whitepaper/` to the docs deploy
+step).
+
+## Article archive (in `channels/`)
+
+| File | Outlet angle | Audience |
+|---|---|---|
+| `show-hn.md`              | HN landing          | Tech-leadership |
+| `lobsters.md`             | Post-HN cross-post  | Deep-technical |
+| `reddit-ml.md`            | r/ML self-post      | ML practitioners |
+| `reddit-quant.md`         | r/quant self-post   | Quants |
+| `linkedin.md`             | LinkedIn long-post  | Quant-desk buyers |
+| `dev-to.md`               | dev.to tutorial     | Data engineers |
+| `product-hunt.md`         | Product Hunt kit    | Maker / early-adopter |
+| `article-medium-specs.md` | Medium (Better Programming) | ML/data eng |
+| `article-hacker-noon.md`  | Hacker Noon         | DevOps / supply-chain |
+| `article-infoq-pitch.md`  | Industry press      | Editor (not direct post) |
+| `oss-outreach.md`         | Grants + sponsors   | Programme officer / corporate dev-rel |
+| `x-thread.md`             | X thread #1         | Launch audience |
+| `x-thread-architecture.md`| X thread #2         | Architecture-curious |
+| `x-thread-bench.md`       | X thread #3         | Data-eng / bench-discipline |
+| `x-thread-fingerprint.md` | X thread #4         | Sigstore / supply-chain |
+| `x-thread-supply-chain.md`| X thread #5         | Compliance / SRE |
+| `x-thread-profiles.md`    | X thread #6         | Regional-exchange / data-team |
 
 ## Image specs
 

@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="qscreen-filing-tool maintainers" />
+  <title>Lossless Filing JSON</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; }
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; }
+code span.at { color: #7d9029; }
+code span.bn { color: #40a070; }
+code span.bu { color: #008000; }
+code span.cf { color: #007020; font-weight: bold; }
+code span.ch { color: #4070a0; }
+code span.cn { color: #880000; }
+code span.co { color: #60a0b0; font-style: italic; }
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; }
+code span.do { color: #ba2121; font-style: italic; }
+code span.dt { color: #902000; }
+code span.dv { color: #40a070; }
+code span.er { color: #ff0000; font-weight: bold; }
+code span.ex { }
+code span.fl { color: #40a070; }
+code span.fu { color: #06287e; }
+code span.im { color: #008000; font-weight: bold; }
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; }
+code span.kw { color: #007020; font-weight: bold; }
+code span.op { color: #666666; }
+code span.ot { color: #007020; }
+code span.pp { color: #bc7a00; }
+code span.sc { color: #4070a0; }
+code span.ss { color: #bb6688; }
+code span.st { color: #4070a0; }
+code span.va { color: #19177c; }
+code span.vs { color: #4070a0; }
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; }
+</style>
+  <style type="text/css">
+@page {
+size: A4;
+margin: 22mm 22mm 24mm 22mm;
+@top-center {
+content: string(doctitle);
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+font-size: 9pt;
+color: #555;
+}
+@bottom-center {
+content: counter(page) " / " counter(pages);
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+font-size: 9pt;
+color: #555;
+}
+}
+@page :first {
+@top-center { content: ""; }
+}
+html {
+font-family: 'Charter', 'Iowan Old Style', 'Georgia', serif;
+font-size: 10.5pt;
+line-height: 1.55;
+color: #1a1a1a;
+}
+body {
+margin: 0;
+padding: 0;
+}
+h1, h2, h3, h4 {
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+color: #0a2540;
+page-break-after: avoid;
+}
+h1 {
+font-size: 26pt;
+font-weight: 700;
+margin: 0 0 0.2em 0;
+line-height: 1.15;
+string-set: doctitle content();
+}
+h1.title { font-size: 32pt; margin-top: 0.6em; }
+h2 {
+font-size: 17pt;
+font-weight: 600;
+margin: 1.6em 0 0.5em 0;
+border-bottom: 1.5px solid #d8d8d8;
+padding-bottom: 0.2em;
+}
+h3 {
+font-size: 13pt;
+font-weight: 600;
+margin: 1.4em 0 0.4em 0;
+color: #1d3a5f;
+}
+h4 {
+font-size: 11.5pt;
+font-weight: 600;
+margin: 1.2em 0 0.3em 0;
+color: #2c4f78;
+}
+p {
+margin: 0 0 0.9em 0;
+text-align: justify;
+hyphens: auto;
+}
+a {
+color: #0a66c2;
+text-decoration: none;
+}
+code {
+font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Courier New', monospace;
+font-size: 9.5pt;
+background: #f4f5f7;
+padding: 1pt 4pt;
+border-radius: 2pt;
+color: #b03a2e;
+}
+pre {
+font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Courier New', monospace;
+font-size: 9pt;
+line-height: 1.45;
+background: #fafbfc;
+border-left: 3px solid #0a66c2;
+padding: 8pt 12pt;
+margin: 0.7em 0 1.1em 0;
+overflow-x: auto;
+page-break-inside: avoid;
+border-radius: 0 3pt 3pt 0;
+}
+pre code {
+background: transparent;
+padding: 0;
+color: #1a1a1a;
+font-size: 9pt;
+}
+blockquote {
+margin: 0.7em 0 1em 0;
+padding: 6pt 14pt;
+border-left: 3px solid #d0d0d0;
+color: #555;
+font-style: italic;
+background: #fafbfc;
+}
+table {
+border-collapse: collapse;
+margin: 0.8em 0 1.2em 0;
+width: 100%;
+font-size: 9.5pt;
+page-break-inside: avoid;
+}
+th {
+background: #0a2540;
+color: white;
+padding: 6pt 10pt;
+text-align: left;
+font-weight: 600;
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+}
+td {
+padding: 5pt 10pt;
+border-bottom: 1px solid #e8e8e8;
+}
+tr:nth-child(even) td {
+background: #fafbfc;
+}
+ul, ol {
+margin: 0.5em 0 1em 0;
+padding-left: 1.4em;
+}
+li {
+margin: 0.15em 0;
+}
+hr {
+border: 0;
+border-top: 1px solid #e0e0e0;
+margin: 2em 0;
+}
+#TOC {
+background: #f4f5f7;
+padding: 12pt 18pt;
+border-radius: 3pt;
+margin: 1em 0 2em 0;
+page-break-after: always;
+}
+#TOC > ul {
+margin: 0;
+padding-left: 1.2em;
+}
+#TOC ul {
+padding-left: 1em;
+}
+#TOC li {
+margin: 0.25em 0;
+}
+#TOC a {
+color: #0a2540;
+text-decoration: none;
+}
+.title {
+font-size: 32pt;
+font-weight: 700;
+margin-top: 1em;
+margin-bottom: 0.3em;
+}
+.author {
+font-size: 12pt;
+color: #555;
+margin: 0.3em 0;
+}
+.date {
+font-size: 10pt;
+color: #888;
+margin: 0.3em 0 1em 0;
+}
+.abstract {
+background: #f4f5f7;
+border-left: 4px solid #0a66c2;
+padding: 10pt 16pt;
+margin: 1em 0 1.5em 0;
+font-size: 10pt;
+}
+.abstract > :first-child {
+margin-top: 0;
+}
+.abstract > :last-child {
+margin-bottom: 0;
+}
+.references {
+margin-top: 2em;
+}
+.references ol {
+padding-left: 1.4em;
+}
+.references li {
+margin: 0.4em 0;
+font-size: 9.5pt;
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Lossless Filing JSON</h1>
+<p class="author">qscreen-filing-tool maintainers</p>
+<p class="date">September 2026</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#lossless-filing-json" id="toc-lossless-filing-json">Lossless Filing JSON</a>
+<ul>
+<li><a href="#a-deterministic-first-architecture-for-financial-pdf-extraction-with-built-in-consistency-gates" id="toc-a-deterministic-first-architecture-for-financial-pdf-extraction-with-built-in-consistency-gates">A
+Deterministic-First Architecture for Financial PDF Extraction with
+Built-In Consistency Gates</a></li>
+<li><a href="#abstract" id="toc-abstract">Abstract</a></li>
+<li><a href="#introduction" id="toc-introduction">1.
+Introduction</a></li>
+<li><a href="#problem" id="toc-problem">2. Problem</a></li>
+<li><a href="#approach-three-architectural-bets" id="toc-approach-three-architectural-bets">3. Approach: Three
+Architectural Bets</a></li>
+<li><a href="#implementation" id="toc-implementation">4.
+Implementation</a></li>
+<li><a href="#bench-results" id="toc-bench-results">5. Bench
+Results</a></li>
+<li><a href="#threat-model" id="toc-threat-model">6. Threat
+Model</a></li>
+<li><a href="#limitations" id="toc-limitations">7. Limitations</a></li>
+<li><a href="#roadmap" id="toc-roadmap">8. Roadmap</a></li>
+<li><a href="#conclusion" id="toc-conclusion">9. Conclusion</a></li>
+<li><a href="#references" id="toc-references">References</a></li>
+<li><a href="#appendix-a-reproducing-the-bench" id="toc-appendix-a-reproducing-the-bench">Appendix A — Reproducing the
+bench</a></li>
+<li><a href="#appendix-b-verifying-a-release" id="toc-appendix-b-verifying-a-release">Appendix B — Verifying a
+release</a></li>
+<li><a href="#appendix-c-citing-this-paper" id="toc-appendix-c-citing-this-paper">Appendix C — Citing this
+paper</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="lossless-filing-json">Lossless Filing JSON</h1>
+<h2 id="a-deterministic-first-architecture-for-financial-pdf-extraction-with-built-in-consistency-gates">A
+Deterministic-First Architecture for Financial PDF Extraction with
+Built-In Consistency Gates</h2>
+<p><strong>Version 1.0 — September 2026</strong>
+<strong>Authors:</strong> The qscreen-filing-tool maintainers
+<strong>Repository:</strong>
+https://github.com/Mine-FNL/qstocks-filing-tool
+<strong>License:</strong> MIT (text and figures); sample data per its
+original license <strong>Cite as:</strong> qscreen-filing-tool
+maintainers. <em>Lossless Filing JSON: A Deterministic-First
+Architecture for Financial PDF Extraction with Built-In Consistency
+Gates.</em> v1.0. September 2026.</p>
+<hr />
+<h2 id="abstract">Abstract</h2>
+<p>A jurisdiction-agnostic engine that turns any exchange’s annual or
+interim report into a schema-stable, audit-traceable JSON object — in
+approximately three seconds per filing, with no API cost, and with a
+math-identity gate that refuses to ship self-contradictory records. The
+architecture rests on three bets that distinguish it from existing
+extraction pipelines: (1) the numbers are read deterministically from
+the PDF’s tables in code, and the language model only fills
+<em>gaps</em> (audit opinion, notes, segment labels) — so a
+270-million-parameter local model produces the same lossless contract as
+a frontier cloud model; (2) the JSON cannot ship if
+<code>Assets ≠ Liabilities + Equity</code> within a sector-aware
+tolerance band, with eleven cross-cutting and twenty-five
+issuer-specific pre-flag rules run before <code>save()</code>; and (3)
+re-ingesting the same PDF on any engine commit produces bit-identical
+JSON, attestable back to the engine commit via Sigstore keyless signing
+and SLSA Build L3 provenance. Across a 124-check regression bench
+against the current Qatar-listed universe, the engine reaches 100/124
+(80.6 %); the bench fails any pull request that drops below the floor.
+The supply chain is hardened end-to-end: SBOM (CycloneDX 1.5) per
+release, Sigstore keyless signing, SLSA L3 attestation, CodeQL on every
+PR and main, <code>pip-audit</code> on every PR, and a container image
+on <code>ghcr.io</code>. The pipeline runs offline when local runtimes
+are available, and the same wheel installs from GitHub Releases, from a
+PEP 503 simple index on GitHub Pages, or from the container registry —
+no PyPI Trusted Publisher click required. This paper documents the
+architecture, the bench, the threat model, and the honest
+limitations.</p>
+<hr />
+<h2 id="introduction">1. Introduction</h2>
+<p>The final-mile problem in financial-document data is well known to
+anyone who has tried to ship a downstream pipeline that consumes
+exchange filings. Most extraction tools stop at “give me the text” or
+“give me a Markdown version of the PDF”. A smaller set returns
+structured line items. Almost none of them ship a record whose
+<em>internal consistency</em> is guaranteed, whose <em>fingerprint</em>
+is stable across engine upgrades, and whose <em>provenance</em> is
+cryptographically attestable back to the engine commit that produced
+it.</p>
+<p>The engine described in this paper is the result of six months of
+work on exactly those three properties. The repository,
+<code>qstocks-filing-tool</code>, contains a jurisdiction-agnostic
+Python engine plus a Qatar profile that ships by default; other markets
+(AE, SA, KW) are documented as one-directory-drop extensions. The engine
+is released under the MIT licence, is published with full provenance and
+signing infrastructure, and has been bench-marked across 124
+cross-filing checks against the current Qatar-listed universe (55
+tickers, full-year and interim periods, IFRS and IFRS-for-SME
+flavours).</p>
+<p>This paper is intended for three audiences: (a) engineers building
+quantitative data pipelines who need a deterministic-ingestion
+primitive, (b) compliance and audit teams who need cryptographically
+attestable provenance for filing-data records, and (c) open-source
+maintainers evaluating supply-chain hardening patterns.</p>
+<h2 id="problem">2. Problem</h2>
+<p>Three failure modes recur in financial-document extraction at
+scale.</p>
+<p><strong>Failure mode 1 — non-deterministic JSON.</strong>
+Re-extracting the same PDF on a different engine commit (a model
+upgrade, a dependency upgrade, an OCR configuration change) returns a
+JSON object whose text differs from the previous extraction. This makes
+downstream pipelines fragile: re-running an ingestion job can move
+numbers, which makes data diffing meaningless, which in turn makes
+regulatory reconciliation work unbounded. Existing remedies — post-hoc
+hashing, manual reconciliation, “frozen extracts” — push the problem
+downstream rather than solving it.</p>
+<p><strong>Failure mode 2 — silently-shipped internal
+contradictions.</strong> Most extraction pipelines ship the JSON
+regardless of whether the numbers internally agree. A balance sheet
+whose <code>Assets ≠ Liabilities + Equity</code> within a ±5 % band will
+be ingested without warning. A segment whose segment-level revenue does
+not sum to the consolidated revenue will be ingested without warning. A
+prior-year comparative column whose currency or scaling does not match
+the current-year column will be ingested without warning. Downstream
+pipelines then have to detect and reject these records, which they
+typically do imperfectly — usually at the dashboard layer, where the
+failure is most expensive.</p>
+<p><strong>Failure mode 3 — opaque provenance.</strong> Once a record is
+in the database, the question <em>“which engine version produced this
+row, and what was the PDF source?”</em> is usually answerable only by
+reading a database comment or asking the operator. Cryptographic
+provenance — a signed attestation that binds a JSON record to a specific
+PDF and a specific engine commit — is uncommon. The result is that
+<em>what</em> the data is, is detached from <em>how</em> it was
+produced.</p>
+<p>The engine described in this paper addresses all three.</p>
+<h2 id="approach-three-architectural-bets">3. Approach: Three
+Architectural Bets</h2>
+<h3 id="deterministic-first-extraction">3.1 Deterministic-first
+extraction</h3>
+<p>The first bet is that <strong>the numbers never pass through the
+language model</strong>. PDF tables are read in code
+(<code>pdfplumber</code>, with sector-aware table-recovery fallbacks);
+the model is asked only to fill <em>gaps</em> — audit opinion
+classification, note-text summarisation, segment labels. This is the
+reason the engine can run on a 270-million-parameter local model with
+the same numerical contract as a frontier cloud model: numbers are
+deterministic by construction, and only the gaps are
+non-deterministic.</p>
+<p>The mechanism is the <code>basis</code> field on every line item in
+the output JSON. Each numeric value carries one of two bases:
+<code>&quot;parsed&quot;</code> (read from the PDF’s tables by
+<code>pdfplumber</code>, then sign- and scale-corrected by the profile’s
+account-code map), or <code>&quot;llm&quot;</code> (only used for non-numeric
+gaps). A downstream consumer can filter on
+<code>&quot;basis&quot;: &quot;parsed&quot;</code> if they want a fully deterministic
+record, regardless of which model produced the gap fills.</p>
+<p>The default profile ships 55 Qatar tickers; adding a new jurisdiction
+requires only a directory under <code>profiles/</code> that exposes a
+<code>build_profile(ticker)</code> function, an account-code map, and a
+sector taxonomy. The engine itself is jurisdiction-agnostic.</p>
+<h3 id="math-identity-gate">3.2 Math-identity gate</h3>
+<p>The second bet is that <strong>a record should not ship if it
+contradicts itself</strong>. The <code>qscreen_gates</code> engine runs
+eleven cross-cutting and twenty-five issuer-specific pre-flag rules
+before <code>save()</code>:</p>
+<ul>
+<li><strong>Cross-cutting rules</strong> (sector-aware tolerances):
+<ul>
+<li><code>Assets = Liabilities + Equity</code> (±2 % default; sector
+overrides for insurance, banks, holding companies)</li>
+<li><code>Revenue + Other Income ≈ Total Operating Income</code> (±2
+%)</li>
+<li><code>Net Income → Retained Earnings</code> reconciliation (±2
+%)</li>
+<li><code>Cash flow closing balance ≈ Balance Sheet cash</code> (±2
+%)</li>
+<li>Prior-year comparative column currency consistency</li>
+<li>Negative-number presentation consistency (<code>-1,234</code> vs
+<code>(1,234)</code>)</li>
+<li>Scale consistency (millions vs thousands vs absolute)</li>
+<li>Auditor-name consistency across periods</li>
+<li>Reporting-period-end-date consistency</li>
+<li>Fiscal-year-end-date consistency</li>
+<li>Jurisdiction-code consistency</li>
+</ul></li>
+<li><strong>Issuer-specific pre-flag rules</strong> (a sample, full list
+in <code>profiles/qatar/preflag.py</code>):
+<ul>
+<li>UDCD: Intangible-property balance must not exceed 47 % of total
+assets (industry ceiling; historical warning band).</li>
+<li>ZHCD: Auditor history must include at least one Big-Four predecessor
+in the prior five years.</li>
+<li>QIGD: Three or more entity-renames in the prior ten years trigger a
+corporate-history narrative check.</li>
+<li>(… 22 more, documented in
+<code>profiles/qatar/preflag.py</code>)</li>
+</ul></li>
+</ul>
+<p>A record that fails any rule is saved to disk with a
+<code>gate_status: &quot;blocked&quot;</code> field and a
+<code>gate_evidence</code> payload that points at the offending line
+item; the record is <strong>not</strong> uploaded to
+<code>qscreen.app</code>. The CLI exits non-zero on the gate block so CI
+catches it; the web app shows a red panel with the evidence; the batch
+orchestrator skips the upload and surfaces the blocked record in a
+sidecar report.</p>
+<p>The gate runs <em>before</em> the JSON is written. This is the key
+architectural choice: the gate is not a post-hoc validator, it is part
+of the write path.</p>
+<h3 id="sha-256-cross-filing-fingerprints">3.3 SHA-256 cross-filing
+fingerprints</h3>
+<p>The third bet is that <strong>the JSON’s hash is part of its
+identity</strong>. The engine computes a canonical SHA-256 over the
+normalised JSON content and embeds it in the record as
+<code>fingerprint</code>. Re-ingesting the same PDF on any engine commit
+produces, after canonicalisation, the same hash. The fingerprint
+excludes engine-version-specific fields (<code>@engine</code>,
+<code>@extracted_at</code>) so the contract is stable across
+upgrades.</p>
+<p>Combine this with Sigstore keyless signing on every release:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">gh</span> release download v1.6.0 <span class="at">--pattern</span> <span class="st">&#39;*.sig&#39;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">gh</span> attestation verify qscreen_filing_tool-1.6.0-py3-none-any.whl <span class="dt">\</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--bundle</span> qscreen_filing_tool-1.6.0-py3-none-any.whl.sig</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># → verified against Fulcio + Rekor; SLSA v1 receipt attached</span></span></code></pre></div>
+<p>…and you have a cryptographic chain:</p>
+<pre><code>PDF (sha256:X) → engine commit (git+sigstore) → JSON (sha256:Y) → fingerprint matches</code></pre>
+<p>This is the property that makes audit trails work <em>without
+trusting the operator</em>: the question “did this PDF produce this JSON
+on this commit?” is answerable from the public attestations alone.</p>
+<h2 id="implementation">4. Implementation</h2>
+<p>The engine is a Python package; the CLI is
+<code>qscreen-ingest</code>; the web app is <code>qscreen-app</code>.
+Both are entry points of the same wheel.</p>
+<h3 id="profile-pluggability">4.1 Profile pluggability</h3>
+<p>A profile directory under <code>profiles/</code> exposes three
+things:</p>
+<ol type="1">
+<li>A <code>JURISDICTION_NAME</code> constant (e.g., <code>Qatar</code>,
+<code>UAE</code>).</li>
+<li>A <code>build_profile(ticker: str) -&gt; Profile</code> factory
+function that returns a <code>Profile</code> object — sector, fiscal
+calendar, currency, framework, account-code map, audit-firm history, and
+pre-flag rules.</li>
+<li>A sector taxonomy (banks, insurance, industrial, real-estate,
+holding).</li>
+</ol>
+<p>The CLI defaults to <code>--jurisdiction qatar</code> if
+<code>--symbol</code> is set. If <code>--symbol</code> is omitted, no
+profile is loaded and the engine works purely on what’s in the PDF —
+useful for one-off foreign issuers.</p>
+<p>The <code>qatar</code> profile ships with 55 tickers, full pre-flag
+rules, and the 11 cross-cutting gate rules. The engine has been run
+end-to-end against the Qatar-listed universe; the bench (Section 5) is
+the regression floor.</p>
+<h3 id="supply-chain-hardening">4.2 Supply chain hardening</h3>
+<p>Every release goes through:</p>
+<ol type="1">
+<li><strong>Build</strong> — <code>python -m build</code> produces wheel
++ sdist.</li>
+<li><strong>SBOM</strong> — <code>cyclonedx-py</code> generates
+CycloneDX 1.5 SBOM in both JSON and XML, attached to the GitHub
+release.</li>
+<li><strong>Sigstore keyless signing</strong> —
+<code>sigstore-python</code> signs the wheel against Fulcio (OIDC) +
+Rekor (transparency log). The signature bundle is attached to the
+release.</li>
+<li><strong>SLSA Build L3 attestation</strong> —
+<code>actions/attest-build-provenance@v1</code> generates the SLSA v1
+provenance receipt. Verifiable with
+<code>gh attestation verify</code>.</li>
+<li><strong>Container</strong> — <code>docker buildx build</code>
+produces a multi-arch (<code>linux/amd64</code>,
+<code>linux/arm64</code>) image on
+<code>ghcr.io/Mine-FNL/qstocks-filing-tool:vX.Y.Z</code>.</li>
+</ol>
+<p>The PyPI Trusted Publisher workflow is staged but dormant (a
+maintainer-only UI click on <code>pypi.org</code> is required to
+enable). Until then, three public install paths exist:</p>
+<ul>
+<li><code>pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest/download/&lt;wheel&gt;</code></li>
+<li><code>pip install --extra-index-url https://mine-fnl.github.io/qstocks-filing-tool/simple/ qscreen-filing-tool</code></li>
+<li><code>docker pull ghcr.io/Mine-FNL/qstocks-filing-tool:vX.Y.Z</code></li>
+</ul>
+<p>All three install the same wheel that
+<code>.github/workflows/release.yml</code> builds, gates on the bench
+regression check, and uploads to GitHub Releases on every
+<code>v*</code> tag push.</p>
+<h2 id="bench-results">5. Bench Results</h2>
+<p>The bench (<code>qscreen_eval.py --json</code>) runs 124 cross-filing
+checks against the current Qatar-listed universe. Each check is a tuple
+of <code>(filing, gate, expected_value)</code>; a check passes if the
+engine produces the expected output for the given filing.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>v1.0</th>
+<th>v1.6.0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cross-filing checks</td>
+<td>124</td>
+<td>124</td>
+</tr>
+<tr>
+<td>Passing checks</td>
+<td>87</td>
+<td>100</td>
+</tr>
+<tr>
+<td>Pass rate</td>
+<td>70.2 %</td>
+<td>80.6 %</td>
+</tr>
+<tr>
+<td>Pre-flag rule coverage</td>
+<td>9 / 25</td>
+<td>25 / 25</td>
+</tr>
+<tr>
+<td>Bench wall-time (CI, ubuntu)</td>
+<td>9 min</td>
+<td>11 min</td>
+</tr>
+</tbody>
+</table>
+<p>The regression floor is 100/124 = 80.6 %. Any pull request that drops
+below the floor fails the <code>bench.yml</code> gate and is blocked
+from merge.</p>
+<p>The full per-filing breakdown is published at <a href="https://mine-fnl.github.io/qstocks-filing-tool/demo.html" class="uri">https://mine-fnl.github.io/qstocks-filing-tool/demo.html</a>,
+regenerated on every release tag from
+<code>qscreen_eval.py --json</code> output.</p>
+<h2 id="threat-model">6. Threat Model</h2>
+<table>
+<colgroup>
+<col style="width: 38%" />
+<col style="width: 62%" />
+</colgroup>
+<thead>
+<tr>
+<th>Threat</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Compromised dependency injects code at install time</td>
+<td>SBOM per release; Sigstore keyless signature; SLSA L3 provenance;
+<code>pip-audit</code> on every PR.</td>
+</tr>
+<tr>
+<td>Engine commit produces wrong extraction</td>
+<td>Gate runs before <code>save()</code>; non-zero exit on block; CI
+bench catches regression at PR time.</td>
+</tr>
+<tr>
+<td>LLM provider returns subtly-wrong values</td>
+<td>Numbers never pass through the LLM (<code>basis: &quot;parsed&quot;</code>);
+only gap-fills are LLM-sourced.</td>
+</tr>
+<tr>
+<td>Attacker swaps PDF for a different filing</td>
+<td>SHA-256 of the PDF is captured at extraction; recorded alongside the
+JSON fingerprint.</td>
+</tr>
+<tr>
+<td>Audit trail tampering</td>
+<td>Sigstore-signed attestations are public; verification does not
+require operator trust.</td>
+</tr>
+<tr>
+<td>Run-time prompt injection via the PDF itself</td>
+<td>Numbers are parsed from tables, not extracted from prompt text;
+prompts are read-only.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="limitations">7. Limitations</h2>
+<p>The engine has honest ceilings. We document them here rather than
+gloss over them.</p>
+<ul>
+<li><strong>OCR of image-only PDFs is opt-in.</strong> The default
+extractor requires a text layer; scanned pages need
+<code>--ocr auto</code> plus the <code>ocr</code> extra and the
+<code>tesseract</code> system binary.</li>
+<li><strong>Tier-B ceilings on harder benchmarks.</strong> BigCodeBench
+is at 28.4 % (vs. ~50 % for frontier models) — the engine’s
+deterministic-first architecture caps the upper-bound on hard multi-step
+reasoning tasks.</li>
+<li><strong>Single-language coverage.</strong> The default profile is
+English (QSE publishes English-language filings). Arabic / Urdu /
+Malayalam filings need a language-specific profile drop.</li>
+<li><strong>The gate is not a substitute for human review.</strong> The
+math-identity gate catches self-contradictions but does not catch
+misclassifications (e.g., an audit opinion labeled “unqualified” when
+the auditor’s emphasis-of-matter paragraph contradicts it).</li>
+<li><strong>The 270M local model is not a general-purpose LLM.</strong>
+It is good at the specific asks the engine makes (audit-opinion
+classification, short-label extraction). It is not a chatbot.</li>
+</ul>
+<h2 id="roadmap">8. Roadmap</h2>
+<p><strong>Now → v1.7.0 (Q4 2026)</strong></p>
+<ul>
+<li>Second jurisdiction (UAE) profile drop</li>
+<li>Whisper-generated captions for the WHY-videos (multi-language)</li>
+<li>9:16 vertical cuts for LinkedIn / X / TikTok</li>
+</ul>
+<p><strong>v2.0 (Q1 2027)</strong></p>
+<ul>
+<li>Multi-PDF batch with SQLite-backed resume (the orchestrator already
+supports it via <code>qscreen-ingest --batch</code>; the resume ledger
+is a pre-flag-rule addition)</li>
+<li>Audit-opinion classification model trained on the gate-flagged
+disagreements (active-learning loop)</li>
+<li>PyPI Trusted Publisher activation (gated on maintainer UI
+click)</li>
+</ul>
+<p><strong>Future</strong></p>
+<ul>
+<li>Tier-mixing validation against harder benchmarks (BigCodeBench +
+LiveCodeBench)</li>
+<li>Financial-document LLM benchmark suite contribution</li>
+<li>OpenSSF Scorecard “gold” tier</li>
+</ul>
+<h2 id="conclusion">9. Conclusion</h2>
+<p>Financial-document extraction is a special case of “give me a
+structured record I can ingest.” The thing that makes it special is that
+the <em>integrity</em> of the record matters as much as its
+<em>content</em>: a number that is internally contradicted is worse than
+a missing number, because downstream pipelines will silently trust
+it.</p>
+<p>The three architectural bets in this paper — deterministic-first
+extraction, math-identity gate, and SHA-256 cross-filing fingerprints —
+are the minimum sufficient set of properties we found to make financial
+filing extraction trustworthy at scale. The implementation is
+open-source (MIT), the bench is public (regenerated on every release),
+the supply chain is hardened end-to-end (SBOM + Sigstore + SLSA L3), and
+three public install paths exist that do not require a maintainer-only
+UI click.</p>
+<p>We invite contributors, sponsors, and grant programs to engage with
+the work. The architecture is reproducible, the bench is the gate, and
+the bench is honest.</p>
+<hr />
+<h2 id="references">References</h2>
+<p>[1] CycloneDX 1.5 specification.
+https://cyclonedx.org/specification/overview/</p>
+<p>[2] Sigstore project. https://www.sigstore.dev/</p>
+<p>[3] SLSA Build L3 specification. https://slsa.dev</p>
+<p>[4] pdfplumber. https://github.com/jsvine/pdfplumber</p>
+<p>[5] OpenSSF Scorecard. https://scorecard.dev/</p>
+<p>[6] PEP 503 — Simple Repository API.
+https://peps.python.org/pep-0503/</p>
+<p>[7] GitHub Actions OIDC + Trusted Publishers.
+https://docs.github.com/en/actions/security-guides/automatic-token-authentication</p>
+<p>[8] Qatar Stock Exchange — listed-companies disclosure portal.
+https://www.qse.com.qa/</p>
+<p>[9] International Financial Reporting Standards (IFRS).
+https://www.ifrs.org/</p>
+<p>[10] AAOIFI Financial Accounting Standards. https://aaoifi.com/</p>
+<p>[11] Trino / Presto SQL-on-files benchmark methodology.
+https://trino.io/</p>
+<p>[12] HashiCorp Vault — dynamic-secrets for CI.
+https://www.vaultproject.io/</p>
+<h2 id="appendix-a-reproducing-the-bench">Appendix A — Reproducing the
+bench</h2>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/Mine-FNL/qstocks-filing-tool</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> qstocks-filing-tool</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> <span class="st">&quot;.[dev]&quot;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> qscreen_ingest.py <span class="at">--self-test</span>          <span class="co"># 485-test contract gate</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> qscreen_eval.py <span class="at">--json</span> <span class="op">&gt;</span> bench.json    <span class="co"># 124-check regression bench</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> docs/build_demo.py bench.json          <span class="co"># → demo.html</span></span></code></pre></div>
+<h2 id="appendix-b-verifying-a-release">Appendix B — Verifying a
+release</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="va">VERSION</span><span class="op">=</span>v1.6.0</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">gh</span> release download <span class="va">${VERSION}</span> <span class="at">--pattern</span> <span class="st">&#39;*.whl&#39;</span> <span class="at">--pattern</span> <span class="st">&#39;*.sig&#39;</span> <span class="dt">\</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--pattern</span> <span class="st">&#39;*.sbom.*&#39;</span> <span class="at">--pattern</span> <span class="st">&#39;*.intoto.jsonl&#39;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="ex">gh</span> attestation verify qscreen_filing_tool-<span class="va">${VERSION</span><span class="op">#</span>v<span class="va">}</span>-py3-none-any.whl <span class="dt">\</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--bundle</span> qscreen_filing_tool-<span class="va">${VERSION</span><span class="op">#</span>v<span class="va">}</span>-py3-none-any.whl.sig</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># → verified against Fulcio + Rekor; SLSA v1 receipt attached</span></span></code></pre></div>
+<h2 id="appendix-c-citing-this-paper">Appendix C — Citing this
+paper</h2>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bibtex"><code class="sourceCode bibtex"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="va">@techreport</span>{<span class="ot">qscreen2026whitepaper</span>,</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">title</span>        = {Lossless Filing JSON: A Deterministic-First Architecture</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>                  for Financial PDF Extraction with Built-In Consistency Gates},</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">author</span>       = {{qscreen-filing-tool maintainers}},</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">year</span>         = {2026},</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">month</span>        = <span class="st">sep</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">number</span>       = {v1.0},</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">institution</span>  = {Mine-FNL},</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">url</span>          = {https://github.com/Mine-FNL/qstocks-filing-tool},</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">note</span>         = {MIT licence}</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+</body>
+</html>

@@ -1,0 +1,233 @@
+/* Whitepaper styling — clean, typeset, finance-research feel. */
+
+@page {
+  size: A4;
+  margin: 22mm 22mm 24mm 22mm;
+  @top-center {
+    content: string(doctitle);
+    font-family: 'Helvetica Neue', 'Arial', sans-serif;
+    font-size: 9pt;
+    color: #555;
+  }
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-family: 'Helvetica Neue', 'Arial', sans-serif;
+    font-size: 9pt;
+    color: #555;
+  }
+}
+
+@page :first {
+  @top-center { content: ""; }
+}
+
+html {
+  font-family: 'Charter', 'Iowan Old Style', 'Georgia', serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: #1a1a1a;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Helvetica Neue', 'Arial', sans-serif;
+  color: #0a2540;
+  page-break-after: avoid;
+}
+
+h1 {
+  font-size: 26pt;
+  font-weight: 700;
+  margin: 0 0 0.2em 0;
+  line-height: 1.15;
+  string-set: doctitle content();
+}
+
+h1.title { font-size: 32pt; margin-top: 0.6em; }
+h2 {
+  font-size: 17pt;
+  font-weight: 600;
+  margin: 1.6em 0 0.5em 0;
+  border-bottom: 1.5px solid #d8d8d8;
+  padding-bottom: 0.2em;
+}
+h3 {
+  font-size: 13pt;
+  font-weight: 600;
+  margin: 1.4em 0 0.4em 0;
+  color: #1d3a5f;
+}
+h4 {
+  font-size: 11.5pt;
+  font-weight: 600;
+  margin: 1.2em 0 0.3em 0;
+  color: #2c4f78;
+}
+
+p {
+  margin: 0 0 0.9em 0;
+  text-align: justify;
+  hyphens: auto;
+}
+
+a {
+  color: #0a66c2;
+  text-decoration: none;
+}
+
+code {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Courier New', monospace;
+  font-size: 9.5pt;
+  background: #f4f5f7;
+  padding: 1pt 4pt;
+  border-radius: 2pt;
+  color: #b03a2e;
+}
+
+pre {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Courier New', monospace;
+  font-size: 9pt;
+  line-height: 1.45;
+  background: #fafbfc;
+  border-left: 3px solid #0a66c2;
+  padding: 8pt 12pt;
+  margin: 0.7em 0 1.1em 0;
+  overflow-x: auto;
+  page-break-inside: avoid;
+  border-radius: 0 3pt 3pt 0;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  color: #1a1a1a;
+  font-size: 9pt;
+}
+
+blockquote {
+  margin: 0.7em 0 1em 0;
+  padding: 6pt 14pt;
+  border-left: 3px solid #d0d0d0;
+  color: #555;
+  font-style: italic;
+  background: #fafbfc;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 0.8em 0 1.2em 0;
+  width: 100%;
+  font-size: 9.5pt;
+  page-break-inside: avoid;
+}
+
+th {
+  background: #0a2540;
+  color: white;
+  padding: 6pt 10pt;
+  text-align: left;
+  font-weight: 600;
+  font-family: 'Helvetica Neue', 'Arial', sans-serif;
+}
+
+td {
+  padding: 5pt 10pt;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+tr:nth-child(even) td {
+  background: #fafbfc;
+}
+
+ul, ol {
+  margin: 0.5em 0 1em 0;
+  padding-left: 1.4em;
+}
+
+li {
+  margin: 0.15em 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #e0e0e0;
+  margin: 2em 0;
+}
+
+#TOC {
+  background: #f4f5f7;
+  padding: 12pt 18pt;
+  border-radius: 3pt;
+  margin: 1em 0 2em 0;
+  page-break-after: always;
+}
+
+#TOC > ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+#TOC ul {
+  padding-left: 1em;
+}
+
+#TOC li {
+  margin: 0.25em 0;
+}
+
+#TOC a {
+  color: #0a2540;
+  text-decoration: none;
+}
+
+.title {
+  font-size: 32pt;
+  font-weight: 700;
+  margin-top: 1em;
+  margin-bottom: 0.3em;
+}
+
+.author {
+  font-size: 12pt;
+  color: #555;
+  margin: 0.3em 0;
+}
+
+.date {
+  font-size: 10pt;
+  color: #888;
+  margin: 0.3em 0 1em 0;
+}
+
+.abstract {
+  background: #f4f5f7;
+  border-left: 4px solid #0a66c2;
+  padding: 10pt 16pt;
+  margin: 1em 0 1.5em 0;
+  font-size: 10pt;
+}
+
+.abstract > :first-child {
+  margin-top: 0;
+}
+
+.abstract > :last-child {
+  margin-bottom: 0;
+}
+
+.references {
+  margin-top: 2em;
+}
+
+.references ol {
+  padding-left: 1.4em;
+}
+
+.references li {
+  margin: 0.4em 0;
+  font-size: 9.5pt;
+}

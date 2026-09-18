@@ -18,6 +18,21 @@
   <sub>6-second WHY #1 — voice-over + background score + burned-in captions. <b>Click play</b> (or unmute your feed).</sub>
 </p>
 
+<details>
+<summary><b>▶ Don't see the video? Click for the animated preview</b></summary>
+
+<br>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Mine-FNL/qstocks-filing-tool/main/campaign/assets/demo.gif" alt="qscreen-filing-tool — 5-second animated preview" width="100%">
+</p>
+
+<p align="center">
+  <sub>5-second animated preview (800×447, 3.5 MB, auto-loops). Renders everywhere — GitHub comments, Slack, HN, Reddit, dev.to, LinkedIn feed.</sub>
+</p>
+
+</details>
+
 **Turn a PDF financial report into a lossless, auditable filing JSON — ready for ingest.**
 
 A jurisdiction-agnostic engine that takes any exchange's annual / interim report

@@ -106,5 +106,6 @@ nav:
       - Jurisdictions (profiles): jurisdictions.md
       - Golden-set bench: bench.md
       - CI workflows: ci.md
+      - Whitepaper: whitepaper.md
   - Show & Tell:
       - Long-form pitch: SHOW_HN.md

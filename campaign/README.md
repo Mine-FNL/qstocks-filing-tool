@@ -90,6 +90,31 @@ step).
 | `x-thread-supply-chain.md`| X thread #5         | Compliance / SRE |
 | `x-thread-profiles.md`    | X thread #6         | Regional-exchange / data-team |
 
+## Conference talk abstracts (in `conference/`)
+
+CFP-ready abstracts + outlines for venues where the "industry-leading"
+angle matters.
+
+| File | Venue | Talk type | Length |
+|---|---|---|---|
+| `pycon-2027.md`      | PyCon US 2027       | Technical talk      | 30 min |
+| `pydata-2027.md`     | PyData Berlin 2027  | Community talk      | 25 min |
+| `sigmod-demo-2027.md`| SIGMOD / VLDB 2027  | Industrial / demo   | 10 min + 4-page paper |
+| `strata-2027.md`     | Strata Data 2027    | Industry talk       | 40 min |
+
+Submission deadlines are typically 4–6 months before the conference; submit
+in the order above (PyCon first, Strata last). Each file includes the CFP
+abstract, a section-by-section outline, a ≤ 200-char pitch line, and
+speaker notes (slides pacing, audience-tuning, live-demo backup strategy).
+
+## Demo GIF
+
+`campaign/assets/demo.gif` — 5-second animated preview (800×447, 3.5 MB,
+auto-loops) extracted from `why-1-explainer-captioned.mp4` via ffmpeg
+palettegen + paletteuse. Embedded in the README as a fallback for
+Markdown renderers that don't render `<video>` tags (GitHub issue
+previews, Slack, some HN themes, some dev.to themes).
+
 ## Image specs
 
 - **Hero (16:9):** 2752×1536 (2K). Use `assets/hero-16x9.jpg`.

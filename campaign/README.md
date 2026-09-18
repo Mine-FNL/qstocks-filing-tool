@@ -9,9 +9,9 @@ Ready-to-paste launch materials. All images are CC0-equivalent (generated for th
 | `assets/demo-flow-16x9.jpg`     | HN body image, X thread image #1. The before→after picture. |
 | `assets/stats-card-16x9.jpg`   | The numbers card. X thread lead-tweet image. LinkedIn cover alt. |
 | `assets/demo-promo-6s.mp4`      | Short promo loop (6 s, 768p, **native audio**). Embed in SHOW_HN, X, LinkedIn. |
-| `assets/why-1-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, AAC voice-over. **The WHY #1.** Today's vendor extractor (left) vs the deterministic one-shot CLI (right). Voice: "Today's PDF extractors are slow, expensive, and silent about contradictions." |
-| `assets/why-2-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, AAC voice-over. **The WHY #2.** Math-identity gate catches a 2.2 % Assets-vs-L+E delta in real time, stamps a "GATE BLOCKED" seal, surfaces the offending line-item. Voice: "Most extractors ship the JSON anyway. We catch the contradictions first." |
-| `assets/why-3-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, AAC voice-over. **The WHY #3.** Stable SHA-256 fingerprint across re-ingests, signed via Sigstore, repeatable from any engine commit. Voice: "Stable fingerprint. Sigstore signed. Lossless across engine versions." |
+| `assets/why-1-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, **voice-over + background-music + chime** (3-layer AAC mix). **The WHY #1.** Snappy camera push-in on a vendor pricing card that shatters into pixel dust, hard cut to a typewriter terminal stamping `OK 3.0s 0 errors`, then three floating seal-stamps. Editorial motion graphics, midnight palette + cyan + emerald + crimson. |
+| `assets/why-2-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, **voice-over + dramatic impact boom**. **The WHY #2.** Slow-motion push-in on a financial document; lines `Assets = 1,420M / L+E = 1,389M` materialize in monospace; crimson delta pulses; a SEAL stamps diagonally with golden sparks and smoke dissipation; green checkmark seals the frame. |
+| `assets/why-3-explainer.mp4`            | 6 s, **1920×1080 (1080p)**, **voice-over + triumphant arpeggio**. **The WHY #3.** Three-panel synchronized grid: glowing stable `sha256:f7b2...cd14`, Sigstore stamp animation, terminal running the same command three times. All three lock simultaneously into a green-check finale. |
 
 ## Channels (ranked by expected reach)
 

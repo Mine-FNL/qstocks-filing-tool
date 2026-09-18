@@ -171,7 +171,7 @@ PAGE = """<!doctype html>
   </div>
   <details class="adv" open><summary>Provider / model — cloud key OR a local model on your laptop</summary>
     <div class="row">
-      <div><label>AI Provider</label>
+      <div><label>Provider</label>
         <select name="provider" id="provider">
           <option value="">auto (use whichever key is set)</option>
           <optgroup label="Cloud (needs an API key)">

@@ -1,4 +1,4 @@
-"""Tests for local-AI providers and the guided (small-model) extractor.
+"""Tests for local-model providers and the guided (small-model) extractor.
 
 All offline: the LLM is stubbed, so these exercise the deterministic 'rules in
 code' (title detection, label→code mapping, unit scale, number parsing) and the

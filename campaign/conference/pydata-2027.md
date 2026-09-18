@@ -51,7 +51,7 @@ and which are language-model problems.
 
 ## Outline
 
-1. **Where "AI extractors" break** (4 min)
+1. **Where "LLM-extraction" pipelines break** (4 min)
 2. **The 3 bets** (8 min, with live demo)
 3. **The bench as contract** (5 min)
 4. **The supply-chain story** (4 min)
@@ -69,5 +69,5 @@ and which are language-model problems.
 - Berlin audience skews toward applied ML + data-engineering
   practitioners. Lean on the bench-discipline message and away from
   pure ML novelty.
-- Avoid "AI" hype in the title; "deterministic-first" is the hook.
+- Avoid "model" hype in the title; "deterministic-first" is the hook.
 - Live-demo segment is high-risk; pre-record backup clips for each.

@@ -6,7 +6,7 @@ to the long-form posts.
 ## Status
 
 - 6 seconds each, **1934×1080 (1080p)**, H.264 yuv420p video + 3-layer
-  audio mix (TTS voice-over + AI-generated background music + chime /
+  audio mix (TTS voice-over + generated background score + chime /
   boom / arpeggio). The audio layers are explicit because the
   viewer experiences the motion AND the sound design together; the
   catch-factor is the *combination* of the cut, the typography, the
@@ -56,7 +56,7 @@ Each video mixes three audio layers via `amix=inputs=2`:
 
 1. **TTS narration** at 1.0 volume — the human-voice signal that
    delivers the WHY.
-2. **AI-generated music** at 0.22 volume (heavily ducked under
+2. **Generated score** at 0.22 volume (heavily ducked under
    the voice). One per video:
    - pain: cinematic pulse beat, 100bpm, dark synth pad, building
      tension, loopable.
@@ -121,12 +121,12 @@ as promotion. The hairline is intentional.
 ## Re-mixing the audio
 
 The TTS tracks live at `campaign/assets/narr-{1,2,3}-*.mp3`. The
-AI music tracks are NOT saved separately (they were one-shots —
+score tracks are NOT saved separately (they were one-shots —
 regeneration is cheap). To re-mix:
 
 ```sh
-# 1. Regenerate the music via matrix batch_text_to_music
-#    (prompts in the AI music call earlier this commit; see git log).
+# 1. Regenerate the score via matrix batch_text_to_music
+#    (prompts in the score-generation call earlier this commit; see git log).
 # 2. ffmpeg mux (voice full volume + music 0.22):
 ffmpeg -i <input.mp4> -i narr-*.mp3 -i music-*.mp3 \
   -filter_complex "[1:a]volume=1.0[v1];[2:a]volume=0.22[v2];[v1][v2]amix=inputs=2:dropout_transition=0[mix]" \

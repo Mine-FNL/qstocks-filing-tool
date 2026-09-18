@@ -1,93 +1,46 @@
 {
-  "name": "qscreen-filing-tool dev",
-  "image": "mcr.microsoft.com/devcontainers/python:3.11",
-
+  "name": "qscreen-filing-tool",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11-bookworm",
   "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {
-      "installLens": false
-    }
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
-
-  "onCreateCommand": ".devcontainer/post-create.sh",
-
-  "postCreateCommand": "pip install -e \".[dev,xlsx]\"",
-
-  "containerUser": "vscode",
-
-  "remoteUser": "vscode",
-
-  "updateRemoteUserUID": true,
-
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
-  "workspaceFolder": "/workspace",
-
-  "forwardPorts": [8765, 8000],
-
-  "portsAttributes": {
-    "8765": {
-      "label": "Flask app (qscreen-app)",
-      "onAutoForward": "notify",
-      "protocol": "http"
-    },
-    "8000": {
-      "label": "mkdocs live server (make docs-serve)",
-      "onAutoForward": "silent",
-      "protocol": "http"
-    }
-  },
-
-  "mounts": [
-    "source=qscreen-filing-tool-gh-config,target=/home/vscode/.config/gh,type=volume",
-    "source=qscreen-filing-tool-gitconfig,target=/home/vscode/.gitconfig,type=volume"
-  ],
-
   "customizations": {
     "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml",
+        "bierner.markdown-preview-github-styles"
+      ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.testing.pytestEnabled": true,
-        "python.testing.unittestEnabled": false,
-        "python.testing.pytestArgs": ["-q"],
-        "editor.formatOnSave": false,
-        "editor.tabSize": 4,
-        "files.eol": "\n",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "[python]": {
-          "editor.tabSize": 4,
-          "editor.insertSpaces": true
-        },
-        "[yaml]": {
-          "editor.tabSize": 2,
-          "editor.insertSpaces": true
-        },
-        "[json]": {
-          "editor.tabSize": 2,
-          "editor.insertSpaces": true
-        },
-        "[markdown]": {
-          "editor.tabSize": 2,
-          "editor.insertSpaces": true
-        },
-        "terminal.integrated.defaultProfile.linux": "bash"
-      },
-      "extensions": [
-        "ms-python.python",
-        "ms-python.mypy-type-checker",
-        "charliermarsh.ruff",
-        "tamasfe.even-better-toml",
-        "njpwerner.autodocstring",
-        "EditorConfig.EditorConfig",
-        "yzane.markdown-pdf",
-        "ms-azuretools.vscode-docker"
-      ]
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        }
+      }
     }
   },
-
-  "remoteEnv": {
-    "QSCREEN_APP_HOST": "127.0.0.1",
-    "QSCREEN_APP_PORT": "8765",
-    "PYTHONUNBUFFERED": "1",
-    "PIP_DISABLE_PIP_VERSION_CHECK": "1"
+  "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
+  "remoteUser": "vscode",
+  "containerUser": "vscode",
+  "portsAttributes": {
+    "8765": {
+      "label": "qscreen-app (browser UI)",
+      "onAutoForward": "openBrowser"
+    }
   },
-
-  "shutdownAction": "none"
+  "forwardPorts": [8765],
+  "otherPortsAttributes": {
+    "55000-55999": {
+      "label": "engine HTTP debug",
+      "protocol": "http"
+    }
+  }
 }

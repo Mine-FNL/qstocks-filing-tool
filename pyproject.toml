@@ -77,6 +77,8 @@ dev = ["pytest>=7", "openpyxl>=3.1"]
 [project.scripts]
 qscreen-ingest = "qscreen_ingest:main"
 qscreen-app = "qscreen_app:main"
+qscreen-demo = "qscreen_demo:main"
+qscreen-extract = "qscreen_extract:main"
 
 [tool.setuptools]
 py-modules = [
@@ -91,6 +93,8 @@ py-modules = [
     "qscreen_autodetect",       # 1.4.0 — auto-detect sector/period/framework
     "qscreen_langdetect",       # 1.5.0 — bilingual Arabic/English classifier
     "qscreen_fingerprint",      # 1.6.0 — stable text fingerprints + diff
+    "qscreen_demo",             # 1.7.0 — 30-second "try the engine" entry point
+    "qscreen_extract",          # 1.7.0 — shorthand wrapper for the common invocation
 ]
 # Two packages: profiles/ (jurisdiction-aware, ships Qatar data + pre_flag
 # catalog), qatar/ (back-compat shim re-exporting profiles.qatar).

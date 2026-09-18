@@ -5,12 +5,21 @@ to the long-form posts.
 
 ## Status
 
-- 6 seconds each, **1920×1080 (1080p)**, H.264 yuv420p video + 3-layer
+- 6 seconds each, **1934×1080 (1080p)**, H.264 yuv420p video + 3-layer
   audio mix (TTS voice-over + AI-generated background music + chime /
   boom / arpeggio). The audio layers are explicit because the
   viewer experiences the motion AND the sound design together; the
   catch-factor is the *combination* of the cut, the typography, the
   voice, and the score.
+- v4 (this round) upgraded from text-to-video to **first-frame
+  image-to-video** — the model anchors to a 2K branded keyframe
+  (campaign/assets/hero-16x9.jpg for the hero video; freshly
+  generated 2K keyframes for the gate and proof videos at
+  campaign/assets/keyframe-gate-16x9.jpg and
+  keyframe-proof-16x9.jpg) so the animation grows out of the
+  existing brand asset instead of synthesizing from text alone.
+  Result: dramatically better motion coherence and a brand
+  composition that opens and closes on the same image family.
 
 ## Audio mix design
 

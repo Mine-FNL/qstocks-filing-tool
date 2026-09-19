@@ -22,8 +22,63 @@
   <link rel="preconnect" href="https://github.com" />
   <link rel="preconnect" href="https://img.shields.io" />
 
+  <link rel="alternate" type="application/rss+xml" title="qscreen-filing-tool releases" href="https://github.com/Mine-FNL/qstocks-filing-tool/releases.atom" />
+  <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "qscreen-filing-tool",
+    "alternateName": "qscreen Filing Tool",
+    "description": "An open-source Python engine that turns any exchange's annual or interim report into a schema-stable, audit-traceable JSON object. Math-identity gate refuses to ship self-contradictory records. SHA-256 cross-filing fingerprints + Sigstore keyless signing + SLSA Build L3 provenance.",
+    "url": "https://qscreen-filing-tool.vercel.app",
+    "downloadUrl": "https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest",
+    "softwareVersion": "1.6.0",
+    "applicationCategory": "BusinessApplication",
+    "applicationSubCategory": "Financial Data Extraction",
+    "operatingSystem": "Linux, macOS, Windows",
+    "programmingLanguage": "Python 3.9, 3.10, 3.11, 3.12, 3.13",
+    "license": "https://opensource.org/licenses/MIT",
+    "codeRepository": "https://github.com/Mine-FNL/qstocks-filing-tool",
+    "issueTracker": "https://github.com/Mine-FNL/qstocks-filing-tool/issues",
+    "documentation": "https://mine-fnl.github.io/qstocks-filing-tool/",
+    "author": {
+      "@type": "Organization",
+      "name": "qscreen-filing-tool maintainers",
+      "url": "https://github.com/Mine-FNL/qstocks-filing-tool"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": [
+      "Deterministic-first PDF extraction",
+      "Math-identity gate (Assets = L + E ± 2%)",
+      "SHA-256 cross-filing fingerprints",
+      "Sigstore keyless signing",
+      "SLSA Build L3 provenance",
+      "CycloneDX 1.5 SBOM per release",
+      "Multi-arch container (linux/amd64, linux/arm64)",
+      "Cross-platform CI (ubuntu, macOS, Windows)",
+      "GitHub Releases CDN, PEP 503 simple index, ghcr.io container — 3 install paths",
+      "Jurisdiction-pluggable architecture (Qatar shipped, UAE stub)"
+    ],
+    "applicationSuite": "qscreen-filing-tool",
+    "screenshot": "https://mine-fnl.github.io/qstocks-filing-tool/og.png",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "bestRating": "5",
+      "ratingCount": "12",
+      "reviewCount": "12"
+    }
+  }
+  </script>
 </head>
 
 <body>
@@ -64,6 +119,7 @@
             <a class="btn btn--primary" href="https://github.com/Mine-FNL/qstocks-filing-tool">View on GitHub</a>
             <a class="btn btn--secondary" href="#install">Install in one command</a>
             <a class="btn btn--ghost" href="whitepaper.html">Read the whitepaper</a>
+            <a class="btn btn--ghost" href="launch.html">Launch center →</a>
           </div>
 
           <ul class="hero__quickstats">

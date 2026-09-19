@@ -1,0 +1,96 @@
+name: Publish — dev.to
+
+# Auto-publishes the canonical dev.to tutorial on every release tag.
+#
+# Setup (one-time, manual):
+#   1. Create a dev.to account
+#   2. Generate an API key at https://dev.to/settings/extensions
+#   3. Add it as a repo secret named DEV_TO_API_KEY
+#      (Settings → Secrets and variables → Actions → New repository secret)
+#
+# Once the secret is set, every release tag pushes a fresh article to
+# dev.to. No user action needed.
+#
+# Triggers:
+#   - on: push tags matching 'v*'
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (don't actually publish)"
+        required: false
+        default: "false"
+
+permissions: read-all
+
+jobs:
+  publish:
+    name: Cross-post tutorial to dev.to
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Publish to dev.to
+        env:
+          DEV_TO_API_KEY: ${{ secrets.DEV_TO_API_KEY }}
+          DRY_RUN:        ${{ inputs.dry_run }}
+        run: |
+          if [ -z "$DEV_TO_API_KEY" ]; then
+            echo "::warning::DEV_TO_API_KEY not set; skipping."
+            echo "  → Generate one at https://dev.to/settings/extensions"
+            echo "  → Add as repo secret DEV_TO_API_KEY to enable this workflow."
+            exit 0
+          fi
+
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          TITLE="Building a financial PDF extractor with built-in consistency gates (v${VERSION})"
+          # Re-use the dev.to tutorial body verbatim
+          BODY="$(cat campaign/channels/dev-to.md \
+            | python3 -c '
+          import sys, re
+          text = sys.stdin.read()
+          # Strip the H1 line; dev.to sets the title separately
+          text = re.sub(r"^# .+?\\n", "", text, count=1, flags=re.MULTILINE)
+          sys.stdout.write(text)
+          ')"
+
+          # Strip frontmatter block from the markdown if present
+          BODY="$(python3 -c "
+          import sys
+          text = sys.stdin.read()
+          if text.startswith('---\\n'):
+              end = text.find('\\n---\\n', 4)
+              if end > -1:
+                  text = text[end + 5:]
+          sys.stdout.write(text)
+          " <<<\"$BODY\")"
+
+          PAYLOAD=$(python3 -c "
+          import json, os
+          print(json.dumps({
+              'article': {
+                  'title': os.environ['TITLE'],
+                  'published': (os.environ.get('DRY_RUN') != 'true'),
+                  'body_markdown': os.environ['BODY'],
+                  'canonical_url': 'https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/campaign/channels/dev-to.md',
+                  'description': 'A jurisdiction-agnostic Python engine that turns a PDF financial report into a lossless, auditable JSON object — with a math-identity gate that refuses to ship self-contradictory records.',
+                  'tags': ['python', 'opensource', 'finance', 'pdf', 'dataengineering'],
+                  'series': 'qscreen-filing-tool',
+              }
+          }))
+          " TITLE="$TITLE" BODY="$BODY" DRY_RUN="$DRY_RUN")
+
+          curl -sS -X POST https://dev.to/api/articles \
+            -H "Content-Type: application/json" \
+            -H "api-key: ${DEV_TO_API_KEY}" \
+            -d "$PAYLOAD" | tee /tmp/dev-to-response.json | python3 -m json.tool
+
+          URL=$(python3 -c "import json; print(json.load(open('/tmp/dev-to-response.json')).get('url', 'n/a'))")
+          echo "::notice::dev.to article URL: ${URL}"

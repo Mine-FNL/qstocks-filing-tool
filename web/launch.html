@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Launch — qscreen-filing-tool</title>
+  <meta name="description" content="One-click pre-fill copy for Show HN, Reddit, Product Hunt, LinkedIn, X, dev.to, Mastodon, Bluesky. All channels ready to paste." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <style>
+    .channel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .channel-card {
+      background: var(--color-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .channel-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-text);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .channel-card .pill {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .pill-auto   { background: rgba(74, 222, 128, 0.18); color: #4ade80; }
+    .pill-1click { background: rgba(76, 201, 240, 0.18); color: var(--color-accent); }
+    .pill-manual { background: rgba(255, 184, 77, 0.18); color: var(--color-warn); }
+    .channel-card p {
+      font-size: 13px;
+      color: var(--color-text-dim);
+      margin: 0;
+    }
+    .channel-card textarea {
+      width: 100%;
+      min-height: 130px;
+      background: #050b1a;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 12px;
+      color: var(--color-text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.5;
+      resize: vertical;
+    }
+    .channel-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .channel-actions .btn {
+      font-size: 12px;
+      padding: 8px 12px;
+    }
+    .launch-hero {
+      text-align: center;
+      padding: 70px 24px 40px;
+    }
+    .launch-hero h1 {
+      font-size: clamp(36px, 5vw, 52px);
+      font-weight: 800;
+      margin: 0 0 16px 0;
+      letter-spacing: -0.02em;
+    }
+    .launch-hero .accent {
+      background: linear-gradient(90deg, var(--color-accent) 0%, #80e1ff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .launch-hero p {
+      font-size: 18px;
+      color: var(--color-text-soft);
+      max-width: 720px;
+      margin: 0 auto 30px auto;
+    }
+    .order-list {
+      background: var(--color-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 24px 32px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .order-list h3 {
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-accent);
+      margin: 0 0 16px 0;
+    }
+    .order-list ol {
+      margin: 0;
+      padding-left: 1.4em;
+      font-size: 15px;
+      color: var(--color-text-soft);
+    }
+    .order-list li {
+      margin: 6px 0;
+    }
+    .order-list li strong { color: var(--color-text); }
+  </style>
+</head>
+
+<body>
+  <header class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="/">
+        <span class="nav__brand-mark">▣</span>
+        <span class="nav__brand-text">qscreen-filing-tool</span>
+      </a>
+      <nav class="nav__links">
+        <a href="/#architecture">Architecture</a>
+        <a href="/#bench">Bench</a>
+        <a href="/#install">Install</a>
+        <a href="whitepaper.html">Whitepaper</a>
+        <a href="one-pager.html">One-pager</a>
+        <a class="nav__cta" href="https://github.com/Mine-FNL/qstocks-filing-tool">★ Star on GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="launch-hero">
+      <p class="hero__eyebrow">launch day · v1.6.0</p>
+      <h1>One page, every channel.</h1>
+      <p>
+        Pre-filled copy for every external surface — copy from the box,
+        paste, post. Three channels auto-publish via the repo's GitHub
+        Actions (no user action needed once the secrets are set).
+      </p>
+
+      <div class="order-list">
+        <h3>Suggested launch order (low-friction first)</h3>
+        <ol>
+          <li><strong>Day 0 — Show HN</strong> (the gating action)</li>
+          <li><strong>Day 1 — Lobsters</strong> cross-post of the HN post</li>
+          <li><strong>Day 2 — r/MachineLearning</strong> self-post</li>
+          <li><strong>Day 4 — r/quant</strong> self-post</li>
+          <li><strong>Day 5–10 — Product Hunt</strong> maker launch</li>
+          <li><strong>Day 7 — X thread</strong> #1 (launch)</li>
+          <li><strong>Day 7 — dev.to</strong> tutorial (auto-publishes via CI)</li>
+          <li><strong>Day 7 — Hashnode</strong> cross-post (auto-publishes via CI)</li>
+          <li><strong>Day 8 — LinkedIn</strong> long-post</li>
+          <li><strong>Day 14 — X thread #2</strong> (architecture deep-dive)</li>
+          <li><strong>Day 21 — X thread #3</strong> (bench story)</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section__inner" style="padding-top: 30px;">
+      <h2 class="section__title">Pre-filled copy for each channel</h2>
+      <p class="section__lede">
+        Click <strong>Copy</strong> to put the post on your clipboard, then
+        paste into the platform. Click <strong>Open</strong> to land on the
+        platform's submission page in a new tab.
+      </p>
+
+      <div class="channel-grid">
+
+        <!-- Show HN -->
+        <article class="channel-card">
+          <h3>Show HN <span class="pill pill-manual">user-paste</span></h3>
+          <p>Paste the title on HN's submit page, paste the URL to your repo (or to qscreen-filing-tool.vercel.app), paste the body as the first comment.</p>
+          <textarea id="hn-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="hn-text">Copy</button>
+            <a class="btn btn--ghost" href="https://news.ycombinator.com/submit" target="_blank" rel="noopener">Open HN →</a>
+          </div>
+        </article>
+
+        <!-- Lobsters -->
+        <article class="channel-card">
+          <h3>Lobsters <span class="pill pill-1click">one-click</span></h3>
+          <p>Title + URL form. Drop into the lobster invite-gated submit; the channel already includes the pre-fill copy at <code>campaign/channels/lobsters.md</code>.</p>
+          <textarea id="lobsters-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="lobsters-text">Copy</button>
+            <a class="btn btn--ghost" href="https://lobste.rs/new" target="_blank" rel="noopener">Open Lobsters →</a>
+          </div>
+        </article>
+
+        <!-- Reddit r/MachineLearning -->
+        <article class="channel-card">
+          <h3>r/MachineLearning <span class="pill pill-1click">one-click</span></h3>
+          <p>Self-post title + body. Drop into the new-post composer; the channel already includes the pre-fill copy at <code>campaign/channels/reddit-ml.md</code>.</p>
+          <textarea id="reddit-ml-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="reddit-ml-text">Copy</button>
+            <a class="btn btn--ghost" href="https://www.reddit.com/r/MachineLearning/submit" target="_blank" rel="noopener">Open Reddit →</a>
+          </div>
+        </article>
+
+        <!-- Reddit r/quant -->
+        <article class="channel-card">
+          <h3>r/quant <span class="pill pill-1click">one-click</span></h3>
+          <p>Same flow as r/MachineLearning; quant-flavored copy at <code>campaign/channels/reddit-quant.md</code>.</p>
+          <textarea id="reddit-quant-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="reddit-quant-text">Copy</button>
+            <a class="btn btn--ghost" href="https://www.reddit.com/r/quant/submit" target="_blank" rel="noopener">Open Reddit →</a>
+          </div>
+        </article>
+
+        <!-- Product Hunt -->
+        <article class="channel-card">
+          <h3>Product Hunt <span class="pill pill-manual">user-paste</span></h3>
+          <p>Tagline + gallery images + maker comment. Full kit at <code>campaign/channels/product-hunt.md</code>; opens the PH maker-launch dashboard.</p>
+          <textarea id="ph-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="ph-text">Copy</button>
+            <a class="btn btn--ghost" href="https://www.producthunt.com/posts/new" target="_blank" rel="noopener">Open PH →</a>
+          </div>
+        </article>
+
+        <!-- LinkedIn -->
+        <article class="channel-card">
+          <h3>LinkedIn <span class="pill pill-1click">one-click</span></h3>
+          <p>Long-post format. Pre-fill copy at <code>campaign/channels/linkedin.md</code>.</p>
+          <textarea id="linkedin-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="linkedin-text">Copy</button>
+            <a class="btn btn--ghost" href="https://www.linkedin.com/feed/?shareActive=true" target="_blank" rel="noopener">Open LinkedIn →</a>
+          </div>
+        </article>
+
+        <!-- X / Twitter thread -->
+        <article class="channel-card">
+          <h3>X / Twitter thread <span class="pill pill-1click">one-click</span></h3>
+          <p>15-tweet launch thread. Copy one tweet at a time (each line ends in ↵). Five follow-up threads are also pre-staged at <code>campaign/channels/x-thread-*.md</code>.</p>
+          <textarea id="x-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="x-text">Copy</button>
+            <a class="btn btn--ghost" href="https://twitter.com/compose/tweet" target="_blank" rel="noopener">Open X →</a>
+          </div>
+        </article>
+
+        <!-- Mastodon -->
+        <article class="channel-card">
+          <h3>Mastodon <span class="pill pill-1click">one-click</span></h3>
+          <p>500-char toot. Works on any Mastodon instance. Federated; reaches the dev/finance/OSS crowd without an X account.</p>
+          <textarea id="mastodon-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="mastodon-text">Copy</button>
+            <a class="btn btn--ghost" href="https://mastodon.social/share" target="_blank" rel="noopener">Open Mastodon →</a>
+          </div>
+        </article>
+
+        <!-- Bluesky -->
+        <article class="channel-card">
+          <h3>Bluesky <span class="pill pill-1click">one-click</span></h3>
+          <p>300-char skeet. Smaller character budget than X — keep the link, drop the tagline.</p>
+          <textarea id="bluesky-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="bluesky-text">Copy</button>
+            <a class="btn btn--ghost" href="https://bsky.app/" target="_blank" rel="noopener">Open Bluesky →</a>
+          </div>
+        </article>
+
+        <!-- infoq-pitch (mailto) -->
+        <article class="channel-card">
+          <h3>InfoQ pitch <span class="pill pill-1click">one-click</span></h3>
+          <p>Cold-email pitch to InfoQ / The New Stack. Clicking opens your mail client with the pitch pre-filled.</p>
+          <textarea id="infoq-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="infoq-text">Copy</button>
+            <a class="btn btn--ghost" id="infoq-mailto" href="#">Open mail →</a>
+          </div>
+        </article>
+
+        <!-- XBRL US partner -->
+        <article class="channel-card">
+          <h3>XBRL US partner intro <span class="pill pill-1click">one-click</span></h3>
+          <p><strong>#1 outreach target per sponsor-enrichment.md.</strong> Cold-email intro to David Tauriello (VP Operations) — qscreen is the upstream extractor for their AI Connector MCP server.</p>
+          <textarea id="xbrl-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="xbrl-text">Copy</button>
+            <a class="btn btn--ghost" id="xbrl-mailto" href="#">Open mail →</a>
+          </div>
+        </article>
+
+        <!-- NLnet grant -->
+        <article class="channel-card">
+          <h3>NLnet grant application <span class="pill pill-manual">user-paste</span></h3>
+          <p>Nov 3, 2026 deadline. Pre-fill copy at <code>campaign/channels/oss-outreach.md</code>; full grant-program profile at <code>campaign/conference/sponsor-enrichment.md</code>.</p>
+          <textarea id="nlnet-text" readonly></textarea>
+          <div class="channel-actions">
+            <button class="btn btn--primary" data-copy-target="nlnet-text">Copy</button>
+            <a class="btn btn--ghost" href="https://nlnet.nl/propose/" target="_blank" rel="noopener">Open NLnet →</a>
+          </div>
+        </article>
+      </div>
+
+      <h2 class="section__title" style="margin-top: 60px;">Auto-publishing (no user action)</h2>
+      <p class="section__lede">
+        These three channels are wired into <code>.github/workflows/</code>
+        and post automatically on every release tag push. No clicks
+        needed once the secrets are set.
+      </p>
+
+      <div class="channel-grid">
+
+        <!-- GitHub Discussion -->
+        <article class="channel-card">
+          <h3>GitHub Discussion <span class="pill pill-auto">auto</span></h3>
+          <p>Posts an Announcement Discussion on every release tag. Subscribers see the release post in their activity feed. <strong>Already live, no setup.</strong></p>
+          <p>Workflow: <code>.github/workflows/discussion-on-release.yml</code></p>
+        </article>
+
+        <!-- dev.to -->
+        <article class="channel-card">
+          <h3>dev.to tutorial <span class="pill pill-auto">auto</span></h3>
+          <p>Posts the canonical dev.to tutorial on every release tag. Dev.to is a long-form platform with a strong data-eng readership.</p>
+          <p>Workflow: <code>.github/workflows/publish-dev-to.yml</code></p>
+          <p>Setup: add <code>DEV_TO_API_KEY</code> secret (one-time).</p>
+        </article>
+
+        <!-- Hashnode -->
+        <article class="channel-card">
+          <h3>Hashnode cross-post <span class="pill pill-auto">auto</span></h3>
+          <p>Posts the canonical Better-Programming-style article on every release tag. Hashnode federates to dev.to audiences and has a public GraphQL API.</p>
+          <p>Workflow: <code>.github/workflows/publish-hashnode.yml</code></p>
+          <p>Setup: add <code>HASHNODE_TOKEN</code> and <code>HASHNODE_PUBLICATION_ID</code> secrets.</p>
+        </article>
+      </div>
+
+      <h2 class="section__title" style="margin-top: 60px;">Press kit download</h2>
+      <p class="section__lede">
+        Bundle of every asset a journalist / sponsor / conference reviewer
+        needs in one ZIP. Includes the whitepaper PDF, investor one-pager,
+        the 5 hero images, the captioned WHY videos, and the OG card.
+      </p>
+      <div style="text-align: center; margin-bottom: 80px;">
+        <a class="btn btn--primary btn--lg" href="https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest">
+          ↓ Download press kit (v1.6.0 release assets)
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot__inner">
+      <div class="foot__col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/Mine-FNL/qstocks-filing-tool">GitHub repo</a></li>
+          <li><a href="https://mine-fnl.github.io/qstocks-filing-tool/">Docs site</a></li>
+          <li><a href="/">Home</a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h4>Marketing kit</h4>
+        <ul>
+          <li><a href="whitepaper.html">Whitepaper</a></li>
+          <li><a href="one-pager.html">Investor one-pager</a></li>
+          <li><a href="https://github.com/Mine-FNL/qstocks-filing-tool/tree/main/campaign">Launch kit</a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h4>Sponsor</h4>
+        <ul>
+          <li><a href="one-pager.html">Sponsor tiers</a></li>
+          <li><a href="https://github.com/sponsors/0xBingBong69">GitHub Sponsors</a></li>
+          <li><a href="mailto:security@Mine-FNL.example">Disclosure contact</a></li>
+        </ul>
+      </div>
+      <div class="foot__col foot__col--meta">
+        <p class="foot__tag">MIT licence · v1.6.0 · <span id="yr">2026</span></p>
+        <p class="foot__credits">qscreen-filing-tool maintainers · 0xBingBong69</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script src="launch-data.js"></script>
+</body>
+</html>

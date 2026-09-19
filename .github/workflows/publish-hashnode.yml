@@ -1,0 +1,112 @@
+name: Publish — Hashnode
+
+# Auto-publishes the canonical Better-Programming-style tutorial to
+# Hashnode on every release tag. Hashnode has free cross-posting via
+# GraphQL.
+#
+# Setup (one-time, manual):
+#   1. Create a Hashnode account
+#   2. Generate a personal access token at https://hashnode.com/settings/developer
+#   3. Create a publication (or use the default personal blog) and
+#      note its ID
+#   4. Add two repo secrets:
+#        HASHNODE_TOKEN
+#        HASHNODE_PUBLICATION_ID
+#
+# Once the secrets are set, every release tag pushes a fresh article to
+# Hashnode. No user action needed.
+#
+# Triggers:
+#   - on: push tags matching 'v*'
+#   - workflow_dispatch
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  publish:
+    name: Cross-post article to Hashnode
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Publish to Hashnode
+        env:
+          HASHNODE_TOKEN:          ${{ secrets.HASHNODE_TOKEN }}
+          HASHNODE_PUBLICATION_ID: ${{ secrets.HASHNODE_PUBLICATION_ID }}
+        run: |
+          if [ -z "$HASHNODE_TOKEN" ] || [ -z "$HASHNODE_PUBLICATION_ID" ]; then
+            echo "::warning::HASHNODE_TOKEN or HASHNODE_PUBLICATION_ID not set; skipping."
+            echo "  → Generate token at https://hashnode.com/settings/developer"
+            echo "  → Find publication id via the Hashnode dashboard URL"
+            echo "  → Add both as repo secrets to enable this workflow."
+            exit 0
+          fi
+
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          TITLE="Building a financial PDF extractor with built-in consistency gates (v${VERSION})"
+
+          BODY="$(cat campaign/channels/article-medium-specs.md)"
+
+          # Hashnode expects markdown-with-frontmatter as input; convert
+          # the frontmatter to Hashnode's contentMarkdown field.
+          # Strip the existing frontmatter block
+          CONTENT="$(python3 -c "
+          import sys
+          text = sys.stdin.read()
+          if text.startswith('---'):
+              end = text.find('\\n---', 3)
+              if end > -1:
+                  text = text[end + 4:].lstrip()
+          sys.stdout.write(text)
+          " <<<"$BODY")"
+
+          # Escape for JSON
+          ESCAPED=$(python3 -c "
+          import json, sys
+          print(json.dumps(sys.stdin.read()))
+          " <<<"$CONTENT")
+
+          MUTATION='
+          mutation PublishPost(\$input: PublishPostInput!) {
+            publishPost(input: \$input) { post { url title slug } }
+          }'
+
+          PAYLOAD=$(python3 -c "
+          import json, os
+          print(json.dumps({
+              'query': '''$MUTATION''',
+              'variables': {
+                  'input': {
+                      'title': os.environ['TITLE'],
+                      'contentMarkdown': json.loads($ESCAPED),
+                      'publicationId': os.environ['HASHNODE_PUBLICATION_ID'],
+                      'tags': ['python', 'finance', 'pdf', 'opensource'],
+                      'canonicalUrl': 'https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/campaign/channels/article-medium-specs.md',
+                  }
+              },
+          }))
+          " TITLE="$TITLE" ESCAPED="$ESCAPED" HASHNODE_PUBLICATION_ID="$HASHNODE_PUBLICATION_ID")
+
+          curl -sS -X POST https://gql.hashnode.com \
+            -H "Content-Type: application/json" \
+            -H "Authorization: ${HASHNODE_TOKEN}" \
+            -d "$PAYLOAD" | tee /tmp/hashnode-response.json | python3 -m json.tool
+
+          URL=$(python3 -c "
+          import json
+          try:
+              r = json.load(open('/tmp/hashnode-response.json'))
+              print(r.get('data', {}).get('publishPost', {}).get('post', {}).get('url', 'n/a'))
+          except Exception:
+              print('n/a')
+          ")
+          echo "::notice::Hashnode post URL: ${URL}"

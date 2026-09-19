@@ -9,8 +9,8 @@ name: Discussion — Release announcement
 # surfaces in the repo's activity feed and is indexable by tech-news
 # aggregators.
 #
-# Triggers:
-#   - on: release { types: [published] }
+# The actual GraphQL call lives in scripts/post-discussion.py so the
+# workflow YAML stays compact and the script is unit-testable in CI.
 
 on:
   release:
@@ -26,133 +26,15 @@ jobs:
     permissions:
       discussions: write    # required to create Discussion posts
     steps:
-      - name: Lookup Announcements category id
-        id: cat
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api graphql \
-            -f query='
-              query { repository(owner: "Mine-FNL", name: "qstocks-filing-tool") {
-                discussionCategories(first: 20) {
-                  nodes { id slug }
-                }
-              }}
-            ' > /tmp/cats.json
-          CID=$(python3 -c "
-          import json
-          cats = json.load(open('/tmp/cats.json'))['data']['repository']['discussionCategories']['nodes']
-          for c in cats:
-            if c['slug'] == 'announcements':
-              print(c['id'])
-              break
-          ")
-          if [ -z "$CID" ]; then echo "Announcements category not found"; exit 1; fi
-          echo "id=$CID" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Post Discussion
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ github.event.release.tag_name }}
-          BODY:     ${{ github.event.release.body }}
           NAME:     ${{ github.event.release.name }}
           URL:      ${{ github.event.release.html_url }}
-          CAT_ID:   ${{ steps.cat.outputs.id }}
-        run: |
-          python3 -c "
-          import os, urllib.parse, urllib.request, json
-
-          token = os.environ['GH_TOKEN']
-          tag   = os.environ['TAG']
-          name  = os.environ['NAME']
-          url   = os.environ['URL']
-          cat   = os.environ['CAT_ID']
-          body  = os.environ.get('BODY', '') or ''
-
-          title = f'Released v{tag.lstrip(\"v\")} — {name}'
-
-          # Compose Discussion body — link to the release + key links.
-          post = f'''{body}
-
----
-
-### Quick links
-
-- 📦 [Release notes]({url})
-- 📊 [Live bench report](https://mine-fnl.github.io/qstocks-filing-tool/demo.html)
-- 📄 [Whitepaper (PDF)](https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/whitepaper/whitepaper.pdf)
-- 📑 [Investor one-pager](https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/investor-one-pager/one-pager.pdf)
-- 🚀 [Marketing site](https://qscreen-filing-tool.vercel.app/)
-
-### Try it
-
-\`\`\`sh
-pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest/download/qscreen_filing_tool-{tag.lstrip('v')}-py3-none-any.whl
-qscreen-demo
-\`\`\`
-
-<sub>Posted automatically by \`discussion-on-release.yml\`. To disable, delete the workflow file or remove the \`discussions: write\` permission.</sub>
-'''
-
-          mutation = '''
-          mutation(\$title: String!, \$body: String!, \$cat: ID!) {
-            createDiscussion(input: {
-              repositoryId: \"$(gh api graphql ...)\",  # set below
-              categoryId: \$cat,
-              title: \$title,
-              body: \$body
-            }) { discussion { url } }
-          }
-          '''.strip()
-
-          # Fetch repositoryId (needs node_id, not slug)
-          repo_q = '''
-          query { repository(owner: \"Mine-FNL\", name: \"qstocks-filing-tool\") { id } }
-          '''
-          req = urllib.request.Request(
-              'https://api.github.com/graphql',
-              data=json.dumps({'query': repo_q}).encode(),
-              headers={
-                  'Authorization': f'Bearer {token}',
-                  'Content-Type': 'application/json',
-              },
-              method='POST',
-          )
-          with urllib.request.urlopen(req) as r:
-              repo_id = json.loads(r.read())['data']['repository']['id']
-
-          mutation = f'''
-          mutation CreateDiscussion(\$title: String!, \$body: String!, \$repo: ID!, \$cat: ID!) {{
-            createDiscussion(input: {{
-              repositoryId: \$repo,
-              categoryId: \$cat,
-              title: \$title,
-              body: \$body
-            }}) {{ discussion {{ url }} }}
-          }}
-          '''
-
-          req = urllib.request.Request(
-              'https://api.github.com/graphql',
-              data=json.dumps({
-                  'query': mutation,
-                  'variables': {
-                      'title': title,
-                      'body': post,
-                      'repo': repo_id,
-                      'cat': cat,
-                  },
-              }).encode(),
-              headers={
-                  'Authorization': f'Bearer {token}',
-                  'Content-Type': 'application/json',
-              },
-              method='POST',
-          )
-          with urllib.request.urlopen(req) as r:
-              out = json.loads(r.read())
-              if 'errors' in out:
-                  print('GraphQL errors:', out['errors'])
-                  raise SystemExit(1)
-              print('Posted:', out['data']['createDiscussion']['discussion']['url'])
-          "
+          BODY:     ${{ github.event.release.body }}
+        run: python3 scripts/post-discussion.py

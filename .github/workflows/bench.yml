@@ -160,7 +160,7 @@ jobs:
           header: bench
           path: bench-comment.md
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: bench-json-${{ github.event.pull_request.number || github.ref_name }}

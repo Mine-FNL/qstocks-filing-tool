@@ -35,10 +35,7 @@ on:
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 
-permissions:
-  contents: write        # commit the site/ tree to gh-pages
-  pages: write           # allowed to publish to Pages
-  id-token: write        # ready for downstream OIDC (future)
+permissions: read-all        # Scorecard Token-Permissions: write-scopes at job level only
 
 concurrency:
   group: docs
@@ -48,11 +45,21 @@ jobs:
   build-and-deploy:
     name: Build mkdocs + publish to gh-pages
     runs-on: ubuntu-latest
+    permissions:
+      contents: write      # commit the site/ tree to gh-pages
+      pages: write         # allowed to publish to Pages
+      id-token: write      # ready for downstream OIDC (future)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0    # mkdocs reads git history for "edit this page"
+          # NOTE: persist-credentials intentionally left default (true) here —
+          # the custom force_orphan step below does `git push origin
+          # HEAD:gh-pages --force` and needs the GITHUB_TOKEN cached by
+          # actions/checkout. The other Scorecard-suggested settings (top-
+          # level permissions: read-all, job-level contents/pages/id-token:
+          # write) still apply.
 
       - name: Set up Python
         uses: actions/setup-python@v5

@@ -19,6 +19,11 @@ releases are unsupported; please upgrade.
 
 **Please do not file a public GitHub issue for security problems.**
 
+We follow a **90-day coordinated disclosure window**: after a fix is
+shipped, public advisory publication is deferred up to 90 days from the
+initial report to give downstream users time to upgrade. Reporters may
+request a shorter or longer embargo; we will negotiate in good faith.
+
 Send a private disclosure to:
 
 > **[security@mine-fnl.example](mailto:security@mine-fnl.example)**

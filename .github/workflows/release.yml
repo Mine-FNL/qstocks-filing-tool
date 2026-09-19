@@ -20,10 +20,7 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write        # create release, upload assets
-  pages: write          # update gh-pages branch
-  id-token: write       # ready for PyPI Trusted Publishers
+permissions: read-all        # Scorecard Token-Permissions: write-scopes at job level only
 
 concurrency:
   group: release
@@ -34,8 +31,12 @@ jobs:
     name: Bench regression gate
     runs-on: ubuntu-latest
     if: ${{ !inputs.skip_bench }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -99,10 +100,15 @@ jobs:
     name: Build + publish
     needs: bench
     runs-on: ubuntu-latest
+    permissions:
+      contents: write      # create release, upload assets
+      pages: write        # update gh-pages branch
+      id-token: write     # ready for PyPI Trusted Publishers
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

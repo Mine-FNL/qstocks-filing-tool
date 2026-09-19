@@ -21,14 +21,14 @@ on:
       - "v*"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write   # required for PyPI's OIDC trusted-publisher flow
+permissions: read-all        # Scorecard Token-Permissions: write-scopes at job level only
 
 jobs:
   publish:
     name: Build + publish
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for PyPI's OIDC trusted-publisher flow
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +36,7 @@ jobs:
           # setuptools-scm / version discovery is stable, but enforce
           # that we're building from a tagged commit.
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5

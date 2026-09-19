@@ -97,15 +97,35 @@ angle matters.
 
 | File | Venue | Talk type | Length |
 |---|---|---|---|
-| `pycon-2027.md`      | PyCon US 2027       | Technical talk      | 30 min |
-| `pydata-2027.md`     | PyData Berlin 2027  | Community talk      | 25 min |
-| `sigmod-demo-2027.md`| SIGMOD / VLDB 2027  | Industrial / demo   | 10 min + 4-page paper |
-| `strata-2027.md`     | Strata Data 2027    | Industry talk       | 40 min |
+| `pycon-2027.md`           | PyCon US 2027                       | Technical talk      | 30 min |
+| `pycon-de-pydata-2027.md` | PyCon DE & PyData 2027 (Heidelberg) | Community talk      | 25 min |
+| `sigmod-demo-2027.md`     | SIGMOD / VLDB 2027                  | Industrial / demo   | 10 min + 4-page paper |
+| `strata-2027.md`          | Strata Data 2027                    | Industry talk       | 40 min |
 
 Submission deadlines are typically 4–6 months before the conference; submit
 in the order above (PyCon first, Strata last). Each file includes the CFP
 abstract, a section-by-section outline, a ≤ 200-char pitch line, and
 speaker notes (slides pacing, audience-tuning, live-demo backup strategy).
+
+## Research & intelligence (in `conference/`)
+
+Sub-agent research outputs (4 parallel briefs, ~1,900 lines total) used to
+calibrate the abstracts, the sponsor outreach, and the supply-chain
+hardening work.
+
+| File | What | Size |
+|---|---|---|
+| `cfp-enrichment.md`       | Verified CFP deadlines + program-chair contacts + last-year accepted-talk patterns for all 4 venues + 1 cross-cutting observations block | 339 lines |
+| `sponsor-enrichment.md`   | 12 entity profiles (4 grants + 8 corporate sponsors) with program officers, LinkedIn handles, recent recipients, application windows. **#1 finding: XBRL US (David Tauriello, VP Operations) is the highest-leverage outreach target.** | 665 lines |
+| `competitive-landscape.md`| 8-competitor matrix (pdfplumber, camelot, marker, extractous, unstructured-io, Docparser, Rossum, Affinda) + 5 positioning lessons. **#1 finding: target regulated mid-market finance/audit teams paying $18K–70K/yr for Rossum/Affinda — they're the buyers who already understand why the math-identity gate matters.** | 475 lines |
+| `scorecard-hardening.md`  | OpenSSF Scorecard plan from ~7.5 → 9.0+/10 (gold tier). **Top 5 ship-ready recommendations**: SHA-pin actions + digest-pin Dockerfile + CODEOWNERS + rulesets + token-permissions hardening + persist-credentials sweep + canonical 90-day SECURITY.md. | 486 lines |
+
+These four briefs are the research ammunition behind the integration
+commits in this batch:
+- `cfp-enrichment.md` → pydata-2027.md renamed to pycon-de-pydata-2027.md (factual correction: PyData Berlin ended 2018; successor is PyCon DE & PyData, 2027 edition in Heidelberg)
+- `sponsor-enrichment.md` → XBRL US added as #1 partner target in `oss-outreach.md`
+- `scorecard-hardening.md` → 90-day disclosure language added to `SECURITY.md`; workflow permissions tightened across `release.yml`, `docs.yml`, `docker-image.yml`, `provenance.yml`, `bench.yml`, `publish.yml`, `security.yml`
+- `competitive-landscape.md` → informs the README's competitive table and the investor one-pager's positioning
 
 ## Demo GIF
 

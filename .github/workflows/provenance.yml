@@ -50,7 +50,7 @@ jobs:
       id-token: write       # OIDC subject claim for the attestation
       attestations: write   # publish to the artifact-attestations API
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -78,7 +78,7 @@ jobs:
       id-token: write       # OIDC subject claim for the attestation
       attestations: write   # publish to the artifact-attestations API
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -104,7 +104,7 @@ jobs:
       id-token: write       # OIDC subject claim for the attestation
       attestations: write   # publish to the artifact-attestations API
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 

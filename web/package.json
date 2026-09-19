@@ -1,0 +1,14 @@
+{
+  "name": "qscreen-filing-tool-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marketing landing page for qscreen-filing-tool (deployed to Vercel).",
+  "scripts": {
+    "dev": "python3 -m http.server 8080",
+    "build": "echo 'static site, nothing to build'",
+    "deploy": "vercel --prod --yes"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

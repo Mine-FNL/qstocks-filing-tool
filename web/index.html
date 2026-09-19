@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>qscreen-filing-tool — open-weight PDF → lossless filing JSON</title>
+  <meta name="description" content="A jurisdiction-agnostic Python engine that turns any exchange's annual or interim report into a schema-stable, audit-traceable JSON object. Math-identity gate blocks self-contradictory records. SHA-256 cross-filing fingerprints + Sigstore keyless signing + SLSA L3 provenance. 485 tests, 124-check bench at 80.6 %, container on ghcr.io." />
+  <meta name="theme-color" content="#0a2540" />
+
+  <meta property="og:title" content="qscreen-filing-tool — lossless filing JSON, math-identity gates, attestable provenance" />
+  <meta property="og:description" content="Turn any PDF financial report into a schema-stable, audit-traceable JSON object. Deterministic-first extraction, math-identity gate, SHA-256 fingerprints, Sigstore + SLSA L3." />
+  <meta property="og:image" content="https://mine-fnl.github.io/qstocks-filing-tool/og.png" />
+  <meta property="og:url" content="https://qscreen-filing-tool.vercel.app/" />
+  <meta property="og:type" content="website" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="qscreen-filing-tool — open-weight PDF → lossless filing JSON" />
+  <meta name="twitter:description" content="Deterministic-first extraction. Math-identity gate. SHA-256 fingerprints + Sigstore + SLSA L3. 485 tests, 124-check bench at 80.6 %." />
+  <meta name="twitter:image" content="https://mine-fnl.github.io/qstocks-filing-tool/og.png" />
+
+  <link rel="preconnect" href="https://raw.githubusercontent.com" />
+  <link rel="preconnect" href="https://github.com" />
+  <link rel="preconnect" href="https://img.shields.io" />
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+</head>
+
+<body>
+  <header class="nav">
+    <div class="nav__inner">
+      <a class="nav__brand" href="#top">
+        <span class="nav__brand-mark">▣</span>
+        <span class="nav__brand-text">qscreen-filing-tool</span>
+      </a>
+      <nav class="nav__links">
+        <a href="#architecture">Architecture</a>
+        <a href="#bench">Bench</a>
+        <a href="#install">Install</a>
+        <a href="#supply-chain">Supply chain</a>
+        <a href="#docs">Docs</a>
+        <a class="nav__cta" href="https://github.com/Mine-FNL/qstocks-filing-tool">★ Star on GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ===================== HERO ===================== -->
+    <section class="hero">
+      <div class="hero__bg"></div>
+      <div class="hero__inner">
+        <div class="hero__copy">
+          <p class="hero__eyebrow">MIT-licensed · v1.6.0 · 124-check bench at 80.6 %</p>
+          <h1 class="hero__title">PDF &rarr; <span class="accent">lossless filing JSON</span>.</h1>
+          <p class="hero__lede">
+            A jurisdiction-agnostic Python engine that turns any exchange's
+            annual or interim report into a schema-stable, audit-traceable
+            JSON object &mdash; in ~3 seconds per filing, with no API cost,
+            and with a math-identity gate that refuses to ship
+            self-contradictory records.
+          </p>
+
+          <div class="hero__cta-row">
+            <a class="btn btn--primary" href="https://github.com/Mine-FNL/qstocks-filing-tool">View on GitHub</a>
+            <a class="btn btn--secondary" href="#install">Install in one command</a>
+            <a class="btn btn--ghost" href="whitepaper.html">Read the whitepaper</a>
+          </div>
+
+          <ul class="hero__quickstats">
+            <li><strong>485</strong><span>unit tests</span></li>
+            <li><strong>124</strong><span>bench checks</span></li>
+            <li><strong>80.6&nbsp;%</strong><span>bench pass rate</span></li>
+            <li><strong>25 / 25</strong><span>issuer pre-flag rules</span></li>
+            <li><strong>3</strong><span>public install paths</span></li>
+          </ul>
+        </div>
+
+        <div class="hero__demo">
+          <video
+            src="https://raw.githubusercontent.com/Mine-FNL/qstocks-filing-tool/main/campaign/assets/why-1-explainer-captioned.mp4"
+            poster="https://raw.githubusercontent.com/Mine-FNL/qstocks-filing-tool/main/campaign/assets/hero-16x9.jpg"
+            controls playsinline preload="metadata"
+            aria-label="6-second WHY #1 — voice-over + score + burned-in captions"></video>
+          <p class="hero__demo-caption">
+            <strong>WHY&nbsp;#1</strong> &mdash; voice-over + score + burned-in captions.
+            Click play; if your feed autoplays muted the captions tell the story.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== THREE BETS ===================== -->
+    <section class="bets" id="architecture">
+      <div class="section__inner">
+        <h2 class="section__title">Three bets that distinguish it</h2>
+        <p class="section__lede">
+          Numbers never pass through the model. The JSON can't ship if it
+          contradicts itself. The SHA-256 fingerprint is part of the record's
+          identity.
+        </p>
+
+        <div class="bets__grid">
+          <article class="bet">
+            <div class="bet__num">01</div>
+            <h3 class="bet__title">Deterministic-first extraction</h3>
+            <p>
+              PDF tables are read in code (<code>pdfplumber</code>); the model
+              only fills gaps (audit opinion, notes, segments). Numbers never
+              pass through the model.
+            </p>
+            <p class="bet__consequence">
+              A 270M local model produces the same numerical contract as a
+              frontier cloud model. <code>basis: "parsed"</code> ≠
+              <code>basis: "llm"</code> in every line item.
+            </p>
+          </article>
+
+          <article class="bet">
+            <div class="bet__num">02</div>
+            <h3 class="bet__title">Math-identity gate at the write path</h3>
+            <p>
+              If <code>Assets ≠ L + Equity</code> within a sector-aware
+              tolerance, the record doesn't ship. Eleven cross-cutting +
+              twenty-five issuer-specific pre-flag rules run before
+              <code>save()</code>.
+            </p>
+            <p class="bet__consequence">
+              Blocked records stay on disk with evidence pointing at the
+              offending line item. They never propagate to a downstream
+              pipeline.
+            </p>
+          </article>
+
+          <article class="bet">
+            <div class="bet__num">03</div>
+            <h3 class="bet__title">SHA-256 + Sigstore + SLSA L3</h3>
+            <p>
+              Re-ingesting the same PDF on any engine commit produces
+              bit-identical JSON, attested back to the engine commit that
+              produced it via Sigstore keyless signing + SLSA v1
+              provenance.
+            </p>
+            <p class="bet__consequence">
+              Audit trail works without trusting the operator. A third
+              party can verify "this PDF produced this JSON on this commit"
+              from the public attestations alone.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== BENCH ===================== -->
+    <section class="bench" id="bench">
+      <div class="section__inner">
+        <h2 class="section__title">The bench is the contract</h2>
+        <p class="section__lede">
+          124 cross-filing checks against the current Qatar-listed universe.
+          The regression floor is <strong>100 / 124 = 80.6&nbsp;%</strong>.
+          Every PR that drops the floor fails CI.
+        </p>
+
+        <div class="bench__numbers">
+          <div class="bench__stat">
+            <span class="bench__stat-num">80.6&nbsp;%</span>
+            <span class="bench__stat-label">floor pass rate</span>
+          </div>
+          <div class="bench__stat">
+            <span class="bench__stat-num">25 / 25</span>
+            <span class="bench__stat-label">issuer pre-flag rules</span>
+          </div>
+          <div class="bench__stat">
+            <span class="bench__stat-num">11</span>
+            <span class="bench__stat-label">cross-cutting gates</span>
+          </div>
+          <div class="bench__stat">
+            <span class="bench__stat-num">~3&nbsp;s</span>
+            <span class="bench__stat-label">per filing</span>
+          </div>
+        </div>
+
+        <div class="bench__cta">
+          <a class="btn btn--primary" href="https://mine-fnl.github.io/qstocks-filing-tool/demo.html">
+            See the live bench report
+          </a>
+          <a class="btn btn--ghost" href="https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/tests/golden/BASELINE.md">
+            Read the per-case breakdown
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== INSTALL ===================== -->
+    <section class="install" id="install">
+      <div class="section__inner">
+        <h2 class="section__title">Install in one command</h2>
+        <p class="section__lede">
+          Three public install paths &mdash; pick whichever fits your
+          infrastructure. No PyPI Trusted Publisher click required.
+        </p>
+
+        <div class="install__grid">
+          <div class="install__card">
+            <h3>Direct from GitHub Releases</h3>
+            <pre><code>pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest/download/qscreen_filing_tool-1.6.0-py3-none-any.whl</code></pre>
+          </div>
+
+          <div class="install__card">
+            <h3>PEP 503 simple index (PyPI-equivalent)</h3>
+            <pre><code>pip install --extra-index-url https://mine-fnl.github.io/qstocks-filing-tool/simple/ qscreen-filing-tool</code></pre>
+          </div>
+
+          <div class="install__card">
+            <h3>Container (multi-arch)</h3>
+            <pre><code>docker pull ghcr.io/Mine-FNL/qstocks-filing-tool:v1.6.0</code></pre>
+          </div>
+        </div>
+
+        <div class="install__quickstart">
+          <h3>30-second try it</h3>
+          <pre><code>pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest/download/qscreen_filing_tool-1.6.0-py3-none-any.whl
+qscreen-demo                     # runs the engine end-to-end on a golden-set case
+qscreen-ingest report.pdf --symbol QIBK --year 2024 --period FY</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SUPPLY CHAIN ===================== -->
+    <section class="chain" id="supply-chain">
+      <div class="section__inner">
+        <h2 class="section__title">Supply chain hardened end-to-end</h2>
+        <p class="section__lede">
+          Every release produces six artifacts. Five of them are verifiable
+          without operator trust.
+        </p>
+
+        <div class="chain__pipeline">
+          <div class="chain__step"><span>build</span></div>
+          <div class="chain__arrow">&rarr;</div>
+          <div class="chain__step chain__step--hi"><span>SBOM</span><small>CycloneDX 1.5</small></div>
+          <div class="chain__arrow">&rarr;</div>
+          <div class="chain__step chain__step--hi"><span>Sigstore</span><small>keyless</small></div>
+          <div class="chain__arrow">&rarr;</div>
+          <div class="chain__step chain__step--hi"><span>SLSA</span><small>L3 attestation</small></div>
+          <div class="chain__arrow">&rarr;</div>
+          <div class="chain__step chain__step--hi"><span>Container</span><small>amd64 + arm64</small></div>
+        </div>
+
+        <ul class="chain__list">
+          <li><code>wheel</code> + <code>sdist</code> &mdash; pinned Python 3.9-3.13</li>
+          <li><code>SBOM</code> &mdash; CycloneDX 1.5 (JSON + XML), every transitive dep</li>
+          <li><code>Sigstore</code> &mdash; OIDC from GH Actions runner &rarr; Fulcio &rarr; Rekor transparency log</li>
+          <li><code>SLSA L3</code> &mdash; <code>actions/attest-build-provenance@v1</code>, verifiable with <code>gh attestation verify</code></li>
+          <li><code>Container</code> &mdash; <code>ghcr.io/Mine-FNL/qstocks-filing-tool:vX.Y.Z</code>, multi-arch</li>
+          <li><code>Demo page</code> &mdash; regenerated from <code>qscreen_eval.py --json</code> on every release tag</li>
+        </ul>
+
+        <div class="chain__cta">
+          <a class="btn btn--ghost" href="whitepaper.html#supply-chain">
+            Read the full supply-chain chapter &rarr;
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== MARKETING KIT ===================== -->
+    <section class="kit" id="docs">
+      <div class="section__inner">
+        <h2 class="section__title">The complete launch kit</h2>
+        <p class="section__lede">
+          Six months of work, distilled into the artifacts a sponsor, a
+          journalist, or a conference reviewer actually wants.
+        </p>
+
+        <div class="kit__grid">
+          <a class="kit__card" href="whitepaper.html">
+            <h3>Whitepaper</h3>
+            <p>9 sections + 3 appendices. 6,000 words. Architecture, bench, threat model, limitations, roadmap.</p>
+            <span class="kit__link">whitepaper/whitepaper.pdf · hosted →</span>
+          </a>
+
+          <a class="kit__card" href="one-pager.html">
+            <h3>Investor one-pager</h3>
+            <p>Single-page distillation: problem, three bets, traction, market, ask, team. Sponsor / grant / angel ready.</p>
+            <span class="kit__link">investor-one-pager/one-pager.pdf · hosted →</span>
+          </a>
+
+          <a class="kit__card" href="https://github.com/Mine-FNL/qstocks-filing-tool/tree/main/campaign">
+            <h3>Launch kit</h3>
+            <p>Show HN, r/ML, r/quant, Product Hunt, LinkedIn, dev.to, Medium, Hacker Noon, InfoQ pitch &mdash; all copy pre-staged.</p>
+            <span class="kit__link">campaign/ on GitHub →</span>
+          </a>
+
+          <a class="kit__card" href="https://github.com/Mine-FNL/qstocks-filing-tool/tree/main/campaign/conference">
+            <h3>Conference abstracts</h3>
+            <p>CFP-ready abstracts for PyCon US 2027, PyData Berlin 2027, SIGMOD Demo 2027, Strata 2027.</p>
+            <span class="kit__link">campaign/conference/ →</span>
+          </a>
+
+          <a class="kit__card" href="https://github.com/Mine-FNL/qstocks-filing-tool/tree/main/whitepaper">
+            <h3>Hosted docs site</h3>
+            <p>Architecture, jurisdictions, bench methodology, CI workflows, whitepaper, API reference.</p>
+            <span class="kit__link">mine-fnl.github.io/qstocks-filing-tool →</span>
+          </a>
+
+          <a class="kit__card" href="https://github.com/Mine-FNL/qstocks-filing-tool/tree/main/campaign/conference">
+            <h3>Outreach templates</h3>
+            <p>Cold-email templates for grant programs (NLnet, Sovereign Tech Fund, MOSS) and corporate sponsors (financial-data vendors, regional exchanges).</p>
+            <span class="kit__link">campaign/oss-outreach.md →</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FINAL CTA ===================== -->
+    <section class="final">
+      <div class="section__inner">
+        <h2 class="final__title">Try it in 30 seconds.</h2>
+        <p class="final__lede">
+          No PDF required. No API key required. The engine runs end-to-end on
+          a real golden-set case and prints the result.
+        </p>
+        <pre class="final__cmd"><code>pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest/download/qscreen_filing_tool-1.6.0-py3-none-any.whl
+qscreen-demo</code></pre>
+        <div class="final__cta-row">
+          <a class="btn btn--primary btn--lg" href="https://github.com/Mine-FNL/qstocks-filing-tool">
+            ★ Star qscreen-filing-tool
+          </a>
+          <a class="btn btn--secondary btn--lg" href="whitepaper.html">
+            Read the whitepaper
+          </a>
+          <a class="btn btn--ghost btn--lg" href="one-pager.html">
+            View the investor one-pager
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot__inner">
+      <div class="foot__col">
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/Mine-FNL/qstocks-filing-tool">GitHub repo</a></li>
+          <li><a href="https://mine-fnl.github.io/qstocks-filing-tool/">Docs site</a></li>
+          <li><a href="https://mine-fnl.github.io/qstocks-filing-tool/demo.html">Live bench</a></li>
+          <li><a href="https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/SECURITY.md">Security policy</a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h4>Marketing kit</h4>
+        <ul>
+          <li><a href="whitepaper.html">Whitepaper (PDF)</a></li>
+          <li><a href="one-pager.html">Investor one-pager</a></li>
+          <li><a href="https://github.com/Mine-FNL/qstocks-filing-tool/tree/main/campaign">Launch kit</a></li>
+          <li><a href="https://github.com/Mine-FNL/qstocks-filing-tool/tree/main/campaign/conference">Conference abstracts</a></li>
+        </ul>
+      </div>
+      <div class="foot__col">
+        <h4>Compliance / sponsor</h4>
+        <ul>
+          <li><a href="one-pager.html">Sponsor tiers</a></li>
+          <li><a href="https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/campaign/oss-outreach.md">OSS outreach kit</a></li>
+          <li><a href="https://github.com/sponsors/0xBingBong69">GitHub Sponsors</a></li>
+          <li><a href="https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/SECURITY.md">Disclosure contact</a></li>
+        </ul>
+      </div>
+      <div class="foot__col foot__col--meta">
+        <p class="foot__tag">MIT licence · v1.6.0 · <span id="yr">2026</span></p>
+        <p class="foot__credits">Built by the qscreen-filing-tool maintainers · 0xBingBong69</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

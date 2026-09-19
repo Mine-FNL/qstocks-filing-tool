@@ -125,13 +125,20 @@ Repo:        https://github.com/Mine-FNL/qstocks-filing-tool
 
 ### Target list (ranked by fit)
 
-| Segment | Specific orgs | Why |
-|---|---|---|
-| **Financial-data vendors** | Bloomberg alt (e.g. CalcBench, Sentieo), Refinitiv alt (e.g. XBRL US, Audit Analytics) | Direct adjacency; small sponsorship buys a high-signal logo. |
-| **Quant / hedge fund tooling** | Two Sigma (Dagon), Man AHL (Research Forge), Hudson River Trading (OSS), Jane Street (OSS) | Recurring sponsorship budget; PR upside; few large OSS sponsorships from this segment so visibility is high. |
-| **Cloud / infra** | AWS OSS, GCP OSS, Cloudflare OSS | Don't usually fund, but a featured "Cloudflare OSS Project" badge is itself PR. |
-| **Quant LLM-platform vendors** | RavenPack, AlphaSense, YipitData | Direct adjacency; sponsorship is also a recruiting signal. |
-| **Regional exchanges** | QSE, ADX, Tadawul, Boursa Kuwait | Direct end-user; sponsorship is also a long-term partnership path. |
+| Rank | Segment | Specific orgs | Why |
+|---|---|---|---|
+| **1 (NEW)** | **Standards-body partner** | **XBRL US** ([David Tauriello, VP Operations](https://linkedin.com/in/davidtauriello)) | XBRL US built and open-sourced an **AI Connector / MCP server** for as-filed XBRL data in 2026 and is actively recruiting community contributions. qscreen is the upstream extractor that feeds it cleaner iXBRL-tagged data. Not a cash-grants fit (small consortium), but a credibility / co-publication / joint-research fit. See `campaign/conference/sponsor-enrichment.md` §12 for the full profile and a draft intro email. **Highest-leverage outreach on this list.** |
+| 2 | **Financial-data vendors** | CalcBench, Sentieo, Audit Analytics, Edgar Online | Direct adjacency; small sponsorship buys a high-signal logo. |
+| 3 | **Quant / hedge fund tooling** | Two Sigma (Dagon), Man AHL (Research Forge), Hudson River Trading (OSS), Jane Street (OSS) | Recurring sponsorship budget; PR upside; few large OSS sponsorships from this segment so visibility is high. |
+| 4 | **Cloud / infra** | AWS OSS, GCP OSS, Cloudflare OSS | Don't usually fund, but a featured "Cloudflare OSS Project" badge is itself PR. |
+| 5 | **Quant LLM-platform vendors** | RavenPack, AlphaSense, YipitData | Direct adjacency; sponsorship is also a recruiting signal. |
+| 6 | **Regional exchanges** | QSE, ADX, Tadawul, Boursa Kuwait | Direct end-user; sponsorship is also a long-term partnership path. |
+
+> **Action:** `sponsor-enrichment.md` (in `campaign/conference/`) has the
+> full profiles — program officer names, LinkedIn handles, recent
+> recipients, application windows — for **12 entities** (4 grants + 8
+> corporate sponsors). The original `oss-outreach.md` is a cold-email
+> template; `sponsor-enrichment.md` is the targeting ammunition.
 
 ---
 

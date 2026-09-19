@@ -1,4 +1,4 @@
-# PyData Berlin 2027 — talk submission
+# PyCon DE & PyData 2027 — talk submission (Heidelberg)
 
 **Title (≤ 80 chars):**
 > A deterministic-first architecture for financial-document extraction
@@ -8,6 +8,14 @@
 **Track:** Data Engineering in Production
 
 **Audience level:** Data engineers, ML engineers, finance-tech practitioners.
+
+> **Note (corrected 2026-09-19):** The original brief listed this as
+> "PyData Berlin 2027". Standalone PyData Berlin conferences ended in
+> 2018; the successor event is **PyCon DE & PyData**, which rotates
+> cities each year. The 2027 edition is in **Heidelberg** (not Berlin).
+> This abstract targets PyCon DE & PyData 2027 in Heidelberg. See
+> `cfp-enrichment.md` for the verified CFP deadline and the last-year
+> accepted-talk patterns used to calibrate this abstract.
 
 ---
 

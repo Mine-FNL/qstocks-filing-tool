@@ -23,11 +23,7 @@ on:
       - "v*"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  packages: write       # push to ghcr.io
-  attestations: write   # action generates SLSA-provenance for the image
-  id-token: write       # OIDC for the cosign sign step
+permissions: read-all        # Scorecard Token-Permissions: write-scopes at job level only
 
 concurrency:
   group: docker-image
@@ -37,6 +33,10 @@ jobs:
   build:
     name: Build + push (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
+    permissions:
+      packages: write       # push to ghcr.io
+      attestations: write   # action generates SLSA-provenance for the image
+      id-token: write       # OIDC for the cosign sign step
     strategy:
       fail-fast: false
       matrix:
@@ -47,6 +47,8 @@ jobs:
             runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up QEMU (multi-arch)
         uses: docker/setup-qemu-action@v3
@@ -94,6 +96,8 @@ jobs:
     continue-on-error: true   # non-blocking until the Dockerfile is final
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: hadolint/hadolint-action@v3
         with:
           dockerfile: Dockerfile

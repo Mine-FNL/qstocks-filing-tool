@@ -23,10 +23,7 @@ on:
     - cron: "0 6 * * MON"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  security-events: write  # upload SARIF
-  actions: read
+permissions: read-all        # Scorecard Token-Permissions: write-scopes at job level only
 
 concurrency:
   group: security
@@ -37,6 +34,9 @@ jobs:
     name: CodeQL — ${{ matrix.language }}
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    permissions:
+      security-events: write  # upload SARIF
+      actions: read
     strategy:
       fail-fast: false
       matrix:

@@ -40,17 +40,19 @@ on:
         type: string
         required: true
 
-permissions:
-  contents: read
-  id-token: write       # OIDC subject claim for the attestation
-  attestations: write   # publish to the artifact-attestations API
+permissions: read-all        # Scorecard Token-Permissions: write-scopes at job level only
 
 jobs:
   attest-wheel:
     name: SLSA L3 — wheel
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write       # OIDC subject claim for the attestation
+      attestations: write   # publish to the artifact-attestations API
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Download wheel
         env:
@@ -72,8 +74,13 @@ jobs:
   attest-sdist:
     name: SLSA L3 — sdist
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write       # OIDC subject claim for the attestation
+      attestations: write   # publish to the artifact-attestations API
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Download sdist
         env:
@@ -93,8 +100,13 @@ jobs:
   attest-sbom:
     name: SLSA L3 — SBOM
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write       # OIDC subject claim for the attestation
+      attestations: write   # publish to the artifact-attestations API
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Download SBOM (best-effort)
         # Older releases (e.g. v1.6.1, v1.6.0) predate the SBOM step and

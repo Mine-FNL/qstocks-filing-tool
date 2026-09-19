@@ -1,0 +1,215 @@
+/* Launch-tasks PDF — clean checklist format with verbatim pre-fill blocks */
+
+@page {
+  size: Letter;
+  margin: 16mm 18mm 18mm 18mm;
+  @top-right {
+    content: "qscreen-filing-tool · launch tasks";
+    font-family: 'Helvetica Neue', 'Arial', sans-serif;
+    font-size: 8pt;
+    color: #888;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: 'Helvetica Neue', 'Arial', sans-serif;
+    font-size: 8pt;
+    color: #888;
+  }
+}
+
+@page :first {
+  @top-right { content: ""; }
+}
+
+html {
+  font-family: 'Charter', 'Iowan Old Style', 'Georgia', serif;
+  font-size: 10pt;
+  line-height: 1.45;
+  color: #1a1a1a;
+}
+
+body { margin: 0; padding: 0; }
+
+h1, h2, h3 {
+  font-family: 'Helvetica Neue', 'Arial', sans-serif;
+  color: #0a2540;
+  page-break-after: avoid;
+}
+
+h1.title {
+  font-size: 26pt;
+  font-weight: 800;
+  margin: 0 0 0.15em 0;
+  line-height: 1.15;
+}
+
+h2 {
+  font-size: 16pt;
+  font-weight: 700;
+  margin: 1.6em 0 0.4em 0;
+  border-bottom: 2px solid #0a2540;
+  padding-bottom: 0.2em;
+  color: #0a2540;
+  page-break-before: always;
+}
+
+h3 {
+  font-size: 12pt;
+  font-weight: 700;
+  margin: 1em 0 0.25em 0;
+  color: #1d3a5f;
+}
+
+p { margin: 0 0 0.6em 0; text-align: justify; hyphens: auto; }
+
+ul, ol { margin: 0.3em 0 0.7em 0; padding-left: 1.4em; }
+li { margin: 0.1em 0; }
+
+code, pre {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+  font-size: 9pt;
+  line-height: 1.45;
+}
+
+code {
+  background: #f4f5f7;
+  padding: 1pt 4pt;
+  border-radius: 2pt;
+  color: #b03a2e;
+}
+
+pre {
+  background: #fafbfc;
+  border-left: 3px solid #0a66c2;
+  padding: 10pt 14pt;
+  margin: 0.6em 0 1em 0;
+  overflow-x: auto;
+  page-break-inside: avoid;
+  border-radius: 0 4pt 4pt 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  color: #1a1a1a;
+  font-size: 9pt;
+}
+
+blockquote {
+  margin: 0.5em 0 0.8em 0;
+  padding: 6pt 14pt;
+  border-left: 3px solid #d0d0d0;
+  color: #555;
+  font-style: italic;
+  background: #fafbfc;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 0.4em 0 0.8em 0;
+  width: 100%;
+  font-size: 9pt;
+  page-break-inside: avoid;
+}
+
+th {
+  background: #0a2540;
+  color: white;
+  padding: 4pt 8pt;
+  text-align: left;
+  font-weight: 600;
+  font-family: 'Helvetica Neue', 'Arial', sans-serif;
+}
+
+td {
+  padding: 4pt 8pt;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+tr:nth-child(even) td { background: #fafbfc; }
+
+a { color: #0a66c2; text-decoration: none; word-wrap: break-word; }
+
+hr {
+  border: 0;
+  border-top: 1px solid #d0d0d0;
+  margin: 1.5em 0;
+}
+
+.title-meta {
+  font-size: 11pt;
+  color: #555;
+  margin-bottom: 0.4em;
+}
+
+.priority-high {
+  background: #fef3c7;
+  border-left: 4px solid #d97706;
+  padding: 10pt 14pt;
+  margin: 0.5em 0 1em 0;
+  font-size: 10pt;
+  color: #1a1a1a;
+  border-radius: 0 4pt 4pt 0;
+}
+
+.priority-high strong { color: #92400e; }
+
+.field-label {
+  font-family: 'Helvetica Neue', 'Arial', sans-serif;
+  font-weight: 600;
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #555;
+  margin: 0.8em 0 0.2em 0;
+}
+
+.step-list {
+  counter-reset: step;
+  list-style: none;
+  margin: 0.4em 0 0.8em 0;
+  padding: 0;
+}
+
+.step-list li {
+  counter-increment: step;
+  margin: 0.3em 0;
+  padding: 6pt 10pt 6pt 36pt;
+  position: relative;
+  border-left: 3px solid #0a66c2;
+  background: #fafbfc;
+  border-radius: 0 3pt 3pt 0;
+}
+
+.step-list li::before {
+  content: counter(step);
+  position: absolute;
+  left: 8pt;
+  top: 6pt;
+  font-family: 'Helvetica Neue', 'Arial', sans-serif;
+  font-weight: 700;
+  font-size: 11pt;
+  color: #0a66c2;
+}
+
+.checklist {
+  list-style: none;
+  margin: 0.4em 0 0.8em 0;
+  padding: 0;
+}
+
+.checklist li {
+  padding: 4pt 0 4pt 22pt;
+  position: relative;
+}
+
+.checklist li::before {
+  content: "☐";
+  position: absolute;
+  left: 0;
+  font-size: 14pt;
+  line-height: 1;
+  color: #0a66c2;
+}

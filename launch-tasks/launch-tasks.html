@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="qscreen-filing-tool maintainers" />
+  <title>launch-tasks</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <style type="text/css">
+@page {
+size: Letter;
+margin: 16mm 18mm 18mm 18mm;
+@top-right {
+content: "qscreen-filing-tool · launch tasks";
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+font-size: 8pt;
+color: #888;
+}
+@bottom-right {
+content: counter(page) " / " counter(pages);
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+font-size: 8pt;
+color: #888;
+}
+}
+@page :first {
+@top-right { content: ""; }
+}
+html {
+font-family: 'Charter', 'Iowan Old Style', 'Georgia', serif;
+font-size: 10pt;
+line-height: 1.45;
+color: #1a1a1a;
+}
+body { margin: 0; padding: 0; }
+h1, h2, h3 {
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+color: #0a2540;
+page-break-after: avoid;
+}
+h1.title {
+font-size: 26pt;
+font-weight: 800;
+margin: 0 0 0.15em 0;
+line-height: 1.15;
+}
+h2 {
+font-size: 16pt;
+font-weight: 700;
+margin: 1.6em 0 0.4em 0;
+border-bottom: 2px solid #0a2540;
+padding-bottom: 0.2em;
+color: #0a2540;
+page-break-before: always;
+}
+h3 {
+font-size: 12pt;
+font-weight: 700;
+margin: 1em 0 0.25em 0;
+color: #1d3a5f;
+}
+p { margin: 0 0 0.6em 0; text-align: justify; hyphens: auto; }
+ul, ol { margin: 0.3em 0 0.7em 0; padding-left: 1.4em; }
+li { margin: 0.1em 0; }
+code, pre {
+font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+font-size: 9pt;
+line-height: 1.45;
+}
+code {
+background: #f4f5f7;
+padding: 1pt 4pt;
+border-radius: 2pt;
+color: #b03a2e;
+}
+pre {
+background: #fafbfc;
+border-left: 3px solid #0a66c2;
+padding: 10pt 14pt;
+margin: 0.6em 0 1em 0;
+overflow-x: auto;
+page-break-inside: avoid;
+border-radius: 0 4pt 4pt 0;
+white-space: pre-wrap;
+word-wrap: break-word;
+}
+pre code {
+background: transparent;
+padding: 0;
+color: #1a1a1a;
+font-size: 9pt;
+}
+blockquote {
+margin: 0.5em 0 0.8em 0;
+padding: 6pt 14pt;
+border-left: 3px solid #d0d0d0;
+color: #555;
+font-style: italic;
+background: #fafbfc;
+}
+table {
+border-collapse: collapse;
+margin: 0.4em 0 0.8em 0;
+width: 100%;
+font-size: 9pt;
+page-break-inside: avoid;
+}
+th {
+background: #0a2540;
+color: white;
+padding: 4pt 8pt;
+text-align: left;
+font-weight: 600;
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+}
+td {
+padding: 4pt 8pt;
+border-bottom: 1px solid #e8e8e8;
+}
+tr:nth-child(even) td { background: #fafbfc; }
+a { color: #0a66c2; text-decoration: none; word-wrap: break-word; }
+hr {
+border: 0;
+border-top: 1px solid #d0d0d0;
+margin: 1.5em 0;
+}
+.title-meta {
+font-size: 11pt;
+color: #555;
+margin-bottom: 0.4em;
+}
+.priority-high {
+background: #fef3c7;
+border-left: 4px solid #d97706;
+padding: 10pt 14pt;
+margin: 0.5em 0 1em 0;
+font-size: 10pt;
+color: #1a1a1a;
+border-radius: 0 4pt 4pt 0;
+}
+.priority-high strong { color: #92400e; }
+.field-label {
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+font-weight: 600;
+font-size: 9pt;
+text-transform: uppercase;
+letter-spacing: 0.06em;
+color: #555;
+margin: 0.8em 0 0.2em 0;
+}
+.step-list {
+counter-reset: step;
+list-style: none;
+margin: 0.4em 0 0.8em 0;
+padding: 0;
+}
+.step-list li {
+counter-increment: step;
+margin: 0.3em 0;
+padding: 6pt 10pt 6pt 36pt;
+position: relative;
+border-left: 3px solid #0a66c2;
+background: #fafbfc;
+border-radius: 0 3pt 3pt 0;
+}
+.step-list li::before {
+content: counter(step);
+position: absolute;
+left: 8pt;
+top: 6pt;
+font-family: 'Helvetica Neue', 'Arial', sans-serif;
+font-weight: 700;
+font-size: 11pt;
+color: #0a66c2;
+}
+.checklist {
+list-style: none;
+margin: 0.4em 0 0.8em 0;
+padding: 0;
+}
+.checklist li {
+padding: 4pt 0 4pt 22pt;
+position: relative;
+}
+.checklist li::before {
+content: "☐";
+position: absolute;
+left: 0;
+font-size: 14pt;
+line-height: 1;
+color: #0a66c2;
+}
+</style>
+</head>
+<body>
+<h1 id="qscreen-filing-tool-launch-tasks-pdf-handoff">qscreen-filing-tool —
+Launch Tasks (PDF handoff)</h1>
+<blockquote>
+<p><strong>The complete pre-fill checklist for a human
+operator.</strong></p>
+<p>Six tasks. In order. Each includes the destination URL, the verbatim
+copy to paste, and the time estimate. The only non-trivial piece is Task
+1 (Show HN first-comment) — everything else is copy/paste from this
+document or from the matching card on the launch center at <a href="https://qscreen-filing-tool.vercel.app/launch.html" class="uri">https://qscreen-filing-tool.vercel.app/launch.html</a>.</p>
+</blockquote>
+<p><strong>Total estimated hands-on time: ~2 hours over 30
+days.</strong> <strong>If you only do one: Task 1.</strong></p>
+<hr />
+<h2 id="task-1-post-show-hn-15-min-total">Task 1 — Post Show HN (15 min
+total)</h2>
+<p><strong>Highest leverage. Nothing else moves the star metric until
+this lands.</strong></p>
+<h3 id="destination">Destination</h3>
+<p><a href="https://news.ycombinator.com/submit" class="uri">https://news.ycombinator.com/submit</a></p>
+<h3 id="fields-to-fill">Fields to fill</h3>
+<p><strong>Title (paste verbatim):</strong></p>
+<pre><code>qscreen-filing-tool: open-weight PDF → lossless filing JSON for financial reports</code></pre>
+<p><strong>URL (paste verbatim):</strong></p>
+<pre><code>https://github.com/Mine-FNL/qstocks-filing-tool</code></pre>
+<h3 id="first-comment-paste-as-your-first-comment-immediately-after-posting">First
+comment (paste as your first comment immediately after posting)</h3>
+<pre><code>We built an open-source Python engine that turns a PDF financial report into a schema-stable, audit-traceable JSON object. ~3 s per filing, $0 API cost, math-identity gate refuses to ship self-contradictory records.
+
+Three architectural bets:
+
+1. Deterministic-first extraction. PDF tables are read in code (pdfplumber); the model only fills gaps (audit opinion, notes, segments). A 270M local model produces the same numerical contract as GPT-4o.
+
+2. Math-identity gate. If Assets ≠ L + E within ±2 %, the JSON doesn&#39;t ship. 11 cross-cutting + 25 issuer-specific pre-flag rules run before save. Blocked records stay on disk with evidence pointing at the offending line item.
+
+3. SHA-256 cross-filing fingerprints + Sigstore keyless signing + SLSA Build L3. Re-ingesting the same PDF on any engine commit produces bit-identical JSON, attestable back to the engine commit.
+
+124-check public bench (Qatar-listed universe, 80.6 % pass rate, regression-gated). 485 tests. Cross-platform CI. Multi-arch container on ghcr.io.
+
+Try it in 30 seconds (no PDF, no API key):
+
+pip install https://github.com/Mine-FNL/qstocks-filing-tool/releases/latest/download/qscreen_filing_tool-1.6.0-py3-none-any.whl
+qscreen-demo
+
+Repo: https://github.com/Mine-FNL/qstocks-filing-tool
+Whitepaper: https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/whitepaper/whitepaper.pdf
+Live bench: https://mine-fnl.github.io/qstocks-filing-tool/demo.html
+
+Happy to dig into any of the design choices in the comments.</code></pre>
+<h3 id="after-posting">After posting</h3>
+<ul>
+<li>Stay online for <strong>60–90 min</strong> and reply to every
+comment within 5 min</li>
+<li>Have backup slides for every live-demo segment (the architecture
+diagram at <code>campaign/assets/architecture-16x9.jpg</code> is the
+best one to attach)</li>
+<li>For questions about specific tech choices, link to the relevant
+whitepaper section: <a href="https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/whitepaper/whitepaper.md" class="uri">https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/whitepaper/whitepaper.md</a></li>
+</ul>
+<hr />
+<h2 id="task-2-email-david-tauriello-at-xbrl-us-5-min">Task 2 — Email
+David Tauriello at XBRL US (5 min)</h2>
+<p><strong>Highest-leverage research/partner lead per
+<code>campaign/conference/sponsor-enrichment.md</code>.</strong></p>
+<h3 id="destination-1">Destination</h3>
+<p>Open <code>qscreen-filing-tool.vercel.app/launch.html</code>, scroll
+to the <strong>XBRL US partner intro</strong> card, click <strong>Open
+mail</strong>. The mail client opens with the address, subject, and body
+pre-filled. Edit the salutation before sending.</p>
+<p><strong>Recipient:</strong> <code>david.tauriello@xbrl.us</code>
+<strong>Subject:</strong>
+<code>qscreen-filing-tool — upstream extractor for your AI Connector MCP server (community contribution)</code></p>
+<h3 id="body-paste-verbatim">Body (paste verbatim)</h3>
+<pre><code>Hi David,
+
+I lead the qscreen-filing-tool project — an open-source Python engine that turns a PDF financial report into a clean iXBRL-tagged JSON object, with a math-identity gate that refuses to ship self-contradictory records (Assets ≠ L + E within ±2 %).
+
+When I saw that XBRL US open-sourced the AI Connector / MCP server in 2026 — providing as-filed XBRL data to consumers — I thought there was a natural upstream connection: qscreen could be the deterministic ingestion layer that feeds the Connector cleaner iXBRL-tagged records. Today the Connector pulls from EDGAR; the math-identity gate is a property the upstream could enforce.
+
+Three concrete next steps I can offer:
+
+1. A joint demo: ingest a public 10-K through qscreen, pipe the JSON into the AI Connector, show the Connector pulling from a cleaner upstream than EDGAR-direct.
+
+2. A joint whitepaper: &quot;Deterministic-first ingestion for as-filed XBRL data&quot; — 6,000-word write-up that documents the architecture and the gate-result distribution on XBRL-US-tagged filings.
+
+3. A small grant for the UAE jurisdiction profile ($15k sponsor tier covers ~3 weeks of work); XBRL US could co-sponsor in exchange for the profile shipping with XBRL-US-flavored pre-flag rules.
+
+The whole project is MIT-licensed, supply-chain-hardened (SBOM + Sigstore + SLSA L3), and ships a public 124-check regression bench. Happy to set up a 30-min call.
+
+Repo:        https://github.com/Mine-FNL/qstocks-filing-tool
+Live bench:  https://mine-fnl.github.io/qstocks-filing-tool/demo.html
+Whitepaper:  https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/whitepaper/whitepaper.pdf
+
+— [Your name]</code></pre>
+<h3 id="after-sending">After sending</h3>
+<ul>
+<li>Within 7 days, follow up via LinkedIn: <a href="https://www.linkedin.com/in/davidtauriello" class="uri">https://www.linkedin.com/in/davidtauriello</a></li>
+<li>If no reply in 14 days, send a one-line bump referencing the AI
+Connector MCP server angle (per
+<code>sponsor-enrichment.md §12</code>)</li>
+</ul>
+<hr />
+<h2 id="task-3-set-dev.to-api-key-5-min">Task 3 — Set dev.to API key (5
+min)</h2>
+<p><strong>Unlocks one of three auto-publish channels. Required
+once.</strong></p>
+<h3 id="step-1-create-dev.to-account-if-needed">Step 1 — Create dev.to
+account (if needed)</h3>
+<p><a href="https://dev.to/" class="uri">https://dev.to/</a></p>
+<h3 id="step-2-generate-api-key">Step 2 — Generate API key</h3>
+<p><a href="https://dev.to/settings/extensions" class="uri">https://dev.to/settings/extensions</a> → “DEV Community API
+Keys” → “Generate API Key”</p>
+<h3 id="step-3-add-as-repo-secret">Step 3 — Add as repo secret</h3>
+<p><a href="https://github.com/Mine-FNL/qstocks-filing-tool/settings/secrets/actions/new" class="uri">https://github.com/Mine-FNL/qstocks-filing-tool/settings/secrets/actions/new</a></p>
+<ul>
+<li><strong>Name:</strong> <code>DEV_TO_API_KEY</code></li>
+<li><strong>Value:</strong> paste the API key</li>
+<li><strong>Save</strong></li>
+</ul>
+<h3 id="step-4-test-the-workflow">Step 4 — Test the workflow</h3>
+<p>From the repo root:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">gh</span> workflow run publish-dev-to.yml <span class="at">--ref</span> main</span></code></pre></div>
+<h3 id="step-5-verify">Step 5 — Verify</h3>
+<p>Search your dev.to profile for “qscreen-filing-tool” — the article
+from <code>campaign/channels/dev-to.md</code> should be live.</p>
+<h3 id="optional-pin-to-profile">Optional — pin to profile</h3>
+<p>Once the article lands, pin it via dev.to dashboard → “My Posts” →
+“Pin to Profile” so it’s at the top of your dev.to home page.</p>
+<hr />
+<h2 id="task-4-set-hashnode-api-key-5-min">Task 4 — Set Hashnode API key
+(5 min)</h2>
+<p>Same flow as Task 3, with Hashnode.</p>
+<h3 id="step-1-create-hashnode-account-if-needed">Step 1 — Create
+Hashnode account (if needed)</h3>
+<p><a href="https://hashnode.com/" class="uri">https://hashnode.com/</a></p>
+<h3 id="step-2-generate-token">Step 2 — Generate token</h3>
+<p><a href="https://hashnode.com/settings/developer" class="uri">https://hashnode.com/settings/developer</a> → “Personal
+Access Token” → “Generate”</p>
+<h3 id="step-3-find-your-publication-id">Step 3 — Find your publication
+ID</h3>
+<p>Go to your Hashnode dashboard. The publication ID is the last segment
+of your publication dashboard URL (it’s a UUID).</p>
+<p>Example: if your dashboard URL is
+<code>https://hashnode.com/dash/your-publication-name/...</code>, the
+publication ID is the part after
+<code>dash/your-publication-name/...</code> or in the page source.</p>
+<h3 id="step-4-add-two-repo-secrets">Step 4 — Add two repo secrets</h3>
+<p><a href="https://github.com/Mine-FNL/qstocks-filing-tool/settings/secrets/actions/new" class="uri">https://github.com/Mine-FNL/qstocks-filing-tool/settings/secrets/actions/new</a>
+(twice)</p>
+<ul>
+<li><strong>Name:</strong> <code>HASHNODE_TOKEN</code>
+<strong>Value:</strong> paste the access token</li>
+<li><strong>Name:</strong> <code>HASHNODE_PUBLICATION_ID</code>
+<strong>Value:</strong> paste the UUID</li>
+</ul>
+<h3 id="step-5-test-the-workflow">Step 5 — Test the workflow</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">gh</span> workflow run publish-hashnode.yml <span class="at">--ref</span> main</span></code></pre></div>
+<h3 id="step-6-verify">Step 6 — Verify</h3>
+<p>The article from
+<code>campaign/channels/article-medium-specs.md</code> should be live on
+your Hashnode publication.</p>
+<hr />
+<h2 id="task-5-submit-pycon-us-2027-talk-30-min">Task 5 — Submit PyCon
+US 2027 talk (30 min)</h2>
+<p><strong>Deadline: ~late-October 2026 per
+<code>cfp-enrichment.md</code>. Miss this and you wait another
+year.</strong></p>
+<h3 id="destination-url-goes-live-mid-august-2026">Destination (URL goes
+live ~mid-August 2026)</h3>
+<p><a href="https://us.pycon.org/2027/speaking/" class="uri">https://us.pycon.org/2027/speaking/</a></p>
+<h3 id="abstract-paste-verbatim-into-the-cfp-form">Abstract (paste
+verbatim into the CFP form)</h3>
+<pre><code>Numbers never pass through the model: deterministic-first PDF extraction
+
+Every &quot;PDF to JSON&quot; pipeline I&#39;ve seen treats the language model as the source of truth for numbers. That&#39;s a category error. Numbers live in tables; the model hallucinates 5–10 % of them.
+
+This talk is the postmortem of six months of building an extraction pipeline for financial filings where the production requirement was: &quot;re-ingest the same PDF on any engine commit and get byte-identical JSON, cryptographically attestable back to the engine commit that produced it.&quot;
+
+Three architectural bets made it work:
+
+1. Deterministic-first extraction. PDF tables are read in code (pdfplumber); the language model only fills gaps (audit opinion, notes, segment labels). Numbers never pass through the model — so a 270M local model produces the same lossless contract as a frontier cloud model.
+
+2. A math-identity gate that runs before save(). If Assets ≠ L + Equity within a sector-aware tolerance band, the record doesn&#39;t ship — and the evidence points at the offending line item. Eleven cross-cutting + twenty-five issuer-specific pre-flag rules run before every write.
+
+3. SHA-256 cross-filing fingerprints + Sigstore keyless signing + SLSA Build L3 attestation. Re-ingesting the same PDF on any engine commit produces bit-identical JSON, cryptographically attestable back to the engine commit.
+
+The bench is public: 124 cross-filing checks against the current Qatar-listed universe, regression floor 100/124 (80.6 %). Every PR that drops the floor fails CI.
+
+We&#39;ll show the architecture, the failure modes we hit on the way (non-deterministic JSON, silently-shipped internal contradictions, opaque provenance), and the three properties — deterministic extraction, math-identity gate, fingerprintable provenance — that solved them. We&#39;ll also cover what doesn&#39;t work: image-only PDFs, heavy footnote-as-data filings, and the audit-opinion classification ceiling.</code></pre>
+<h3 id="speaker-bio-200-chars">Speaker bio (≤ 200 chars)</h3>
+<pre><code>The qscreen-filing-tool maintainers build open-source data-extraction
+pipelines for the QSE-listed universe (55 tickers, IFRS / IFRS-for-SME).
+485 tests, 80.6 % bench, supply-chain hardened (SBOM + Sigstore + SLSA L3).</code></pre>
+<h3 id="pitch-line-200-chars-fills-the-optional-elevator-pitch-field">Pitch
+line (≤ 200 chars, fills the optional “elevator pitch” field)</h3>
+<pre><code>A deterministic-first extraction pipeline where numbers never pass
+through the model. 270M local model = same contract as GPT-4o.
+Math-identity gate blocks self-contradictory records. SHA-256 +
+Sigstore + SLSA L3. Public 124-check bench.</code></pre>
+<h3 id="notes">Notes</h3>
+<ul>
+<li>The CFP form fields may be labelled differently year-to-year. Common
+labels: “Title”, “Abstract”, “Description”, “Elevator Pitch”, “Speaker
+Bio”</li>
+<li>If asked for a co-speaker, leave blank — single-speaker is fine for
+a community talk</li>
+<li>After submitting, save the confirmation email. CFP responses
+typically arrive in December</li>
+</ul>
+<hr />
+<h2 id="task-6-submit-nlnet-grant-application-45-min">Task 6 — Submit
+NLnet grant application (45 min)</h2>
+<p><strong>Hard deadline: November 3, 2026.</strong></p>
+<h3 id="destination-2">Destination</h3>
+<p><a href="https://nlnet.nl/propose/" class="uri">https://nlnet.nl/propose/</a></p>
+<h3 id="form-fields">Form fields</h3>
+<p><strong>Project name:</strong>
+<code>qscreen-filing-tool — UAE jurisdiction profile (NLnet Privacy &amp; Infrastructure line)</code></p>
+<p><strong>Project description (paste verbatim):</strong></p>
+<pre><code>This 6-month project builds out the UAE jurisdiction profile of qscreen-filing-tool to bench-grade (top 30 ADX + DFM listed equities, ~7-10 working days of engineering, fully open-source MIT output).
+
+Background: qscreen-filing-tool is an open-source Python engine that turns any exchange&#39;s annual or interim report into a schema-stable, audit-traceable JSON object. Six months in production. 485 tests. 124-check public bench at 80.6 %. Hardened supply chain (SBOM + Sigstore keyless signing + SLSA Build L3 attestation, all public).
+
+The default profile ships 55 Qatar-listed tickers (QSE) with 11 cross-cutting + 25 issuer-specific pre-flag rules. The UAE jurisdiction profile is currently a stub — the engineering is bounded and the architecture is jurisdiction-agnostic, so the work is largely data-tables and pre-flag rules.
+
+Why this fits NLnet&#39;s mandate: financial-data infrastructure is increasingly important for transparency / privacy / consumer-protection use cases. The open-source release of jurisdiction profiles makes the audit trail inspectable by anyone, not just by the operator.
+
+Deliverables:
+- profiles/uae/ populated to bench-grade (~30 tickers)
+- 11 + 25 cross-cutting + issuer-specific pre-flag rules
+- New golden-set cases for the bench
+- Documented architecture decision records (ADRs) for the UAE-specific fiscal calendar + auditor history
+- All release artifacts public, signed, and attested
+
+Repo:        https://github.com/Mine-FNL/qstocks-filing-tool
+Whitepaper:  https://github.com/Mine-FNL/qstocks-filing-tool/blob/main/whitepaper/whitepaper.pdf</code></pre>
+<p><strong>Requested budget:</strong> <code>€15,000</code> (covers the
+UAE jurisdiction profile work; matches the Bronze-tier sponsor
+commitment at <a href="https://github.com/sponsors/0xBingBong69" class="uri">https://github.com/sponsors/0xBingBong69</a>)</p>
+<p><strong>Milestones (paste verbatim):</strong></p>
+<pre><code>M1 (week 1-2): Profile scaffold — JURISDICTION_NAME=&quot;UAE&quot;, account-code map skeleton, fiscal-calendar overrides for the ADX/DFM interim-period boundaries. Verify qscreen-ingest --jurisdiction uae runs end-to-end on a synthetic filing.
+
+M2 (week 3-4): Tick data — 30 ADX + DFM listed equities with sub-sector, framework (IFRS / IFRS-for-SME / AAOIFI), fiscal year-end, currency (AED).
+
+M3 (week 5-6): Pre-flag catalog — mirror profiles/qatar/pre_flags.py with UAE-specific rules (Dubai Islamic Bank audit-firm history, Emirates NBD sector taxonomy, Emaar Properties intangibles ceiling, etc.).
+
+M4 (week 7-8): Golden-set cases — 8 UAE filing fixtures with hand-verified expected outputs, validating the bench regression floor at 80.6 %.
+
+M5 (week 9-10): Documentation + supply chain — README refresh, ADR records for the UAE-specific design choices, SBOM + Sigstore signing on the new release.
+
+Final deliverable: v1.7.0 of qscreen-filing-tool ships with both Qatar and UAE profiles at bench-grade.</code></pre>
+<p><strong>Team bio:</strong></p>
+<pre><code>Single maintainer (0xBingBong69) with 6 months of full-time focus on the project; v1.0 through v1.6.0 shipped with zero failed release gates. Background in quant data infrastructure and MENA financial markets.
+
+Advisors (informal): the qscreen-filing-tool maintainer network includes finance-tech practitioners who have agreed to review the UAE pre-flag rules for cultural / regulatory accuracy. Identities on request.</code></pre>
+<h3 id="after-submitting">After submitting</h3>
+<ul>
+<li>Save the confirmation email</li>
+<li>NLnet typically responds within 8-12 weeks</li>
+<li>If accepted: contract-signing + first milestone payment within 30
+days</li>
+</ul>
+<hr />
+<h2 id="after-all-6-tasks-30-day-launch-cadence">After all 6 tasks:
+30-day launch cadence</h2>
+<p>The remaining channels have pre-filled copy at
+<code>qscreen-filing-tool.vercel.app/launch.html</code>. Bookmark the
+page; each card has <strong>Copy</strong> + <strong>Open</strong>
+buttons.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Day</th>
+<th>Channel</th>
+<th>Time</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>+1</td>
+<td>Lobsters</td>
+<td>5 min</td>
+<td>Need invitation; cross-post of the HN post</td>
+</tr>
+<tr>
+<td>+2</td>
+<td>r/MachineLearning</td>
+<td>10 min</td>
+<td>Self-post; community-friendly tone</td>
+</tr>
+<tr>
+<td>+4</td>
+<td>r/quant</td>
+<td>10 min</td>
+<td>Self-post; quant-flavored copy</td>
+</tr>
+<tr>
+<td>+5–10</td>
+<td>Product Hunt</td>
+<td>30 min</td>
+<td>Maker launch at 12:01 AM PT; stay online 4 hr</td>
+</tr>
+<tr>
+<td>+7</td>
+<td>X thread #1</td>
+<td>15 min</td>
+<td>The launch thread (15 tweets)</td>
+</tr>
+<tr>
+<td>+7</td>
+<td>dev.to</td>
+<td>0 min</td>
+<td>Auto-publishes if <code>DEV_TO_API_KEY</code> is set</td>
+</tr>
+<tr>
+<td>+7</td>
+<td>Hashnode</td>
+<td>0 min</td>
+<td>Auto-publishes if secrets are set</td>
+</tr>
+<tr>
+<td>+8</td>
+<td>LinkedIn</td>
+<td>10 min</td>
+<td>Long-post format</td>
+</tr>
+<tr>
+<td>+14</td>
+<td>X thread #2</td>
+<td>15 min</td>
+<td>Architecture deep-dive (10 tweets)</td>
+</tr>
+<tr>
+<td>+21</td>
+<td>X thread #3</td>
+<td>15 min</td>
+<td>Bench story (10 tweets)</td>
+</tr>
+<tr>
+<td>+24</td>
+<td>Hacker Noon</td>
+<td>0 min</td>
+<td>Cross-post; auto via Dev.to or manual</td>
+</tr>
+<tr>
+<td>+28</td>
+<td>X thread #4</td>
+<td>15 min</td>
+<td>Supply-chain hardening (10 tweets)</td>
+</tr>
+<tr>
+<td>+30</td>
+<td>X thread #5</td>
+<td>15 min</td>
+<td>Pluggable profiles (8 tweets)</td>
+</tr>
+<tr>
+<td>any</td>
+<td>Mastodon / Bluesky</td>
+<td>5 min each</td>
+<td>Federated, dev-friendly, optional</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total estimated hands-on time for the full 30-day cadence:
+~2.5 hours over 30 days.</strong></p>
+<hr />
+<h2 id="one-page-quick-reference">One-page quick-reference</h2>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th>Task</th>
+<th>Destination</th>
+<th>Pre-fill source</th>
+<th>Time</th>
+<th>Deadline</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Show HN</td>
+<td>news.ycombinator.com/submit</td>
+<td>this PDF, page 2</td>
+<td>15 min</td>
+<td>ASAP</td>
+</tr>
+<tr>
+<td>2. XBRL US email</td>
+<td>launch.html → XBRL card</td>
+<td>mailto: link</td>
+<td>5 min</td>
+<td>this week</td>
+</tr>
+<tr>
+<td>3. dev.to API key</td>
+<td>dev.to/settings/extensions</td>
+<td>—</td>
+<td>5 min</td>
+<td>this week</td>
+</tr>
+<tr>
+<td>4. Hashnode API key</td>
+<td>hashnode.com/settings/developer</td>
+<td>—</td>
+<td>5 min</td>
+<td>this week</td>
+</tr>
+<tr>
+<td>5. PyCon US 2027</td>
+<td>us.pycon.org/2027/speaking/</td>
+<td>this PDF, page 7</td>
+<td>30 min</td>
+<td>~late Oct 2026</td>
+</tr>
+<tr>
+<td>6. NLnet grant</td>
+<td>nlnet.nl/propose/</td>
+<td>this PDF, page 8</td>
+<td>45 min</td>
+<td>Nov 3, 2026</td>
+</tr>
+</tbody>
+</table>
+<p><strong>If you only do one: Task 1 (Show HN). 15 minutes. No
+excuse.</strong></p>
+<p>— qscreen-filing-tool maintainers · 0xBingBong69 · MIT-licensed ·
+2026-09-19</p>
+</body>
+</html>

@@ -1,7 +1,6 @@
 {
   "version": 2,
-  "name": "qscreen-filing-tool",
-  "public": true,
+  "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [

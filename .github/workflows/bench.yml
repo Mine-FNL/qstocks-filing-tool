@@ -73,11 +73,25 @@ jobs:
           python qscreen_eval.py --json --out bench.json || true
 
           python -c "
-          import json
+          import json, sys
           d = json.load(open('bench.json'))
           cases = d['cases']
           total_score = sum(c['score'] for c in cases)
           total_checks = sum(c['total'] for c in cases)
+          cases_with_checks = sum(1 for c in cases if c['total'] > 0)
+          # Distinguish engine failure from true regression (same pattern
+          # as release.yml). A 0.0% ratio is almost always an engine
+          # failure (missing golden cases, import error, broken state),
+          # not a real regression — give it a distinct error so the
+          # bench PR comment makes the diagnosis obvious.
+          if total_checks == 0:
+              print('::error::Bench engine produced 0 total checks — not a regression, an engine failure.')
+              print(f'  cases={len(cases)} total_score={total_score} total_checks={total_checks}')
+              sys.exit(2)
+          if cases_with_checks > 0 and total_score == 0:
+              print('::error::Bench engine scored 0 on every case — not a regression, an engine failure.')
+              print(f'  cases={len(cases)} total_score={total_score} total_checks={total_checks}')
+              sys.exit(2)
           ratio = total_score / total_checks
           print(f\"Bench: {total_score}/{total_checks} ({ratio*100:.1f}%)\")
           print('Per-case:')
@@ -86,6 +100,11 @@ jobs:
               print(f\"  {mark} {c['case']:<24s}  {c['score']}/{c['total']}\")
           print(f\"BENCH_RATIO={round(ratio, 4)}\")
           " | tee bench-summary.txt
+
+          if ! grep -q '^BENCH_RATIO=' bench-summary.txt; then
+            echo "ratio=" >> "$GITHUB_OUTPUT"
+            exit 2
+          fi
 
           RATIO=$(grep -oE 'BENCH_RATIO=[0-9.]+' bench-summary.txt | head -1 | cut -d= -f2)
           echo "Computed ratio: $RATIO"
@@ -97,7 +116,15 @@ jobs:
         run: |
           python -c "
           import os, sys
-          ratio = float(os.environ['RATIO'])
+          ratio_raw = os.environ.get('RATIO', '').strip()
+          if not ratio_raw:
+              print('::error::RATIO is empty — bench engine failed before ratio was computed.')
+              sys.exit(1)
+          try:
+              ratio = float(ratio_raw)
+          except ValueError:
+              print(f'::error::RATIO is not a float: {ratio_raw!r}')
+              sys.exit(1)
           baseline = 0.806   # 100/124 = 80.6%, captured 2026-09-17
           if ratio < baseline:
               print(f'::error::Bench regressed: {ratio*100:.1f}% < baseline {baseline*100:.1f}%')

@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qscreen-filing-tool"
-description = "Turn a PDF financial filing into lossless, auditable JSON. Jurisdiction-agnostic engine (QSE-shipping, AE/SA/KW-ready) with math-identity gates, idempotent batch, multi-page Arabic/English language detection, stable SHA-256 text fingerprints, and a Flask browser app. 485 unit tests, 80.6% bench accuracy on the 8-case golden set, signed wheel+sdist+SBOM, SLSA Build L3 attested."
+description = "Turn a PDF financial filing into lossless, auditable JSON. Jurisdiction-agnostic engine (Qatar Stock Exchange-shipping; UAE / Saudi / Kuwait-ready) with math-identity gates, idempotent batch, multi-page Arabic/English language detection, stable SHA-256 text fingerprints, and a Flask browser app. 499 unit tests, 80.6% bench accuracy on the 8-case golden set, signed wheel + sdist + CycloneDX SBOM, SLSA Build L3 attested (verifiable via `gh attestation verify`)."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
 requires-python = ">=3.9"
 dynamic = ["version"]
 authors = [
@@ -37,7 +37,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",

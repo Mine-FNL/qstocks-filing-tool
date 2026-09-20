@@ -14,6 +14,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # The web app needs no additional system packages beyond what python:slim
 # already brings. If you reach for tesseract / onnx-runtime later, install
 # them in a separate "*-ocr" target stage so the default image stays small.
+#
+# We deliberately do NOT pin the apt package versions (hadolint DL3008): the
+# python:3.11-slim base image is rebuilt on a different cadence than the
+# security patches in Debian bookworm-updates, so a hard pin would break
+# the build whenever Debian pushes a patch release (curl: -deb12u14 → -u15)
+# without rebuilding the base. The image is already reproducible at the
+# python:3.11-slim SHA, and we rebuild it on every release tag.
+# hadolint ignore=DL3008
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -25,6 +33,12 @@ WORKDIR /app
 # pyproject.toml under [project] / [project.optional-dependencies].
 COPY pyproject.toml ./
 COPY requirements*.txt ./
+# We do not pin pip packages (hadolint DL3013) for the same reason as
+# above — pyproject.toml is the canonical source of dependency versions
+# (setuptools-scm + PEP 440) and pinning at install time would create a
+# second source of truth that drifts. The wheel uploaded to the release
+# carries the resolved set in its METADATA.
+# hadolint ignore=DL3013
 RUN pip install --upgrade pip \
  && pip install .[dev]
 

@@ -36,7 +36,7 @@ jobs:
     permissions:
       id-token: write   # required for PyPI's OIDC trusted-publisher flow
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # PyPI trust on tags only — fetch the full history so
           # setuptools-scm / version discovery is stable, but enforce

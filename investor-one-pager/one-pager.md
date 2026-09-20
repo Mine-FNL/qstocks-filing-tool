@@ -5,7 +5,7 @@
 > A jurisdiction-agnostic Python engine that turns any exchange's annual
 > or interim report into a schema-stable, audit-traceable JSON object.
 >
-> Six months in production. 485 tests. 124-check regression bench at 80.6 %.
+> Six months in production. 499 tests. 124-check regression bench at 80.6 %.
 > Hardened supply chain (SBOM + Sigstore + SLSA L3). Multi-arch container
 > on `ghcr.io`. Public 6,000-word whitepaper.
 
@@ -52,7 +52,7 @@ consistent.
 | | v1.0 (Mar 2026) | v1.6.0 (Sep 2026) |
 |---|---|---|
 | Lines of engine code | ~6,000 | ~10,500 |
-| Unit tests | 120 | **485** |
+| Unit tests | 499 |
 | Bench checks | 30 | **124** |
 | Bench pass rate | 60 % | **80.6 %** |
 | Pre-flag rule coverage | 9 / 25 | **25 / 25** |

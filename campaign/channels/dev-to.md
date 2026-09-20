@@ -128,7 +128,7 @@ output is the demo page at
 ```bash
 git clone https://github.com/Mine-FNL/qstocks-filing-tool
 cd qstocks-filing-tool && pip install -e ".[dev]"
-python qscreen_ingest.py --self-test   # 485-test offline contract gate
+python qscreen_ingest.py --self-test   # 499-test offline contract gate
 ```
 
 Star the repo if the architecture resonates. Issues and PRs welcome.

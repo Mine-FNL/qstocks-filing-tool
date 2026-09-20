@@ -29,7 +29,7 @@ https://github.com/Mine-FNL/qstocks-filing-tool
 >
 > SHA-256 cross-filing fingerprints + Sigstore keyless signing on every release means re-ingest of the same PDF produces bit-identical JSON, cryptographically attestable back to the engine commit that produced it.
 >
-> 485 tests, ruff clean, mkdocs --strict, container on `ghcr.io/Mine-FNL/qstocks-filing-tool`, install paths that don't require a PyPI Trusted Publisher click (GitHub Releases CDN + PEP 503 simple index on GitHub Pages + the container).
+> 499 tests, ruff clean, mkdocs --strict, container on `ghcr.io/Mine-FNL/qstocks-filing-tool`, install paths that don't require a PyPI Trusted Publisher click (GitHub Releases CDN + PEP 503 simple index on GitHub Pages + the container).
 >
 > Happy to dig into any of the design choices in the comments.
 

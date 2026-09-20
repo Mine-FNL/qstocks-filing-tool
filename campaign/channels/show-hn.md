@@ -10,7 +10,7 @@ any exchange's PDF annual / interim report (QSE-shipping; AE/SA/KW-ready)
 into a single stable, fingerprintable JSON, ready to ingest.
 
 The headline: **80.6 % accuracy on the 8-case golden-set bench**,
-**485 unit tests passing**, and every release carries a CycloneDX SBOM, a
+**499 unit tests passing**, and every release carries a CycloneDX SBOM, a
 Sigstore keyless signature against the GH OIDC identity, and an in-toto
 SLSA v1 attestation — `gh attestation verify` works end-to-end against
 the release tag.

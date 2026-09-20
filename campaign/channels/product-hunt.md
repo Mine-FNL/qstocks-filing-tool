@@ -30,7 +30,7 @@ Open-weight PDF → lossless filing JSON for financial reports
 qscreen-filing-tool turns any exchange's annual or interim report into a
 schema-stable, audit-traceable JSON object. Math-identity gate refuses to
 ship self-contradictory records. SHA-256 cross-filing fingerprints +
-Sigstore keyless signing. 485-test suite, containerized, install via pip,
+Sigstore keyless signing. 499-test suite, containerized, install via pip,
 GitHub Releases, or ghcr.io.
 ```
 
@@ -86,7 +86,7 @@ Happy to answer technical questions in the comments.
    PDF → JSON pipeline diagram.
 3. **Demo flow** (`assets/demo-flow-16x9.jpg` → PNG) — before/after.
 4. **Stats card** (`assets/stats-card-16x9.jpg` → PNG) — the 80.6%
-   bench + 485 tests + supply-chain attestations.
+   bench + 499 tests + supply-chain attestations.
 5. **Gate in action** — screenshot of `qscreen-eval` showing a flagged
    extraction (Assets ≠ L + E with evidence pointing at line item).
    Generate with `qscreen_eval --json report.pdf | jq '.gates[]'`.

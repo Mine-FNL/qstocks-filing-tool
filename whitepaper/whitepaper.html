@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc 3.10" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="qscreen-filing-tool maintainers" />
-  <title>Lossless Filing JSON</title>
+  <title>whitepaper</title>
   <style>
 
 span.smallcaps{font-variant: small-caps;}
@@ -293,43 +293,6 @@ font-size: 9.5pt;
 </style>
 </head>
 <body>
-<header id="title-block-header">
-<h1 class="title">Lossless Filing JSON</h1>
-<p class="author">qscreen-filing-tool maintainers</p>
-<p class="date">September 2026</p>
-</header>
-<nav id="TOC" role="doc-toc">
-<ul>
-<li><a href="#lossless-filing-json" id="toc-lossless-filing-json">Lossless Filing JSON</a>
-<ul>
-<li><a href="#a-deterministic-first-architecture-for-financial-pdf-extraction-with-built-in-consistency-gates" id="toc-a-deterministic-first-architecture-for-financial-pdf-extraction-with-built-in-consistency-gates">A
-Deterministic-First Architecture for Financial PDF Extraction with
-Built-In Consistency Gates</a></li>
-<li><a href="#abstract" id="toc-abstract">Abstract</a></li>
-<li><a href="#introduction" id="toc-introduction">1.
-Introduction</a></li>
-<li><a href="#problem" id="toc-problem">2. Problem</a></li>
-<li><a href="#approach-three-architectural-bets" id="toc-approach-three-architectural-bets">3. Approach: Three
-Architectural Bets</a></li>
-<li><a href="#implementation" id="toc-implementation">4.
-Implementation</a></li>
-<li><a href="#bench-results" id="toc-bench-results">5. Bench
-Results</a></li>
-<li><a href="#threat-model" id="toc-threat-model">6. Threat
-Model</a></li>
-<li><a href="#limitations" id="toc-limitations">7. Limitations</a></li>
-<li><a href="#roadmap" id="toc-roadmap">8. Roadmap</a></li>
-<li><a href="#conclusion" id="toc-conclusion">9. Conclusion</a></li>
-<li><a href="#references" id="toc-references">References</a></li>
-<li><a href="#appendix-a-reproducing-the-bench" id="toc-appendix-a-reproducing-the-bench">Appendix A — Reproducing the
-bench</a></li>
-<li><a href="#appendix-b-verifying-a-release" id="toc-appendix-b-verifying-a-release">Appendix B — Verifying a
-release</a></li>
-<li><a href="#appendix-c-citing-this-paper" id="toc-appendix-c-citing-this-paper">Appendix C — Citing this
-paper</a></li>
-</ul></li>
-</ul>
-</nav>
 <h1 id="lossless-filing-json">Lossless Filing JSON</h1>
 <h2 id="a-deterministic-first-architecture-for-financial-pdf-extraction-with-built-in-consistency-gates">A
 Deterministic-First Architecture for Financial PDF Extraction with
@@ -765,7 +728,7 @@ bench</h2>
 <div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/Mine-FNL/qstocks-filing-tool</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> qstocks-filing-tool</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> <span class="st">&quot;.[dev]&quot;</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> qscreen_ingest.py <span class="at">--self-test</span>          <span class="co"># 485-test contract gate</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> qscreen_ingest.py <span class="at">--self-test</span>          <span class="co"># 499-test contract gate</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> qscreen_eval.py <span class="at">--json</span> <span class="op">&gt;</span> bench.json    <span class="co"># 124-check regression bench</span></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> docs/build_demo.py bench.json          <span class="co"># → demo.html</span></span></code></pre></div>
 <h2 id="appendix-b-verifying-a-release">Appendix B — Verifying a

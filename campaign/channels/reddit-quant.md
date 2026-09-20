@@ -57,7 +57,7 @@ to land; same cost for AE.
 **Live numbers I can quote without hedging:**
 
 - 80.6 % accuracy on the 8-case golden bench (100 / 124 checks).
-- 485 unit tests passing.
+- 499 unit tests passing.
 - Total runtime: ~3 s per filing on a single core.
 - Frozen-rule coverage: 11 + 25 = 36 active pre-flag rules in the
   QSE profile as of v1.6.1.

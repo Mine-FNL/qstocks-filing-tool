@@ -48,7 +48,7 @@ Three architectural bets:
 
 3. SHA-256 cross-filing fingerprints + Sigstore keyless signing + SLSA Build L3. Re-ingesting the same PDF on any engine commit produces bit-identical JSON, attestable back to the engine commit.
 
-124-check public bench (Qatar-listed universe, 80.6 % pass rate, regression-gated). 485 tests. Cross-platform CI. Multi-arch container on ghcr.io.
+124-check public bench (Qatar-listed universe, 80.6 % pass rate, regression-gated). 499 tests. Cross-platform CI. Multi-arch container on ghcr.io.
 
 Try it in 30 seconds (no PDF, no API key):
 
@@ -226,7 +226,7 @@ We'll show the architecture, the failure modes we hit on the way (non-determinis
 ```
 The qscreen-filing-tool maintainers build open-source data-extraction
 pipelines for the QSE-listed universe (55 tickers, IFRS / IFRS-for-SME).
-485 tests, 80.6 % bench, supply-chain hardened (SBOM + Sigstore + SLSA L3).
+499 tests, 80.6 % bench, supply-chain hardened (SBOM + Sigstore + SLSA L3).
 ```
 
 ### Pitch line (≤ 200 chars, fills the optional "elevator pitch" field)
@@ -263,7 +263,7 @@ Sigstore + SLSA L3. Public 124-check bench.
 ```
 This 6-month project builds out the UAE jurisdiction profile of qscreen-filing-tool to bench-grade (top 30 ADX + DFM listed equities, ~7-10 working days of engineering, fully open-source MIT output).
 
-Background: qscreen-filing-tool is an open-source Python engine that turns any exchange's annual or interim report into a schema-stable, audit-traceable JSON object. Six months in production. 485 tests. 124-check public bench at 80.6 %. Hardened supply chain (SBOM + Sigstore keyless signing + SLSA Build L3 attestation, all public).
+Background: qscreen-filing-tool is an open-source Python engine that turns any exchange's annual or interim report into a schema-stable, audit-traceable JSON object. Six months in production. 499 tests. 124-check public bench at 80.6 %. Hardened supply chain (SBOM + Sigstore keyless signing + SLSA Build L3 attestation, all public).
 
 The default profile ships 55 Qatar-listed tickers (QSE) with 11 cross-cutting + 25 issuer-specific pre-flag rules. The UAE jurisdiction profile is currently a stub — the engineering is bounded and the architecture is jurisdiction-agnostic, so the work is largely data-tables and pre-flag rules.
 

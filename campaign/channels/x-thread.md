@@ -13,7 +13,7 @@ limits each tweet to 280. Trim any naturally.)
 > financial filing into lossless, fingerprintable JSON. No GPU. No LLM
 > in the extract path. ~3 s per filing.
 >
-> 485 tests. 80.6 % bench. SLSA v1 attested on every release.
+> 499 tests. 80.6 % bench. SLSA v1 attested on every release.
 >
 > https://github.com/Mine-FNL/qstocks-filing-tool
 > [276]

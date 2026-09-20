@@ -93,7 +93,7 @@ Whitepaper: included in the repo.
 
 The qscreen-filing-tool maintainers build open-source data-extraction
 pipelines for the QSE-listed universe (55 tickers, IFRS / IFRS-for-SME).
-The project has 485 tests, an 80.6 % bench, full SBOM + Sigstore +
+The project has 499 tests, an 80.6 % bench, full SBOM + Sigstore +
 SLSA L3 supply-chain hardening, and a public 124-check regression
 suite. We document what doesn't work as carefully as what does.
 

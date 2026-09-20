@@ -84,7 +84,7 @@ Hi [name],
 
 I lead qscreen-filing-tool, an open-source engine that turns a PDF
 financial report into a lossless, audit-traceable JSON object. We have
-[485 tests, 80.6% bench, SBOM + Sigstore + SLSA L3 provenance per
+[499 tests, 80.6% bench, SBOM + Sigstore + SLSA L3 provenance per
 release, containerized] and are looking for a corporate sponsor to fund
 [two priority features OR 12 months of maintenance].
 

@@ -19,7 +19,7 @@ to surface the architecture + the unusual supply-chain for the ML crowd.
 **The headline numbers** (deterministic only, no LLM call):
 
 - 80.6 % on the 8-case hand-verified golden bench (100 / 124 checks).
-- 485 unit tests passing.
+- 499 unit tests passing.
 - 100/124 ≈ matches a single frontier-API call accuracy on the same
   cases, but at a tiny fraction of the cost — and **no provider
   dependency** in the binary path.

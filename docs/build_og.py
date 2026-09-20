@@ -27,7 +27,7 @@ def _font(size: int) -> ImageFont.FreeTypeFont:
 
 
 def render(
-    out_path: str, score: int = 100, total: int = 124, stars: int = 0, benchmarks: int = 485
+    out_path: str, score: int = 100, total: int = 124, stars: int = 0, benchmarks: int = 499
 ) -> Path:
     W, H = 1200, 630
     img = Image.new("RGB", (W, H), "#0d1117")  # GitHub-dark background
@@ -96,7 +96,7 @@ def main() -> None:
     ap.add_argument("--out", default="docs/og.png", help="output PNG path")
     ap.add_argument("--score", type=int, default=100)
     ap.add_argument("--total", type=int, default=124)
-    ap.add_argument("--benchmarks", type=int, default=485)
+    ap.add_argument("--benchmarks", type=int, default=499)
     args = ap.parse_args()
     p = render(args.out, score=args.score, total=args.total, benchmarks=args.benchmarks)
     print(f"wrote {p} ({p.stat().st_size:,} bytes)")

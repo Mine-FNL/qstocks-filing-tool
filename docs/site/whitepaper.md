@@ -75,7 +75,7 @@ citing this paper.
 git clone https://github.com/Mine-FNL/qstocks-filing-tool
 cd qstocks-filing-tool
 pip install -e ".[dev]"
-python qscreen_ingest.py --self-test          # 485-test contract gate
+python qscreen_ingest.py --self-test          # 499-test contract gate
 python qscreen_eval.py --json > bench.json    # 124-check regression bench
 python docs/build_demo.py bench.json          # → demo.html
 ```

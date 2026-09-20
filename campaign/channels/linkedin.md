@@ -23,7 +23,7 @@ version of the PDF filing extraction pipeline we've been using
 internally for Qatar-listed issuers (QSE).
 
 The headline numbers: 80.6 % accuracy on an 8-case hand-verified
-golden bench, 485 unit tests passing, every release cryptographically
+golden bench, 499 unit tests passing, every release cryptographically
 attestable via `gh attestation verify` against the wheel + sdist +
 SBOM.
 

@@ -30,7 +30,7 @@ Three architectural bets:
 
 3. **SHA-256 cross-filing fingerprints + Sigstore keyless signing + SLSA Build L3.** Re-ingesting the same PDF on any engine commit produces bit-identical JSON, attestable back to the engine commit.
 
-124-check public bench (Qatar-listed universe, 80.6 % pass rate, regression-gated). 485 tests. Cross-platform CI. Multi-arch container on ghcr.io.
+124-check public bench (Qatar-listed universe, 80.6 % pass rate, regression-gated). 499 tests. Cross-platform CI. Multi-arch container on ghcr.io.
 
 Try it in 30 seconds (no PDF, no API key):
 
@@ -63,7 +63,7 @@ Two engineering bets worth flagging:
 
 Plus SHA-256 cross-filing fingerprints + Sigstore keyless signing: re-ingest of the same PDF produces bit-identical JSON, cryptographically attestable back to the engine commit that produced it.
 
-485 tests, ruff clean, mkdocs --strict, container on ghcr.io/Mine-FNL/qstocks-filing-tool, install paths that don't require a PyPI Trusted Publisher click.
+499 tests, ruff clean, mkdocs --strict, container on ghcr.io/Mine-FNL/qstocks-filing-tool, install paths that don't require a PyPI Trusted Publisher click.
 
 Happy to dig into any of the design choices in the comments.`,
 
@@ -81,7 +81,7 @@ The non-obvious engineering bet: **the numbers never pass through the model.** P
 
 The math-identity gate runs at the write path. If Assets ≠ L + E within ±2 %, the JSON doesn't ship. 11 cross-cutting + 25 issuer-specific pre-flag rules run before save. The evidence payload points at the offending line item.
 
-124-check public bench against the current Qatar-listed universe (80.6 % pass rate, regression-gated). 485 tests. Multi-arch container on ghcr.io.
+124-check public bench against the current Qatar-listed universe (80.6 % pass rate, regression-gated). 499 tests. Multi-arch container on ghcr.io.
 
 Repo: https://github.com/Mine-FNL/qstocks-filing-tool
 Live bench: https://mine-fnl.github.io/qstocks-filing-tool/demo.html
@@ -120,7 +120,7 @@ Open-weight PDF → lossless filing JSON for financial reports
 
 ONE-LINE DESCRIPTION:
 
-qscreen-filing-tool turns any exchange's annual or interim report into a schema-stable, audit-traceable JSON object. Math-identity gate refuses to ship self-contradictory records. SHA-256 cross-filing fingerprints + Sigstore keyless signing. 485-test suite, containerized, install via pip, GitHub Releases, or ghcr.io.
+qscreen-filing-tool turns any exchange's annual or interim report into a schema-stable, audit-traceable JSON object. Math-identity gate refuses to ship self-contradictory records. SHA-256 cross-filing fingerprints + Sigstore keyless signing. 499-test suite, containerized, install via pip, GitHub Releases, or ghcr.io.
 
 MAKER COMMENT (post immediately as yourself):
 
@@ -155,7 +155,7 @@ We built qscreen-filing-tool to fix three failure modes:
 
 3. **SHA-256 cross-filing fingerprints + Sigstore keyless signing + SLSA Build L3.** Re-ingesting the same PDF on any engine commit produces bit-identical JSON, attestable back to the engine commit.
 
-Six months in production. 485 tests. 124-check public bench at 80.6 %. Hardened supply chain (SBOM + Sigstore + SLSA L3). Multi-arch container.
+Six months in production. 499 tests. 124-check public bench at 80.6 %. Hardened supply chain (SBOM + Sigstore + SLSA L3). Multi-arch container.
 
 If you build or buy quant data infrastructure, the whitepaper is worth the read:
 
@@ -179,7 +179,7 @@ We built one that doesn't. Open-source, MIT-licensed, jurisdiction-agnostic, mat
 
 3️⃣ SHA-256 cross-filing fingerprints + Sigstore keyless signing + SLSA L3 attestation. Re-ingest of the same PDF produces bit-identical JSON.
 
-3/ 124-check public bench at 80.6 % pass rate (Qatar-listed universe). 485 tests. Multi-arch container on ghcr.io.
+3/ 124-check public bench at 80.6 % pass rate (Qatar-listed universe). 499 tests. Multi-arch container on ghcr.io.
 
 Repo ⤵
 https://github.com/Mine-FNL/qstocks-filing-tool
@@ -240,7 +240,7 @@ https://qscreen-filing-tool.vercel.app`,
 
 Hi [editor name],
 
-I'd like to pitch a story on a counterintuitive finding from six months of building an open-source financial-document extraction pipeline (qscreen-filing-tool, MIT-licensed, 485 tests, 124-check bench at 80.6 %).
+I'd like to pitch a story on a counterintuitive finding from six months of building an open-source financial-document extraction pipeline (qscreen-filing-tool, MIT-licensed, 499 tests, 124-check bench at 80.6 %).
 
 The finding: a 270M-parameter local model produces the same lossless filing contract as GPT-4o or Claude Sonnet 4 — but only because we stopped asking the model to do the part it isn't good at (reading tables) and started asking it only to do the part it is good at (filling gaps).
 
@@ -291,7 +291,7 @@ Hi NLnet Foundation,
 
 I'm writing to propose a 6-month project for the NLnet Privacy & Infrastructure line: building out the UAE jurisdiction profile of qscreen-filing-tool to bench-grade (top 30 ADX + DFM listed equities, ~7-10 working days of engineering, fully open-source MIT output).
 
-Background: qscreen-filing-tool is an open-source Python engine that turns any exchange's annual or interim report into a schema-stable, audit-traceable JSON object. Six months in production. 485 tests. 124-check public bench at 80.6 %. Hardened supply chain (SBOM + Sigstore keyless signing + SLSA Build L3 attestation, all public).
+Background: qscreen-filing-tool is an open-source Python engine that turns any exchange's annual or interim report into a schema-stable, audit-traceable JSON object. Six months in production. 499 tests. 124-check public bench at 80.6 %. Hardened supply chain (SBOM + Sigstore keyless signing + SLSA Build L3 attestation, all public).
 
 The default profile ships 55 Qatar-listed tickers (QSE) with 11 cross-cutting + 25 issuer-specific pre-flag rules. The UAE jurisdiction profile is currently a stub — the engineering is bounded and the architecture is jurisdiction-agnostic, so the work is largely data-tables and pre-flag rules.
 

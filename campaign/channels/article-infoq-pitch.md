@@ -16,7 +16,7 @@ Hi [editor],
 
 I'd like to pitch a story on a counterintuitive finding from six months
 of building an open-source financial-document extraction pipeline
-(qscreen-filing-tool, MIT-licensed, 485 tests, 124-check bench at
+(qscreen-filing-tool, MIT-licensed, 499 tests, 124-check bench at
 80.6 %).
 
 The finding: a 270M-parameter local model produces the same lossless

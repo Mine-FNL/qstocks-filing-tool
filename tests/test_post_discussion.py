@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Tests for scripts/post-discussion.py — the release-announcement script.
 
 The script is the only thing standing between a malformed release Discussion

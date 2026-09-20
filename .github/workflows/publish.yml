@@ -6,19 +6,25 @@ name: publish
 # publish forever without anyone pasting secrets.
 #
 # Triggered by:
-#  - push of a `v*` tag (e.g. `v1.6.0`, `v1.6.1`)
-#  - manual `workflow_dispatch` (for re-runs after a failed PyPI link)
+#  - manual `workflow_dispatch` ONLY.
+#    (Previously fired on every `v*` tag push, but the PyPI trusted
+#     publisher was never registered, so every release got a noisy
+#     "Publisher with matching claims was not found" failure. Users
+#     install from GitHub Releases CDN or the Pages-hosted PEP 503
+#     simple index instead — see README §Install. Keep this workflow
+#     dormant until the maintainer has registered the pending publisher
+#     on https://pypi.org/manage/account/publishing/ and wants to
+#     revive it.)
 #
 # Prerequisites (one-time, maintainer action):
 #  - On https://pypi.org/manage/account/publishing/ add a pending
 #    publisher for project `qscreen-filing-tool`, pointing at this
 #    GitHub repo and this workflow filename. See RUNBOOK.md §"PyPI
 #    Trusted Publisher setup".
+#  - Then re-add `push: tags: ['v*']` under `on:` to re-enable tag
+#    auto-publish.
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
 
 permissions: read-all        # Scorecard Token-Permissions: write-scopes at job level only

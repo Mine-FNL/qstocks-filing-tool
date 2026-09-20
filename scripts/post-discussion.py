@@ -38,10 +38,35 @@ def graphql(token: str, query: str, variables: dict) -> dict:
 
 def main() -> int:
     token = os.environ["GH_TOKEN"]
-    tag = os.environ["TAG"]
-    name = os.environ.get("NAME", "")
-    url = os.environ.get("URL", "")
+    tag = os.environ.get("TAG", "").strip()
+    name = os.environ.get("NAME", "").strip()
+    url = os.environ.get("URL", "").strip()
     body = os.environ.get("BODY") or ""
+
+    # Guard: refuse to post a malformed announcement. On workflow_dispatch
+    # without inputs we used to post a Discussion titled "Released v"
+    # with an empty body. Hard-fail instead so the run is visibly red.
+    if not tag:
+        print(
+            "ERROR: TAG env var is empty. Set TAG=vX.Y.Z for releases, "
+            "or pass --input tag=... for workflow_dispatch re-runs.",
+            file=sys.stderr,
+        )
+        return 2
+    if not name:
+        print(
+            "ERROR: NAME env var is empty. workflow_dispatch re-runs "
+            "must supply tag + name (and ideally url + body).",
+            file=sys.stderr,
+        )
+        return 2
+    if not url:
+        print(
+            "WARNING: URL is empty; the Release notes link will be a "
+            "placeholder. Set github.event.release.html_url or pass "
+            "--input url=...",
+            file=sys.stderr,
+        )
 
     version = tag.lstrip("v")
 

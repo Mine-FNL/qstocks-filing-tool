@@ -50,7 +50,8 @@ h2 {
   border-bottom: 2px solid #0a2540;
   padding-bottom: 0.2em;
   color: #0a2540;
-  page-break-before: always;
+  /* Task headings are h2; allow natural flow so content fills pages
+     instead of leaving whitespace before each section. */
 }
 
 h3 {

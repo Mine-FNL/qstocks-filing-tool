@@ -146,7 +146,12 @@ jobs:
       - name: Install build deps
         run: |
           python -m pip install --upgrade pip
-          pip install build cyclonedx-py-mod
+          # `cyclonedx-bom` ships the `cyclonedx-py` CLI; the workflow
+          # uses `cyclonedx-py environment` to emit the SBOM. Earlier
+          # revisions of this workflow referenced `cyclonedx-py-mod`,
+          # which is not a real PyPI name and silently no-op'd the
+          # SBOM step on every release.
+          pip install build cyclonedx-bom
       - name: Build sdist + wheel
         run: |
           python -m build --sdist --wheel

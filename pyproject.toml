@@ -128,6 +128,14 @@ extend-exclude = [
     ".venv",
     "qscreen_filing_tool.egg-info",
     "tests/golden/cases",
+    # Markdown is a documentation format, not source. Ruff format used
+    # to skip these by default; in 0.5+ it gained experimental support
+    # that auto-wraps Python code blocks inside .md files and breaks CI
+    # when the local + CI ruff versions disagree. Keeping them excluded
+    # is the conservative choice — Python-in-markdown is intentionally
+    # hand-formatted to render correctly on the docs site and GitHub.
+    "*.md",
+    "*.mdx",
 ]
 
 [tool.ruff.lint]

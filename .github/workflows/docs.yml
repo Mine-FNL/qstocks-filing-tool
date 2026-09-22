@@ -124,7 +124,13 @@ jobs:
           shopt -s dotglob nullglob
           mv site/* . 2>/dev/null || true
           rmdir site/ 2>/dev/null || true
-          git add -A
+          # Stage everything EXCEPT .github/ — GitHub rejects a force-push
+          # from a GitHub App that touches workflow files without an
+          # explicit `workflows:` permission. The mkdocs site doesn't
+          # need .github/ on gh-pages (the demo.html + simple/ index
+          # from release.yml are still pushed by release.yml, which has
+          # the right permissions).
+          git add -A ':!.github' ':!.gitignore'
           if [ ! -f index.html ]; then
             echo "ERROR: index.html not generated; aborting push" >&2
             ls -la || true

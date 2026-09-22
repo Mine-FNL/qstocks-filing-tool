@@ -51,7 +51,7 @@ jobs:
       id-token: write      # ready for downstream OIDC (future)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0    # mkdocs reads git history for "edit this page"
           # NOTE: persist-credentials intentionally left default (true) here —

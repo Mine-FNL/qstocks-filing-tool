@@ -46,7 +46,7 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true   # non-blocking until the Dockerfile is final
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: hadolint/hadolint-action@v3.1.0

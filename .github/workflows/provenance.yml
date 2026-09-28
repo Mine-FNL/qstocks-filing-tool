@@ -65,7 +65,7 @@ jobs:
             --dir dist
           ls -lh dist/
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           # Glob is supported by the action; the resolved path is
           # included in the attestation subject.
@@ -93,7 +93,7 @@ jobs:
             --dir dist
           ls -lh dist/
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'dist/qscreen_filing_tool-*.tar.gz'
 
@@ -125,6 +125,6 @@ jobs:
           ls -lh dist/
       - name: Attest build provenance
         if: hashFiles('dist/sbom.cdx.json') != ''
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'dist/sbom.cdx.json'
